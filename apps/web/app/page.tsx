@@ -1,102 +1,82 @@
-import Image, { type ImageProps } from "next/image";
-import { Button } from "@repo/ui/button";
-import styles from "./page.module.css";
-
-type Props = Omit<ImageProps, "src"> & {
-  srcLight: string;
-  srcDark: string;
-};
-
-const ThemeImage = (props: Props) => {
-  const { srcLight, srcDark, ...rest } = props;
-
+export default function Dashboard() {
   return (
-    <>
-      <Image {...rest} src={srcLight} className="imgLight" />
-      <Image {...rest} src={srcDark} className="imgDark" />
-    </>
-  );
-};
-
-export default function Home() {
-  return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <ThemeImage
-          className={styles.logo}
-          srcLight="turborepo-dark.svg"
-          srcDark="turborepo-light.svg"
-          alt="Turborepo logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol>
-          <li>
-            Get started by editing <code>apps/web/app/page.tsx</code>
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new/clone?demo-description=Learn+to+implement+a+monorepo+with+a+two+Next.js+sites+that+has+installed+three+local+packages.&demo-image=%2F%2Fimages.ctfassets.net%2Fe5382hct74si%2F4K8ZISWAzJ8X1504ca0zmC%2F0b21a1c6246add355e55816278ef54bc%2FBasic.png&demo-title=Monorepo+with+Turborepo&demo-url=https%3A%2F%2Fexamples-basic-web.vercel.sh%2F&from=templates&project-name=Monorepo+with+Turborepo&repository-name=monorepo-turborepo&repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fturborepo%2Ftree%2Fmain%2Fexamples%2Fbasic&root-directory=apps%2Fdocs&skippable-integrations=1&teamSlug=vercel&utm_source=create-turbo"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            href="https://turborepo.dev/docs?utm_source"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.secondary}
-          >
-            Read our docs
-          </a>
+    <div className="min-h-screen bg-gray-50">
+      <div className="flex">
+        
+        {/* Sidebar */}
+        <div className="w-64 bg-white h-screen shadow-sm fixed">
+          <div className="p-4 border-b">
+            <h1 className="text-xl font-bold text-blue-600">FinSmart AI</h1>
+            <p className="text-xs text-gray-500">Finance Management</p>
+          </div>
+          <nav className="p-4">
+            {['Dashboard', 'Customers', 'Loans', 'Collections', 'Payments', 'Analytics', 'AI Analysis'].map((item) => (
+              <a key={item} href="#" className="flex items-center gap-3 px-3 py-2 rounded-lg mb-1 text-gray-600 hover:bg-blue-50 hover:text-blue-600">
+                {item}
+              </a>
+            ))}
+          </nav>
         </div>
-        <Button appName="web" className={styles.secondary}>
-          Open alert
-        </Button>
-      </main>
-      <footer className={styles.footer}>
-        <a
-          href="https://vercel.com/templates?search=turborepo&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          href="https://turborepo.dev?utm_source=create-turbo"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to turborepo.dev →
-        </a>
-      </footer>
+
+        {/* Main Content */}
+        <div className="ml-64 flex-1 p-6">
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-gray-800">Dashboard</h2>
+            <p className="text-gray-500">Welcome back, Ramesh Babu 👋</p>
+          </div>
+
+          {/* KPI Cards */}
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            {[
+              { label: 'Total Loan Disbursed', value: '₹12,45,00,000', change: '+18.6%', color: 'blue' },
+              { label: 'Total Collections', value: '₹8,75,20,000', change: '+12.4%', color: 'green' },
+              { label: 'Active Customers', value: '12,850', change: '+8.7%', color: 'purple' },
+              { label: 'NPA (30+ Days)', value: '2.35%', change: '-0.8%', color: 'red' },
+            ].map((card) => (
+              <div key={card.label} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                <p className="text-sm text-gray-500">{card.label}</p>
+                <p className="text-2xl font-bold text-gray-800 mt-1">{card.value}</p>
+                <p className={`text-sm mt-1 ${card.color === 'red' ? 'text-red-500' : 'text-green-500'}`}>
+                  {card.change} vs last month
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Recent Loans Table */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <h3 className="font-semibold text-gray-800 mb-4">Recent Loans</h3>
+            <table className="w-full">
+              <thead>
+                <tr className="text-left text-sm text-gray-500 border-b">
+                  <th className="pb-2">Loan ID</th>
+                  <th className="pb-2">Customer</th>
+                  <th className="pb-2">Type</th>
+                  <th className="pb-2">Amount</th>
+                  <th className="pb-2">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { id: 'LN10001', name: 'Suresh Kumar', type: 'Personal Loan', amount: '₹2,00,000', status: 'Active' },
+                  { id: 'LN10002', name: 'Anitha Devi', type: 'Business Loan', amount: '₹5,00,000', status: 'Active' },
+                  { id: 'LN10003', name: 'Ravi Teja', type: 'Gold Loan', amount: '₹1,50,000', status: 'Active' },
+                ].map((loan) => (
+                  <tr key={loan.id} className="border-b text-sm">
+                    <td className="py-3 text-blue-600">{loan.id}</td>
+                    <td className="py-3">{loan.name}</td>
+                    <td className="py-3">{loan.type}</td>
+                    <td className="py-3 font-medium">{loan.amount}</td>
+                    <td className="py-3">
+                      <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">{loan.status}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

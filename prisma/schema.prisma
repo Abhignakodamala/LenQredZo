@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Branch {
+  id        Int      @id @default(autoincrement())
+  name      String
+  address   String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+  customers Customer[]
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      String
+  branchId  Int?
+  branch    Branch?  @relation(fields: [branchId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String?  @unique
+  phone     String
+  address   String?
+  aadhar    String?
+  pan       String?
+  branchId  Int?
+  branch    Branch?  @relation(fields: [branchId], references: [id])
+  loans     Loan[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Loan {
+  id           Int      @id @default(autoincrement())
+  customerId   Int
+  customer     Customer @relation(fields: [customerId], references: [id])
+  type         String
+  amount       Float
+  interestRate Float
+  tenure       Int
+  status       String   @default("pending")
+  disbursedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  emis         EMI[]
+  payments     Payment[]
+}
+
+model EMI {
+  id        Int      @id @default(autoincrement())
+  loanId    Int
+  loan      Loan     @relation(fields: [loanId], references: [id])
+  amount    Float
+  dueDate   DateTime
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+}
+
+model Payment {
+  id        Int      @id @default(autoincrement())
+  loanId    Int
+  loan      Loan     @relation(fields: [loanId], references: [id])
+  amount    Float
+  method    String
+  status    String   @default("pending")
+  paidAt    DateTime?
+  createdAt DateTime @default(now())
+}
