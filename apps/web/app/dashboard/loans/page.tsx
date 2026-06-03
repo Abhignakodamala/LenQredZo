@@ -139,7 +139,7 @@ const addLoan = async () => {
               </thead>
               <tbody>
                 {loans.map((l: any) => (
-                  <tr key={l.id} style={{borderBottom:'1px solid #f3f4f6'}}>
+                  <tr key={l.id} onClick={() => window.location.href = `/dashboard/loans/${l.id}`} style={{borderBottom:'1px solid #f3f4f6', cursor:'pointer'}}>
                     <td style={{padding:'14px 20px',fontSize:'14px',color:'#1e40af'}}>LN{1000 + l.id}</td>
                     <td style={{padding:'14px 20px',fontSize:'14px',fontWeight:'500'}}>{l.customer?.name}</td>
                     <td style={{padding:'14px 20px',fontSize:'14px'}}>{l.type}</td>
