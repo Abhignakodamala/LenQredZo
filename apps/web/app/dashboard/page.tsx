@@ -51,13 +51,6 @@ export default function Dashboard() {
                 <td style={{padding: '12px 8px', fontSize: '14px', fontWeight: '500'}}>₹2,00,000</td>
                 <td style={{padding: '12px 8px'}}><span style={{background: '#dcfce7', color: '#16a34a', padding: '2px 10px', borderRadius: '20px', fontSize: '12px'}}>Active</span></td>
               </tr>
-              <tr>
-                <td style={{padding: '12px 8px', color: '#1e40af', fontSize: '14px'}}>LN10002</td>
-                <td style={{padding: '12px 8px', fontSize: '14px'}}>Anitha Devi</td>
-                <td style={{padding: '12px 8px', fontSize: '14px'}}>Business Loan</td>
-                <td style={{padding: '12px 8px', fontSize: '14px', fontWeight: '500'}}>₹5,00,000</td>
-                <td style={{padding: '12px 8px'}}><span style={{background: '#dcfce7', color: '#16a34a', padding: '2px 10px', borderRadius: '20px', fontSize: '12px'}}>Active</span></td>
-              </tr>
             </tbody>
           </table>
         </div>

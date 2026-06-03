@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -9,12 +9,13 @@ const calculateEMI = (principal: number, rate: number, tenure: number) => {
   return Math.round(emi);
 };
 
-export const createLoan = async (req: Request, res: Response) => {
+export const createLoan = async (req: any, res: Response) => {
   try {
+    const companyId = req.user.companyId;
     const { customerId, type, amount, interestRate, tenure } = req.body;
 
     const loan = await prisma.loan.create({
-      data: { customerId, type, amount, interestRate, tenure, status: 'active' }
+      data: { customerId, type, amount, interestRate, tenure, status: 'active', companyId }
     });
 
     const emiAmount = calculateEMI(amount, interestRate, tenure);
@@ -33,9 +34,11 @@ export const createLoan = async (req: Request, res: Response) => {
   }
 };
 
-export const getAllLoans = async (req: Request, res: Response) => {
+export const getAllLoans = async (req: any, res: Response) => {
   try {
+    const companyId = req.user.companyId;
     const loans = await prisma.loan.findMany({
+      where: { companyId },
       include: { customer: true, emis: true }
     });
     res.json(loans);
@@ -44,7 +47,7 @@ export const getAllLoans = async (req: Request, res: Response) => {
   }
 };
 
-export const getLoanById = async (req: Request, res: Response) => {
+export const getLoanById = async (req: any, res: Response) => {
   try {
     const loan = await prisma.loan.findUnique({
       where: { id: Number(req.params.id) },
@@ -57,7 +60,7 @@ export const getLoanById = async (req: Request, res: Response) => {
   }
 };
 
-export const updateLoanStatus = async (req: Request, res: Response) => {
+export const updateLoanStatus = async (req: any, res: Response) => {
   try {
     const loan = await prisma.loan.update({
       where: { id: Number(req.params.id) },

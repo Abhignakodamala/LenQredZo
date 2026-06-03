@@ -1,11 +1,13 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export const getAllCustomers = async (req: Request, res: Response) => {
+export const getAllCustomers = async (req: any, res: Response) => {
   try {
+    const companyId = req.user.companyId;
     const customers = await prisma.customer.findMany({
+      where: { companyId },
       include: { loans: true }
     });
     res.json(customers);
@@ -14,7 +16,7 @@ export const getAllCustomers = async (req: Request, res: Response) => {
   }
 };
 
-export const getCustomerById = async (req: Request, res: Response) => {
+export const getCustomerById = async (req: any, res: Response) => {
   try {
     const customer = await prisma.customer.findUnique({
       where: { id: Number(req.params.id) },
@@ -27,11 +29,12 @@ export const getCustomerById = async (req: Request, res: Response) => {
   }
 };
 
-export const createCustomer = async (req: Request, res: Response) => {
+export const createCustomer = async (req: any, res: Response) => {
   try {
+    const companyId = req.user.companyId;
     const { name, email, phone, address, aadhar, pan, branchId } = req.body;
     const customer = await prisma.customer.create({
-      data: { name, email, phone, address, aadhar, pan, branchId }
+      data: { name, email, phone, address, aadhar, pan, branchId, companyId }
     });
     res.status(201).json({ message: 'Customer created', customer });
   } catch (error) {
@@ -39,7 +42,7 @@ export const createCustomer = async (req: Request, res: Response) => {
   }
 };
 
-export const updateCustomer = async (req: Request, res: Response) => {
+export const updateCustomer = async (req: any, res: Response) => {
   try {
     const customer = await prisma.customer.update({
       where: { id: Number(req.params.id) },
@@ -51,7 +54,7 @@ export const updateCustomer = async (req: Request, res: Response) => {
   }
 };
 
-export const deleteCustomer = async (req: Request, res: Response) => {
+export const deleteCustomer = async (req: any, res: Response) => {
   try {
     await prisma.customer.delete({
       where: { id: Number(req.params.id) }
