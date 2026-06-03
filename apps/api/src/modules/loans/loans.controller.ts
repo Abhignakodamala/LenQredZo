@@ -71,3 +71,19 @@ export const updateLoanStatus = async (req: any, res: Response) => {
     res.status(500).json({ message: 'Server error', error });
   }
 };
+
+export const markEmiPaid = async (req: any, res: Response) => {
+  try {
+    const emiId = Number(req.params.emiId);
+    const emi = await prisma.eMI.update({
+      where: { id: emiId },
+      data: { status: 'paid' }
+    });
+    await prisma.payment.create({
+      data: { loanId: emi.loanId, amount: emi.amount, method: 'cash', status: 'completed', paidAt: new Date() }
+    });
+    res.json({ message: 'EMI marked as paid', emi });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
+  }
+};
