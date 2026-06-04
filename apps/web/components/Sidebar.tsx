@@ -38,15 +38,18 @@ export default function Sidebar() {
           );
         })}
       </nav>
-      <div style={{padding:'16px',borderTop:'1px solid #e5e7eb'}}>
-        <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+    <div style={{padding:'16px',borderTop:'1px solid #e5e7eb'}}>
+        <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'10px'}}>
           <div style={{width:'32px',height:'32px',background:'#1e40af',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'12px',fontWeight:'bold'}}>RB</div>
           <div>
             <p style={{fontSize:'13px',fontWeight:'600',margin:0}}>Ramesh Babu</p>
             <p style={{fontSize:'11px',color:'#6b7280',margin:0}}>Super Admin</p>
           </div>
         </div>
-      </div>
+        <button onClick={() => { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/login'; }} style={{width:'100%',padding:'8px',background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',borderRadius:'8px',fontSize:'13px',cursor:'pointer'}}>
+          Logout
+        </button>
+      </div> 
     </div>
   );
 }
