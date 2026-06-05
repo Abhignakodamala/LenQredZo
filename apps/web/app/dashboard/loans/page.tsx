@@ -7,20 +7,16 @@ export default function LoansPage() {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState('');
   const [form, setForm] = useState({ customerId: '', type: 'Personal Loan', amount: '', interestRate: '', tenure: '' });
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
-  useEffect(() => {
-    fetchLoans();
-    fetchCustomers();
-  }, []);
+  useEffect(() => { fetchLoans(); fetchCustomers(); }, []);
 
   const fetchLoans = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/loans', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await fetch('http://localhost:5000/api/loans', { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       setLoans(data);
     } catch (err) { console.error(err); }
@@ -29,15 +25,13 @@ export default function LoansPage() {
 
   const fetchCustomers = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/customers', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await fetch('http://localhost:5000/api/customers', { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       setCustomers(data);
     } catch (err) { console.error(err); }
   };
 
-const addLoan = async () => {
+  const addLoan = async () => {
     if (!form.customerId) { alert('Please select a customer'); return; }
     if (!form.amount || Number(form.amount) < 1000) { alert('Loan amount must be at least ₹1,000'); return; }
     if (!form.interestRate || Number(form.interestRate) <= 0 || Number(form.interestRate) > 50) { alert('Interest rate must be between 1% and 50%'); return; }
@@ -46,13 +40,7 @@ const addLoan = async () => {
       const res = await fetch('http://localhost:5000/api/loans', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          customerId: Number(form.customerId),
-          type: form.type,
-          amount: Number(form.amount),
-          interestRate: Number(form.interestRate),
-          tenure: Number(form.tenure)
-        })
+        body: JSON.stringify({ customerId: Number(form.customerId), type: form.type, amount: Number(form.amount), interestRate: Number(form.interestRate), tenure: Number(form.tenure) })
       });
       if (res.ok) {
         setShowForm(false);
@@ -64,6 +52,28 @@ const addLoan = async () => {
 
   const formatINR = (num: number) => '₹' + num.toLocaleString('en-IN');
 
+  const highlight = (text: any) => {
+    const t = String(text ?? '');
+    if (!search.trim()) return t;
+    const i = t.toLowerCase().indexOf(search.toLowerCase());
+    if (i === -1) return t;
+    return (
+      <span>
+        {t.slice(0, i)}
+        <mark style={{background:'#fde047',padding:'0 2px',borderRadius:'2px'}}>{t.slice(i, i + search.length)}</mark>
+        {t.slice(i + search.length)}
+      </span>
+    );
+  };
+  
+  const filteredLoans = loans.filter((l: any) => {
+    const q = search.toLowerCase();
+    return (l.customer?.name || '').toLowerCase().includes(q) ||
+           (l.type || '').toLowerCase().includes(q) ||
+           ('ln' + (1000 + l.id)).includes(q) ||
+           (l.status || '').toLowerCase().includes(q);
+  });
+
   return (
     <div style={{display:'flex',minHeight:'100vh',backgroundColor:'#f9fafb'}}>
       <Sidebar />
@@ -73,9 +83,7 @@ const addLoan = async () => {
             <h2 style={{fontSize:'24px',fontWeight:'bold',color:'#111827',margin:0}}>Loans</h2>
             <p style={{color:'#6b7280',margin:0}}>Manage all loans and EMI schedules</p>
           </div>
-          <button onClick={() => setShowForm(!showForm)} style={{background:'#1e40af',color:'white',border:'none',padding:'10px 20px',borderRadius:'8px',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}>
-            + New Loan
-          </button>
+          <button onClick={() => setShowForm(!showForm)} style={{background:'#1e40af',color:'white',border:'none',padding:'10px 20px',borderRadius:'8px',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}>+ New Loan</button>
         </div>
 
         {showForm && (
@@ -119,8 +127,9 @@ const addLoan = async () => {
         )}
 
         <div style={{background:'white',borderRadius:'12px',border:'1px solid #e5e7eb'}}>
-          <div style={{padding:'16px 20px',borderBottom:'1px solid #e5e7eb'}}>
-            <h3 style={{fontWeight:'600',margin:0}}>All Loans ({loans.length})</h3>
+          <div style={{padding:'16px 20px',borderBottom:'1px solid #e5e7eb',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'16px'}}>
+            <h3 style={{fontWeight:'600',margin:0}}>All Loans ({filteredLoans.length})</h3>
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="🔍 Search by name, type, ID, status..." style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:'8px',fontSize:'14px',width:'320px'}} />
           </div>
           {loading ? (
             <div style={{padding:'40px',textAlign:'center',color:'#6b7280'}}>Loading...</div>
@@ -138,17 +147,15 @@ const addLoan = async () => {
                 </tr>
               </thead>
               <tbody>
-                {loans.map((l: any) => (
+                {filteredLoans.map((l: any) => (
                   <tr key={l.id} onClick={() => window.location.href = `/dashboard/loans/${l.id}`} style={{borderBottom:'1px solid #f3f4f6', cursor:'pointer'}}>
-                    <td style={{padding:'14px 20px',fontSize:'14px',color:'#1e40af'}}>LN{1000 + l.id}</td>
-                    <td style={{padding:'14px 20px',fontSize:'14px',fontWeight:'500'}}>{l.customer?.name}</td>
-                    <td style={{padding:'14px 20px',fontSize:'14px'}}>{l.type}</td>
+                    <td style={{padding:'14px 20px',fontSize:'14px',color:'#1e40af'}}>{highlight('LN' + (1000 + l.id))}</td>
+                    <td style={{padding:'14px 20px',fontSize:'14px',fontWeight:'500'}}>{highlight(l.customer?.name)}</td>
+                    <td style={{padding:'14px 20px',fontSize:'14px'}}>{highlight(l.type)}</td>
                     <td style={{padding:'14px 20px',fontSize:'14px',fontWeight:'500'}}>{formatINR(l.amount)}</td>
                     <td style={{padding:'14px 20px',fontSize:'14px'}}>{l.interestRate}%</td>
                     <td style={{padding:'14px 20px',fontSize:'14px'}}>{l.tenure} mo</td>
-                    <td style={{padding:'14px 20px'}}>
-                      <span style={{background:'#dcfce7',color:'#16a34a',padding:'2px 10px',borderRadius:'20px',fontSize:'12px'}}>{l.status}</span>
-                    </td>
+                    <td style={{padding:'14px 20px'}}><span style={{background:'#dcfce7',color:'#16a34a',padding:'2px 10px',borderRadius:'20px',fontSize:'12px'}}>{highlight(l.status)}</span></td>
                   </tr>
                 ))}
               </tbody>

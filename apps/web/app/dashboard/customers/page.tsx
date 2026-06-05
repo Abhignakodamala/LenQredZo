@@ -11,6 +11,8 @@ export default function CustomersPage() {
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
+  const [search, setSearch] = useState('');
+
   useEffect(() => { fetchCustomers(); }, []);
 
   const fetchCustomers = async () => {

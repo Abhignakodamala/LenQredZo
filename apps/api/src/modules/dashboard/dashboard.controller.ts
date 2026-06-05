@@ -25,13 +25,24 @@ export const getDashboardStats = async (req: any, res: Response) => {
       take: 5
     });
 
+    // Loan portfolio breakdown by type
+    const portfolio: any = {};
+    loans.forEach(l => {
+      portfolio[l.type] = (portfolio[l.type] || 0) + l.amount;
+    });
+    const portfolioData = Object.keys(portfolio).map(type => ({
+      name: type,
+      value: portfolio[type]
+    }));
+
     res.json({
       totalDisbursed,
       totalCollections,
       activeCustomers,
       activeLoans,
       totalLoans: loans.length,
-      recentLoans
+      recentLoans,
+      portfolioData
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });

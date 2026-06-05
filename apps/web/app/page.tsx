@@ -1,80 +1,91 @@
+'use client';
+import { useState, useEffect } from 'react';
+import Sidebar from '@/components/Sidebar';
+import CollectionsChart from '@/components/CollectionsChart';
+import LoanPortfolioChart from '@/components/LoanPortfolioChart';
+
 export default function Dashboard() {
+  const [stats, setStats] = useState<any>(null);
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/dashboard/stats', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        setStats(data);
+      } catch (err) { console.error(err); }
+    };
+    fetchStats();
+  }, []);
+
+  const formatINR = (num: number) => '₹' + Number(num || 0).toLocaleString('en-IN');
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="flex">
-        
-        {/* Sidebar */}
-        <div className="w-64 bg-white h-screen shadow-sm fixed">
-          <div className="p-4 border-b">
-            <h1 className="text-xl font-bold text-blue-600">FinSmart AI</h1>
-            <p className="text-xs text-gray-500">Finance Management</p>
-          </div>
-          <nav className="p-4">
-            {['Dashboard', 'Customers', 'Loans', 'Collections', 'Payments', 'Analytics', 'AI Analysis'].map((item) => (
-              <a key={item} href="#" className="flex items-center gap-3 px-3 py-2 rounded-lg mb-1 text-gray-600 hover:bg-blue-50 hover:text-blue-600">
-                {item}
-              </a>
-            ))}
-          </nav>
+    <div style={{display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb'}}>
+      <Sidebar />
+      <div style={{marginLeft: '240px', flex: 1, padding: '24px'}}>
+        <div style={{marginBottom: '24px'}}>
+          <h2 style={{fontSize: '24px', fontWeight: 'bold', color: '#111827'}}>Dashboard</h2>
+          <p style={{color: '#6b7280'}}>Welcome back, Ramesh Babu 👋</p>
         </div>
 
-        {/* Main Content */}
-        <div className="ml-64 flex-1 p-6">
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">Dashboard</h2>
-            <p className="text-gray-500">Welcome back, Ramesh Babu 👋</p>
+        <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px'}}>
+          <div style={{background: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e5e7eb'}}>
+            <p style={{color: '#6b7280', fontSize: '13px', margin: '0 0 8px'}}>Total Loan Disbursed</p>
+            <p style={{fontSize: '22px', fontWeight: 'bold', margin: '0 0 4px'}}>{stats ? formatINR(stats.totalDisbursed) : '...'}</p>
+            <p style={{color: '#16a34a', fontSize: '13px', margin: 0}}>{stats?.totalLoans || 0} total loans</p>
           </div>
-
-          {/* KPI Cards */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
-            {[
-              { label: 'Total Loan Disbursed', value: '₹12,45,00,000', change: '+18.6%', color: 'blue' },
-              { label: 'Total Collections', value: '₹8,75,20,000', change: '+12.4%', color: 'green' },
-              { label: 'Active Customers', value: '12,850', change: '+8.7%', color: 'purple' },
-              { label: 'NPA (30+ Days)', value: '2.35%', change: '-0.8%', color: 'red' },
-            ].map((card) => (
-              <div key={card.label} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                <p className="text-sm text-gray-500">{card.label}</p>
-                <p className="text-2xl font-bold text-gray-800 mt-1">{card.value}</p>
-                <p className={`text-sm mt-1 ${card.color === 'red' ? 'text-red-500' : 'text-green-500'}`}>
-                  {card.change} vs last month
-                </p>
-              </div>
-            ))}
+          <div style={{background: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e5e7eb'}}>
+            <p style={{color: '#6b7280', fontSize: '13px', margin: '0 0 8px'}}>Total Collections</p>
+            <p style={{fontSize: '22px', fontWeight: 'bold', margin: '0 0 4px'}}>{stats ? formatINR(stats.totalCollections) : '...'}</p>
+            <p style={{color: '#16a34a', fontSize: '13px', margin: 0}}>received so far</p>
           </div>
+          <div style={{background: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e5e7eb'}}>
+            <p style={{color: '#6b7280', fontSize: '13px', margin: '0 0 8px'}}>Active Customers</p>
+            <p style={{fontSize: '22px', fontWeight: 'bold', margin: '0 0 4px'}}>{stats?.activeCustomers ?? '...'}</p>
+            <p style={{color: '#16a34a', fontSize: '13px', margin: 0}}>registered</p>
+          </div>
+          <div style={{background: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e5e7eb'}}>
+            <p style={{color: '#6b7280', fontSize: '13px', margin: '0 0 8px'}}>Active Loans</p>
+            <p style={{fontSize: '22px', fontWeight: 'bold', margin: '0 0 4px'}}>{stats?.activeLoans ?? '...'}</p>
+            <p style={{color: '#16a34a', fontSize: '13px', margin: 0}}>currently running</p>
+          </div>
+        </div>
 
-          {/* Recent Loans Table */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-            <h3 className="font-semibold text-gray-800 mb-4">Recent Loans</h3>
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-sm text-gray-500 border-b">
-                  <th className="pb-2">Loan ID</th>
-                  <th className="pb-2">Customer</th>
-                  <th className="pb-2">Type</th>
-                  <th className="pb-2">Amount</th>
-                  <th className="pb-2">Status</th>
+        <div style={{display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '16px', marginBottom: '24px'}}>
+          <CollectionsChart />
+          <LoanPortfolioChart data={stats?.portfolioData} />
+        </div>
+
+        <div style={{background: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e5e7eb'}}>
+          <h3 style={{fontWeight: '600', marginBottom: '16px', fontSize: '16px'}}>Recent Loans</h3>
+          <table style={{width: '100%', borderCollapse: 'collapse'}}>
+            <thead>
+              <tr style={{borderBottom: '1px solid #e5e7eb'}}>
+                <th style={{textAlign: 'left', padding: '8px', color: '#6b7280', fontSize: '13px', fontWeight: '500'}}>Loan ID</th>
+                <th style={{textAlign: 'left', padding: '8px', color: '#6b7280', fontSize: '13px', fontWeight: '500'}}>Customer</th>
+                <th style={{textAlign: 'left', padding: '8px', color: '#6b7280', fontSize: '13px', fontWeight: '500'}}>Type</th>
+                <th style={{textAlign: 'left', padding: '8px', color: '#6b7280', fontSize: '13px', fontWeight: '500'}}>Amount</th>
+                <th style={{textAlign: 'left', padding: '8px', color: '#6b7280', fontSize: '13px', fontWeight: '500'}}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats?.recentLoans?.length ? stats.recentLoans.map((l: any) => (
+                <tr key={l.id} style={{borderBottom: '1px solid #f3f4f6'}}>
+                  <td style={{padding: '12px 8px', color: '#1e40af', fontSize: '14px'}}>LN{1000 + l.id}</td>
+                  <td style={{padding: '12px 8px', fontSize: '14px'}}>{l.customer?.name}</td>
+                  <td style={{padding: '12px 8px', fontSize: '14px'}}>{l.type}</td>
+                  <td style={{padding: '12px 8px', fontSize: '14px', fontWeight: '500'}}>{formatINR(l.amount)}</td>
+                  <td style={{padding: '12px 8px'}}><span style={{background: '#dcfce7', color: '#16a34a', padding: '2px 10px', borderRadius: '20px', fontSize: '12px'}}>{l.status}</span></td>
                 </tr>
-              </thead>
-              <tbody>
-                {[
-                  { id: 'LN10001', name: 'Suresh Kumar', type: 'Personal Loan', amount: '₹2,00,000', status: 'Active' },
-                  { id: 'LN10002', name: 'Anitha Devi', type: 'Business Loan', amount: '₹5,00,000', status: 'Active' },
-                  { id: 'LN10003', name: 'Ravi Teja', type: 'Gold Loan', amount: '₹1,50,000', status: 'Active' },
-                ].map((loan) => (
-                  <tr key={loan.id} className="border-b text-sm">
-                    <td className="py-3 text-blue-600">{loan.id}</td>
-                    <td className="py-3">{loan.name}</td>
-                    <td className="py-3">{loan.type}</td>
-                    <td className="py-3 font-medium">{loan.amount}</td>
-                    <td className="py-3">
-                      <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">{loan.status}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              )) : (
+                <tr><td colSpan={5} style={{padding:'20px',textAlign:'center',color:'#6b7280',fontSize:'14px'}}>No loans yet</td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
