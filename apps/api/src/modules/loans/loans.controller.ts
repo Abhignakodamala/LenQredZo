@@ -87,3 +87,34 @@ export const markEmiPaid = async (req: any, res: Response) => {
     res.status(500).json({ message: 'Server error', error });
   }
 };
+
+export const getCollections = async (req: any, res: Response) => {
+  try {
+    const companyId = req.user.companyId;
+    const emis = await prisma.eMI.findMany({
+      where: { loan: { companyId } },
+      include: { loan: { include: { customer: true } } },
+      orderBy: { dueDate: 'asc' }
+    });
+
+    const today = new Date();
+    const result = emis.map(emi => {
+      let display = emi.status;
+      if (emi.status !== 'paid' && new Date(emi.dueDate) < today) {
+        display = 'overdue';
+      }
+      return {
+        id: emi.id,
+        customerName: emi.loan.customer?.name,
+        loanId: emi.loan.id,
+        dueDate: emi.dueDate,
+        amount: emi.amount,
+        status: display
+      };
+    });
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
+  }
+};

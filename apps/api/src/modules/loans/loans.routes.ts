@@ -1,10 +1,11 @@
 import { Router } from 'express';
-import { createLoan, getAllLoans, getLoanById, updateLoanStatus, markEmiPaid } from './loans.controller';
+import { createLoan, getAllLoans, getLoanById, updateLoanStatus, markEmiPaid, getCollections } from './loans.controller';
 import { protect } from '../../middleware/auth';
 
 const router = Router();
 
 router.get('/', protect, getAllLoans);
+router.get('/collections/all', protect, getCollections);
 router.get('/:id', protect, getLoanById);
 router.post('/', protect, createLoan);
 router.put('/:id', protect, updateLoanStatus);
