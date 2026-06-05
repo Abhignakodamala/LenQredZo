@@ -118,3 +118,17 @@ export const getCollections = async (req: any, res: Response) => {
     res.status(500).json({ message: 'Server error', error });
   }
 };
+
+export const getPayments = async (req: any, res: Response) => {
+  try {
+    const companyId = req.user.companyId;
+    const payments = await prisma.payment.findMany({
+      where: { loan: { companyId } },
+      include: { loan: { include: { customer: true } } },
+      orderBy: { paidAt: 'desc' }
+    });
+    res.json(payments);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
+  }
+};
