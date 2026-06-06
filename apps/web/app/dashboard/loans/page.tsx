@@ -8,14 +8,14 @@ export default function LoansPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState('');
-  const [form, setForm] = useState({ customerId: '', type: 'Personal Loan', amount: '', interestRate: '', tenure: '' });
+  const [form, setForm] = useState({ customerId: '', type: 'Personal Loan', amount: '', interestRate: '', interestType: 'percentage', frequency: 'monthly', tenure: '' });
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   useEffect(() => { fetchLoans(); fetchCustomers(); }, []);
 
   const fetchLoans = async () => {
-    try {
+    try {        
       const res = await fetch('http://localhost:5000/api/loans', { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       setLoans(data);
@@ -34,13 +34,13 @@ export default function LoansPage() {
   const addLoan = async () => {
     if (!form.customerId) { alert('Please select a customer'); return; }
     if (!form.amount || Number(form.amount) < 1000) { alert('Loan amount must be at least ₹1,000'); return; }
-    if (!form.interestRate || Number(form.interestRate) <= 0 || Number(form.interestRate) > 50) { alert('Interest rate must be between 1% and 50%'); return; }
-    if (!form.tenure || Number(form.tenure) < 1 || Number(form.tenure) > 360) { alert('Tenure must be between 1 and 360 months'); return; }
+    if (!form.interestRate || Number(form.interestRate) <= 0) { alert('Please enter the interest value'); return; }
+    if (!form.tenure || Number(form.tenure) < 1) { alert('Please enter the number of installments'); return; }
     try {
       const res = await fetch('http://localhost:5000/api/loans', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ customerId: Number(form.customerId), type: form.type, amount: Number(form.amount), interestRate: Number(form.interestRate), tenure: Number(form.tenure) })
+        body: JSON.stringify({ customerId: Number(form.customerId), type: form.type, amount: Number(form.amount), interestRate: Number(form.interestRate), interestType: form.interestType, frequency: form.frequency, tenure: Number(form.tenure) })
       });
       if (res.ok) {
         setShowForm(false);
@@ -111,11 +111,26 @@ export default function LoansPage() {
                 <input type="number" value={form.amount} onChange={(e) => setForm({...form, amount: e.target.value})} style={{width:'100%',padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:'8px',fontSize:'14px',boxSizing:'border-box'}} />
               </div>
               <div>
-                <label style={{display:'block',fontSize:'13px',fontWeight:'500',marginBottom:'4px'}}>Interest Rate (%)</label>
+                <label style={{display:'block',fontSize:'13px',fontWeight:'500',marginBottom:'4px'}}>Interest Type</label>
+                <select value={form.interestType} onChange={(e) => setForm({...form, interestType: e.target.value})} style={{width:'100%',padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:'8px',fontSize:'14px',boxSizing:'border-box'}}>
+                  <option value="percentage">Percentage (% per year)</option>
+                  <option value="flat">Flat Amount (₹)</option>
+                </select>
+              </div>
+              <div>
+                <label style={{display:'block',fontSize:'13px',fontWeight:'500',marginBottom:'4px'}}>{form.interestType === 'flat' ? 'Total Interest (₹)' : 'Interest Rate (%)'}</label>
                 <input type="number" value={form.interestRate} onChange={(e) => setForm({...form, interestRate: e.target.value})} style={{width:'100%',padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:'8px',fontSize:'14px',boxSizing:'border-box'}} />
               </div>
               <div>
-                <label style={{display:'block',fontSize:'13px',fontWeight:'500',marginBottom:'4px'}}>Tenure (months)</label>
+                <label style={{display:'block',fontSize:'13px',fontWeight:'500',marginBottom:'4px'}}>Repayment Frequency</label>
+                <select value={form.frequency} onChange={(e) => setForm({...form, frequency: e.target.value})} style={{width:'100%',padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:'8px',fontSize:'14px',boxSizing:'border-box'}}>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+              <div>
+                <label style={{display:'block',fontSize:'13px',fontWeight:'500',marginBottom:'4px'}}>Number of Installments</label>
                 <input type="number" value={form.tenure} onChange={(e) => setForm({...form, tenure: e.target.value})} style={{width:'100%',padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:'8px',fontSize:'14px',boxSizing:'border-box'}} />
               </div>
             </div>

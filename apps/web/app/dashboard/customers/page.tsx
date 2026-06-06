@@ -8,10 +8,8 @@ export default function CustomersPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', phone: '', address: '', aadhar: '', pan: '' });
   const [errors, setErrors] = useState<any>({});
-
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-
   const [search, setSearch] = useState('');
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   useEffect(() => { fetchCustomers(); }, []);
 
@@ -56,6 +54,19 @@ export default function CustomersPage() {
     } catch (err) { console.error(err); }
   };
 
+  const highlight = (text: any) => {
+    const t = String(text ?? '');
+    if (!search.trim()) return t;
+    const i = t.toLowerCase().indexOf(search.toLowerCase());
+    if (i === -1) return t;
+    return (<span>{t.slice(0, i)}<mark style={{background:'#fde047',padding:'0 2px',borderRadius:'2px'}}>{t.slice(i, i + search.length)}</mark>{t.slice(i + search.length)}</span>);
+  };
+
+  const filteredCustomers = customers.filter((c: any) => {
+    const q = search.toLowerCase();
+    return (c.name || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q) || (c.phone || '').includes(q);
+  });
+
   const fields = [
     { key: 'name', label: 'Name', placeholder: 'Full name' },
     { key: 'email', label: 'Email', placeholder: 'email@example.com' },
@@ -97,8 +108,9 @@ export default function CustomersPage() {
         )}
 
         <div style={{background:'white',borderRadius:'12px',border:'1px solid #e5e7eb'}}>
-          <div style={{padding:'16px 20px',borderBottom:'1px solid #e5e7eb'}}>
-            <h3 style={{fontWeight:'600',margin:0}}>All Customers ({customers.length})</h3>
+          <div style={{padding:'16px 20px',borderBottom:'1px solid #e5e7eb',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'16px'}}>
+            <h3 style={{fontWeight:'600',margin:0}}>All Customers ({filteredCustomers.length})</h3>
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="🔍 Search by name, email, phone..." style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:'8px',fontSize:'14px',width:'320px'}} />
           </div>
           {loading ? (
             <div style={{padding:'40px',textAlign:'center',color:'#6b7280'}}>Loading...</div>
@@ -114,11 +126,11 @@ export default function CustomersPage() {
                 </tr>
               </thead>
               <tbody>
-                {customers.map((c: any) => (
+                {filteredCustomers.map((c: any) => (
                   <tr key={c.id} style={{borderBottom:'1px solid #f3f4f6'}}>
-                    <td style={{padding:'14px 20px',fontSize:'14px',fontWeight:'500'}}>{c.name}</td>
-                    <td style={{padding:'14px 20px',fontSize:'14px',color:'#6b7280'}}>{c.email || '-'}</td>
-                    <td style={{padding:'14px 20px',fontSize:'14px'}}>{c.phone}</td>
+                    <td style={{padding:'14px 20px',fontSize:'14px',fontWeight:'500'}}>{highlight(c.name)}</td>
+                    <td style={{padding:'14px 20px',fontSize:'14px',color:'#6b7280'}}>{c.email ? highlight(c.email) : '-'}</td>
+                    <td style={{padding:'14px 20px',fontSize:'14px'}}>{highlight(c.phone)}</td>
                     <td style={{padding:'14px 20px',fontSize:'14px'}}>{c.loans?.length || 0} loans</td>
                     <td style={{padding:'14px 20px'}}><span style={{background:'#dcfce7',color:'#16a34a',padding:'2px 10px',borderRadius:'20px',fontSize:'12px'}}>Active</span></td>
                   </tr>
