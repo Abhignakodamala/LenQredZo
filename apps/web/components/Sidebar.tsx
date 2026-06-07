@@ -1,4 +1,5 @@
 'use client';
+import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 
 const menuItems = [
@@ -15,6 +16,12 @@ const menuItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('user');
+    if (stored) setUser(JSON.parse(stored));
+  }, []);
 
   return (
     <div style={{width:'240px',background:'white',height:'100vh',position:'fixed',left:0,top:0,borderRight:'1px solid #e5e7eb',display:'flex',flexDirection:'column'}}>
@@ -27,6 +34,7 @@ export default function Sidebar() {
           </div>
         </div>
       </div>
+
       <nav style={{padding:'12px 8px',flex:1,overflowY:'auto'}}>
         {menuItems.map((item) => {
           const isActive = pathname === item.href;
@@ -38,18 +46,28 @@ export default function Sidebar() {
           );
         })}
       </nav>
-    <div style={{padding:'16px',borderTop:'1px solid #e5e7eb'}}>
+
+      <div style={{padding:'16px',borderTop:'1px solid #e5e7eb'}}>
         <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'10px'}}>
-          <div style={{width:'32px',height:'32px',background:'#1e40af',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'12px',fontWeight:'bold'}}>RB</div>
+          <div style={{width:'32px',height:'32px',background:'#1e40af',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'12px',fontWeight:'bold'}}>
+            {user?.name?.charAt(0) || 'U'}
+          </div>
           <div>
-            <p style={{fontSize:'13px',fontWeight:'600',margin:0}}>Ramesh Babu</p>
-            <p style={{fontSize:'11px',color:'#6b7280',margin:0}}>Super Admin</p>
+            <p style={{fontSize:'13px',fontWeight:'600',margin:0}}>{user?.name || 'User'}</p>
+            <p style={{fontSize:'11px',color:'#6b7280',margin:0}}>{user?.role || 'Admin'}</p>
           </div>
         </div>
-        <button onClick={() => { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/login'; }} style={{width:'100%',padding:'8px',background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',borderRadius:'8px',fontSize:'13px',cursor:'pointer'}}>
+        <button
+          onClick={() => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+          }}
+          style={{width:'100%',padding:'8px',background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',borderRadius:'8px',fontSize:'13px',cursor:'pointer'}}
+        >
           Logout
         </button>
-      </div> 
+      </div>
     </div>
   );
 }

@@ -77,8 +77,10 @@ model Loan {
   interestRate Float
   interestType String   @default("percentage")
   frequency    String   @default("monthly")
-  tenure       Int
-  status       String   @default("pending")
+  tenure          Int
+  disbursedAmount Float?
+  deductUpfront   Boolean  @default(false)
+  status          String   @default("pending")
   disbursedAt  DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
