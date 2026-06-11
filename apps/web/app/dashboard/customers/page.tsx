@@ -2,137 +2,175 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 
-export default function CustomersPage() {
-  const [customers, setCustomers] = useState([]);
+export default function CollectionsPage() {
+  const [emis, setEmis] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', phone: '', address: '', aadhar: '', pan: '' });
-  const [errors, setErrors] = useState<any>({});
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
-  useEffect(() => { fetchCustomers(); }, []);
+  useEffect(() => { fetchCollections(); }, []);
 
-  const fetchCustomers = async () => {
+  const fetchCollections = async () => {
+    setLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/customers', {
-        headers: { Authorization: `Bearer ${token}` }
+      const res = await fetch('http://localhost:5000/api/loans/collections/all', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
       });
       const data = await res.json();
-      setCustomers(data);
+      setEmis(Array.isArray(data) ? data : []);
     } catch (err) { console.error(err); }
     setLoading(false);
   };
 
-  const validate = () => {
-    const e: any = {};
-    if (!form.name.trim()) e.name = 'Name is required';
-    else if (form.name.trim().length < 3) e.name = 'Name must be at least 3 characters';
-    if (!form.phone) e.phone = 'Phone is required';
-    else if (!/^[6-9]\d{9}$/.test(form.phone)) e.phone = 'Phone must be 10 digits starting 6-9';
-    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Invalid email';
-    if (form.aadhar && !/^\d{12}$/.test(form.aadhar.replace(/\s/g, ''))) e.aadhar = 'Aadhaar must be 12 digits';
-    if (form.pan && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(form.pan.toUpperCase())) e.pan = 'PAN format: ABCDE1234F';
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const addCustomer = async () => {
-    if (!validate()) return;
+  const markPaid = async (emiId: number, collectPenalty: boolean) => {
     try {
-      const res = await fetch('http://localhost:5000/api/customers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ...form, pan: form.pan.toUpperCase() })
+      await fetch(`http://localhost:5000/api/loans/emi/${emiId}/pay`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+        body: JSON.stringify({ collectPenalty, method: 'cash' })
       });
-      if (res.ok) {
-        setShowForm(false);
-        setForm({ name: '', email: '', phone: '', address: '', aadhar: '', pan: '' });
-        setErrors({});
-        fetchCustomers();
-      }
+      fetchCollections();
     } catch (err) { console.error(err); }
   };
 
-  const highlight = (text: any) => {
-    const t = String(text ?? '');
-    if (!search.trim()) return t;
-    const i = t.toLowerCase().indexOf(search.toLowerCase());
-    if (i === -1) return t;
-    return (<span>{t.slice(0, i)}<mark style={{background:'#fde047',padding:'0 2px',borderRadius:'2px'}}>{t.slice(i, i + search.length)}</mark>{t.slice(i + search.length)}</span>);
+  const fmt = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN');
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  const badge = (status: string) => {
+    if (status === 'paid') return { background: '#dcfce7', color: '#16a34a' };
+    if (status === 'overdue') return { background: '#fee2e2', color: '#dc2626' };
+    return { background: '#fef3c7', color: '#d97706' };
   };
 
-  const filteredCustomers = customers.filter((c: any) => {
+  const totalPending = emis.filter(e => e.status !== 'paid').reduce((s, e) => s + e.amount, 0);
+  const totalPenalty = emis.filter(e => e.status === 'overdue').reduce((s, e) => s + (e.penalty || 0), 0);
+  const paidCount = emis.filter(e => e.status === 'paid').length;
+  const overdueCount = emis.filter(e => e.status === 'overdue').length;
+  const pendingCount = emis.filter(e => e.status === 'pending').length;
+
+  let filtered = [...emis];
+  if (search.trim()) {
     const q = search.toLowerCase();
-    return (c.name || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q) || (c.phone || '').includes(q);
+    filtered = filtered.filter(e =>
+      (e.customerName || '').toLowerCase().includes(q) ||
+      ('ln' + (1000 + e.loanId)).includes(q)
+    );
+  }
+  if (statusFilter !== 'all') filtered = filtered.filter(e => e.status === statusFilter);
+  filtered.sort((a, b) => {
+    const diff = new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+    return sortOrder === 'asc' ? diff : -diff;
   });
 
-  const fields = [
-    { key: 'name', label: 'Name', placeholder: 'Full name' },
-    { key: 'email', label: 'Email', placeholder: 'email@example.com' },
-    { key: 'phone', label: 'Phone', placeholder: '9876543210', maxLength: 10 },
-    { key: 'aadhar', label: 'Aadhaar', placeholder: '123456789012', maxLength: 12 },
-    { key: 'pan', label: 'PAN', placeholder: 'ABCDE1234F', maxLength: 10 },
-    { key: 'address', label: 'Address', placeholder: 'City, State' },
+  const tabs = [
+    { label: 'All', value: 'all', count: emis.length },
+    { label: 'Paid', value: 'paid', count: paidCount },
+    { label: 'Pending', value: 'pending', count: pendingCount },
+    { label: 'Overdue', value: 'overdue', count: overdueCount },
   ];
 
   return (
-    <div style={{display:'flex',minHeight:'100vh',backgroundColor:'#f9fafb'}}>
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Sidebar />
-      <div style={{marginLeft:'240px',flex:1,padding:'24px'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'24px'}}>
-          <div>
-            <h2 style={{fontSize:'24px',fontWeight:'bold',color:'#111827',margin:0}}>Customers</h2>
-            <p style={{color:'#6b7280',margin:0}}>Manage all your customers</p>
-          </div>
-          <button onClick={() => setShowForm(!showForm)} style={{background:'#1e40af',color:'white',border:'none',padding:'10px 20px',borderRadius:'8px',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}>+ Add Customer</button>
+      <div style={{ marginLeft: '240px', flex: 1, padding: '24px' }}>
+        <div style={{ marginBottom: '24px' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Collections</h2>
+          <p style={{ color: '#6b7280', margin: 0 }}>Track EMIs, penalties and collections</p>
         </div>
 
-        {showForm && (
-          <div style={{background:'white',padding:'24px',borderRadius:'12px',border:'1px solid #e5e7eb',marginBottom:'24px'}}>
-            <h3 style={{fontWeight:'600',marginBottom:'16px'}}>Add New Customer</h3>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
-              {fields.map((f) => (
-                <div key={f.key}>
-                  <label style={{display:'block',fontSize:'13px',fontWeight:'500',color:'#374151',marginBottom:'4px'}}>{f.label}</label>
-                  <input value={form[f.key as keyof typeof form]} maxLength={f.maxLength} placeholder={f.placeholder} onChange={(ev) => setForm({...form, [f.key]: ev.target.value})} style={{width:'100%',padding:'8px 12px',border:errors[f.key]?'1px solid #ef4444':'1px solid #d1d5db',borderRadius:'8px',fontSize:'14px',boxSizing:'border-box'}} />
-                  {errors[f.key] && <p style={{color:'#ef4444',fontSize:'12px',margin:'4px 0 0'}}>{errors[f.key]}</p>}
-                </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+          {[
+            { label: 'Total EMI Pending', value: fmt(totalPending), color: '#111827' },
+            { label: 'Total Penalty Due', value: fmt(totalPenalty), color: '#dc2626' },
+            { label: 'Overdue EMIs', value: overdueCount, color: '#dc2626' },
+            { label: 'Collected EMIs', value: paidCount, color: '#16a34a' },
+          ].map(s => (
+            <div key={s.label} style={{ background: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
+              <p style={{ color: '#6b7280', fontSize: '13px', margin: '0 0 8px' }}>{s.label}</p>
+              <p style={{ fontSize: '20px', fontWeight: 'bold', margin: 0, color: s.color }}>{s.value}</p>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h3 style={{ fontWeight: '600', margin: 0 }}>EMI Collections ({filtered.length})</h3>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input value={search} onChange={e => setSearch(e.target.value)}
+                  placeholder="🔍 Search customer or loan ID..."
+                  style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px', width: '260px' }} />
+                <button onClick={() => setSortOrder(s => s === 'asc' ? 'desc' : 'asc')}
+                  style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', background: 'white' }}>
+                  📅 {sortOrder === 'asc' ? 'Oldest ↑' : 'Newest ↓'}
+                </button>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {tabs.map(tab => (
+                <button key={tab.value} onClick={() => setStatusFilter(tab.value)}
+                  style={{ padding: '5px 14px', borderRadius: '20px', border: 'none', fontSize: '13px', cursor: 'pointer', fontWeight: statusFilter === tab.value ? '600' : '400', background: statusFilter === tab.value ? '#1e40af' : '#f3f4f6', color: statusFilter === tab.value ? 'white' : '#374151' }}>
+                  {tab.label} ({tab.count})
+                </button>
               ))}
             </div>
-            <div style={{display:'flex',gap:'8px',marginTop:'16px'}}>
-              <button onClick={addCustomer} style={{background:'#1e40af',color:'white',border:'none',padding:'8px 20px',borderRadius:'8px',fontSize:'14px',cursor:'pointer'}}>Save</button>
-              <button onClick={() => {setShowForm(false); setErrors({});}} style={{background:'white',color:'#374151',border:'1px solid #d1d5db',padding:'8px 20px',borderRadius:'8px',fontSize:'14px',cursor:'pointer'}}>Cancel</button>
-            </div>
           </div>
-        )}
 
-        <div style={{background:'white',borderRadius:'12px',border:'1px solid #e5e7eb'}}>
-          <div style={{padding:'16px 20px',borderBottom:'1px solid #e5e7eb',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'16px'}}>
-            <h3 style={{fontWeight:'600',margin:0}}>All Customers ({filteredCustomers.length})</h3>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="🔍 Search by name, email, phone..." style={{padding:'8px 12px',border:'1px solid #d1d5db',borderRadius:'8px',fontSize:'14px',width:'320px'}} />
-          </div>
           {loading ? (
-            <div style={{padding:'40px',textAlign:'center',color:'#6b7280'}}>Loading...</div>
+            <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
+          ) : filtered.length === 0 ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>No records found</div>
           ) : (
-            <table style={{width:'100%',borderCollapse:'collapse'}}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{borderBottom:'1px solid #e5e7eb',background:'#f9fafb'}}>
-                  <th style={{textAlign:'left',padding:'12px 20px',fontSize:'13px',color:'#6b7280',fontWeight:'500'}}>Name</th>
-                  <th style={{textAlign:'left',padding:'12px 20px',fontSize:'13px',color:'#6b7280',fontWeight:'500'}}>Email</th>
-                  <th style={{textAlign:'left',padding:'12px 20px',fontSize:'13px',color:'#6b7280',fontWeight:'500'}}>Phone</th>
-                  <th style={{textAlign:'left',padding:'12px 20px',fontSize:'13px',color:'#6b7280',fontWeight:'500'}}>Loans</th>
-                  <th style={{textAlign:'left',padding:'12px 20px',fontSize:'13px',color:'#6b7280',fontWeight:'500'}}>Status</th>
+                <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                  {['Customer', 'Loan', 'Due Date', 'EMI Amount', 'Penalty', 'Total Due', 'Status', 'Action'].map(h => (
+                    <th key={h} style={{ textAlign: 'left', padding: '12px 16px', fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {filteredCustomers.map((c: any) => (
-                  <tr key={c.id} style={{borderBottom:'1px solid #f3f4f6'}}>
-                    <td style={{padding:'14px 20px',fontSize:'14px',fontWeight:'500'}}>{highlight(c.name)}</td>
-                    <td style={{padding:'14px 20px',fontSize:'14px',color:'#6b7280'}}>{c.email ? highlight(c.email) : '-'}</td>
-                    <td style={{padding:'14px 20px',fontSize:'14px'}}>{highlight(c.phone)}</td>
-                    <td style={{padding:'14px 20px',fontSize:'14px'}}>{c.loans?.length || 0} loans</td>
-                    <td style={{padding:'14px 20px'}}><span style={{background:'#dcfce7',color:'#16a34a',padding:'2px 10px',borderRadius:'20px',fontSize:'12px'}}>Active</span></td>
+                {filtered.map((e: any) => (
+                  <tr key={e.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '500' }}>{e.customerName}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', color: '#1e40af' }}>LN{1000 + e.loanId}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px' }}>{fmtDate(e.dueDate)}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '600' }}>{fmt(e.amount)}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', color: e.penalty > 0 ? '#dc2626' : '#9ca3af', fontWeight: e.penalty > 0 ? '600' : '400' }}>
+                      {e.penalty > 0 ? fmt(e.penalty) : '—'}
+                      {e.daysOverdue > 0 && <span style={{ display: 'block', fontSize: '11px', color: '#dc2626' }}>{e.daysOverdue} days late</span>}
+                    </td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: e.penalty > 0 ? '#dc2626' : '#111827' }}>
+                      {fmt(e.totalDue)}
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span style={{ ...badge(e.status), padding: '2px 10px', borderRadius: '20px', fontSize: '11px' }}>{e.status}</span>
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      {e.status !== 'paid' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {e.penalty > 0 ? (
+                            <>
+                              <button onClick={() => markPaid(e.id, true)}
+                                style={{ background: '#dc2626', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                Collect + Penalty
+                              </button>
+                              <button onClick={() => markPaid(e.id, false)}
+                                style={{ background: '#1e40af', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}>
+                                EMI Only
+                              </button>
+                            </>
+                          ) : (
+                            <button onClick={() => markPaid(e.id, false)}
+                              style={{ background: '#1e40af', color: 'white', border: 'none', padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>
+                              Collect
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

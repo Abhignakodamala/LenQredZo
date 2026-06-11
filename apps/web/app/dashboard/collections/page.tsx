@@ -16,7 +16,7 @@ export default function CollectionsPage() {
     setLoading(true);
     try {
       const res = await fetch('http://localhost:5000/api/loans/collections/all', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
       });
       const data = await res.json();
       setEmis(Array.isArray(data) ? data : []);
@@ -24,17 +24,19 @@ export default function CollectionsPage() {
     setLoading(false);
   };
 
-  const markPaid = async (emiId: number) => {
+  const markPaid = async (emiId: number, collectPenalty: boolean) => {
     try {
       await fetch(`http://localhost:5000/api/loans/emi/${emiId}/pay`, {
-        method: 'PUT', headers: { Authorization: `Bearer ${token}` }
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+        body: JSON.stringify({ collectPenalty, method: 'cash' })
       });
       fetchCollections();
     } catch (err) { console.error(err); }
   };
 
-  const formatINR = (num: number) => '₹' + Number(num).toLocaleString('en-IN');
-  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  const fmt = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN');
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
   const badge = (status: string) => {
     if (status === 'paid') return { background: '#dcfce7', color: '#16a34a' };
@@ -43,6 +45,7 @@ export default function CollectionsPage() {
   };
 
   const totalPending = emis.filter(e => e.status !== 'paid').reduce((s, e) => s + e.amount, 0);
+  const totalPenalty = emis.filter(e => e.status === 'overdue').reduce((s, e) => s + (e.penalty || 0), 0);
   const paidCount = emis.filter(e => e.status === 'paid').length;
   const overdueCount = emis.filter(e => e.status === 'overdue').length;
   const pendingCount = emis.filter(e => e.status === 'pending').length;
@@ -74,15 +77,15 @@ export default function CollectionsPage() {
       <div style={{ marginLeft: '240px', flex: 1, padding: '24px' }}>
         <div style={{ marginBottom: '24px' }}>
           <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Collections</h2>
-          <p style={{ color: '#6b7280', margin: 0 }}>Track who paid and who is overdue</p>
+          <p style={{ color: '#6b7280', margin: 0 }}>Track EMIs, penalties and collections</p>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
           {[
-            { label: 'Total Pending Amount', value: formatINR(totalPending), color: '#111827' },
+            { label: 'Total EMI Pending', value: fmt(totalPending), color: '#111827' },
+            { label: 'Total Penalty Due', value: fmt(totalPenalty), color: '#dc2626' },
             { label: 'Overdue EMIs', value: overdueCount, color: '#dc2626' },
             { label: 'Collected EMIs', value: paidCount, color: '#16a34a' },
-            { label: 'Pending EMIs', value: pendingCount, color: '#d97706' },
           ].map(s => (
             <div key={s.label} style={{ background: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
               <p style={{ color: '#6b7280', fontSize: '13px', margin: '0 0 8px' }}>{s.label}</p>
@@ -94,28 +97,21 @@ export default function CollectionsPage() {
         <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <h3 style={{ fontWeight: '600', margin: 0 }}>
-                {search ? `"${search}"` : 'All EMI Collections'} ({filtered.length})
-              </h3>
+              <h3 style={{ fontWeight: '600', margin: 0 }}>EMI Collections ({filtered.length})</h3>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="🔍 Search by customer or loan ID..."
-                  style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', width: '280px' }}
-                />
-                <button
-                  onClick={() => setSortOrder(s => s === 'asc' ? 'desc' : 'asc')}
-                  style={{ padding: '8px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', background: 'white', whiteSpace: 'nowrap' }}
-                >
-                  📅 {sortOrder === 'asc' ? 'Oldest First ↑' : 'Newest First ↓'}
+                <input value={search} onChange={e => setSearch(e.target.value)}
+                  placeholder="🔍 Search customer or loan ID..."
+                  style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px', width: '260px' }} />
+                <button onClick={() => setSortOrder(s => s === 'asc' ? 'desc' : 'asc')}
+                  style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', background: 'white' }}>
+                  📅 {sortOrder === 'asc' ? 'Oldest ↑' : 'Newest ↓'}
                 </button>
               </div>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               {tabs.map(tab => (
                 <button key={tab.value} onClick={() => setStatusFilter(tab.value)}
-                  style={{ padding: '6px 16px', borderRadius: '20px', border: 'none', fontSize: '13px', cursor: 'pointer', fontWeight: statusFilter === tab.value ? '600' : '400', background: statusFilter === tab.value ? '#1e40af' : '#f3f4f6', color: statusFilter === tab.value ? 'white' : '#374151' }}>
+                  style={{ padding: '5px 14px', borderRadius: '20px', border: 'none', fontSize: '13px', cursor: 'pointer', fontWeight: statusFilter === tab.value ? '600' : '400', background: statusFilter === tab.value ? '#1e40af' : '#f3f4f6', color: statusFilter === tab.value ? 'white' : '#374151' }}>
                   {tab.label} ({tab.count})
                 </button>
               ))}
@@ -125,33 +121,54 @@ export default function CollectionsPage() {
           {loading ? (
             <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
           ) : filtered.length === 0 ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
-              {search ? `No results found for "${search}"` : 'No records found'}
-            </div>
+            <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>No records found</div>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                  {['Customer', 'Loan', 'Due Date', 'Amount', 'Status', 'Action'].map(h => (
-                    <th key={h} style={{ textAlign: 'left', padding: '12px 20px', fontSize: '13px', color: '#6b7280', fontWeight: '500' }}>{h}</th>
+                  {['Customer', 'Loan', 'Due Date', 'EMI Amount', 'Penalty', 'Total Due', 'Status', 'Action'].map(h => (
+                    <th key={h} style={{ textAlign: 'left', padding: '12px 16px', fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((e: any) => (
                   <tr key={e.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={{ padding: '14px 20px', fontSize: '14px', fontWeight: '500' }}>{e.customerName}</td>
-                    <td style={{ padding: '14px 20px', fontSize: '14px', color: '#1e40af' }}>LN{1000 + e.loanId}</td>
-                    <td style={{ padding: '14px 20px', fontSize: '14px' }}>{formatDate(e.dueDate)}</td>
-                    <td style={{ padding: '14px 20px', fontSize: '14px', fontWeight: '500' }}>{formatINR(e.amount)}</td>
-                    <td style={{ padding: '14px 20px' }}>
-                      <span style={{ ...badge(e.status), padding: '2px 10px', borderRadius: '20px', fontSize: '12px' }}>{e.status}</span>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '500' }}>{e.customerName}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', color: '#1e40af' }}>LN{1000 + e.loanId}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px' }}>{fmtDate(e.dueDate)}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '600' }}>{fmt(e.amount)}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', color: e.penalty > 0 ? '#dc2626' : '#9ca3af', fontWeight: e.penalty > 0 ? '600' : '400' }}>
+                      {e.penalty > 0 ? fmt(e.penalty) : '—'}
+                      {e.daysOverdue > 0 && <span style={{ display: 'block', fontSize: '11px', color: '#dc2626' }}>{e.daysOverdue} days late</span>}
                     </td>
-                    <td style={{ padding: '14px 20px' }}>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: e.penalty > 0 ? '#dc2626' : '#111827' }}>
+                      {fmt(e.totalDue)}
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span style={{ ...badge(e.status), padding: '2px 10px', borderRadius: '20px', fontSize: '11px' }}>{e.status}</span>
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
                       {e.status !== 'paid' && (
-                        <button onClick={() => markPaid(e.id)} style={{ background: '#1e40af', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>
-                          Collect
-                        </button>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {e.penalty > 0 ? (
+                            <>
+                              <button onClick={() => markPaid(e.id, true)}
+                                style={{ background: '#dc2626', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                Collect + Penalty
+                              </button>
+                              <button onClick={() => markPaid(e.id, false)}
+                                style={{ background: '#1e40af', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}>
+                                EMI Only
+                              </button>
+                            </>
+                          ) : (
+                            <button onClick={() => markPaid(e.id, false)}
+                              style={{ background: '#1e40af', color: 'white', border: 'none', padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>
+                              Collect
+                            </button>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>

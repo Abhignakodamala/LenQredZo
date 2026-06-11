@@ -11,7 +11,9 @@ export default function LoansPage() {
   const [form, setForm] = useState({
     customerId: '', type: 'Personal Loan', amount: '',
     interestRate: '', interestType: 'percentage',
-    frequency: 'monthly', tenure: '', deductUpfront: false
+    frequency: 'monthly', tenure: '', deductUpfront: false,
+    hasProcessingFee: false, processingFee: '', processingFeeType: 'percentage',
+    penaltyType: 'none', penaltyValue: ''
   });
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
@@ -20,73 +22,110 @@ export default function LoansPage() {
 
   const fetchLoans = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/loans', { headers: { Authorization: `Bearer ${token}` } });
-      setLoans(await res.json());
+      const res = await fetch('http://localhost:5000/api/loans', { headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` } });
+      const data = await res.json();
+      setLoans(Array.isArray(data) ? data : []);
     } catch (err) { console.error(err); }
     setLoading(false);
   };
 
   const fetchCustomers = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/customers', { headers: { Authorization: `Bearer ${token}` } });
-      setCustomers(await res.json());
-    } catch (err) { console.error(err); }
+      const res = await fetch('http://localhost:5000/api/customers', { headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` } });
+      const data = await res.json();
+      setCustomers(Array.isArray(data) ? data : []);
+      } catch (err) { console.error(err); }
   };
 
-  const calculateNetDisbursed = () => {
+  const getPeriodsPerYear = () => form.frequency === 'daily' ? 365 : form.frequency === 'weekly' ? 52 : 12;
+
+  const calcTotalInterest = () => {
+    const p = Number(form.amount), r = Number(form.interestRate), t = Number(form.tenure);
+    if (!p || !r || !t) return 0;
+    const py = getPeriodsPerYear();
+    if (form.interestType === 'flat') return Math.round(p * (r / 100) * (t / py));
+    const pr = r / py / 100;
+    const emi = pr === 0 ? p / t : (p * pr * Math.pow(1 + pr, t)) / (Math.pow(1 + pr, t) - 1);
+    return Math.round(emi * t - p);
+  };
+
+  const calcProcessingFee = () => {
+    if (!form.hasProcessingFee || !form.processingFee || !form.amount) return 0;
+    return form.processingFeeType === 'percentage'
+      ? Math.round(Number(form.amount) * Number(form.processingFee) / 100)
+      : Math.round(Number(form.processingFee));
+  };
+
+  const calcDisbursed = () => {
     const p = Number(form.amount);
-    const r = Number(form.interestRate);
-    const t = Number(form.tenure);
-    if (!p || !r || !t) return null;
-    if (form.interestType === 'flat') return Math.round(p - r);
-    const periodsPerYear = form.frequency === 'daily' ? 365 : form.frequency === 'weekly' ? 52 : 12;
-    const totalInterest = p * (r / 100) * (t / periodsPerYear);
-    return Math.round(p - totalInterest);
+    const pf = calcProcessingFee();
+    if (form.deductUpfront) return p - calcTotalInterest() - pf;
+    return p - pf;
+  };
+
+  const calcEMI = () => {
+    const p = Number(form.amount), r = Number(form.interestRate), t = Number(form.tenure);
+    if (!p || !r || !t) return 0;
+    const py = getPeriodsPerYear();
+    if (form.interestType === 'flat') {
+      const totalInterest = p * (r / 100) * (t / py);
+      return form.deductUpfront ? Math.round(p / t) : Math.round((p + totalInterest) / t);
+    }
+    const pr = r / py / 100;
+    if (form.deductUpfront) return Math.round(p / t);
+    return pr === 0 ? Math.round(p / t) : Math.round((p * pr * Math.pow(1 + pr, t)) / (Math.pow(1 + pr, t) - 1));
   };
 
   const addLoan = async () => {
-    if (!form.customerId) { alert('Please select a customer'); return; }
-    if (!form.amount || Number(form.amount) < 1000) { alert('Loan amount must be at least ₹1,000'); return; }
-    if (!form.interestRate || Number(form.interestRate) <= 0) { alert('Please enter the interest value'); return; }
-    if (!form.tenure || Number(form.tenure) < 1) { alert('Please enter the number of installments'); return; }
+    if (!form.customerId) { alert('Select a customer'); return; }
+    if (!form.amount || Number(form.amount) < 1000) { alert('Minimum loan ₹1,000'); return; }
+    if (!form.interestRate) { alert('Enter interest rate'); return; }
+    if (!form.tenure) { alert('Enter tenure'); return; }
     try {
       const res = await fetch('http://localhost:5000/api/loans', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
         body: JSON.stringify({
           customerId: Number(form.customerId), type: form.type,
           amount: Number(form.amount), interestRate: Number(form.interestRate),
           interestType: form.interestType, frequency: form.frequency,
-          tenure: Number(form.tenure), deductUpfront: form.deductUpfront
+          tenure: Number(form.tenure), deductUpfront: form.deductUpfront,
+          processingFee: form.hasProcessingFee ? Number(form.processingFee) : 0,
+          processingFeeType: form.processingFeeType,
+          penaltyType: form.penaltyType,
+          penaltyValue: Number(form.penaltyValue) || 0
         })
       });
       if (res.ok) {
         setShowForm(false);
-        setForm({ customerId: '', type: 'Personal Loan', amount: '', interestRate: '', interestType: 'percentage', frequency: 'monthly', tenure: '', deductUpfront: false });
+        setForm({
+          customerId: '', type: 'Personal Loan', amount: '',
+          interestRate: '', interestType: 'percentage',
+          frequency: 'monthly', tenure: '', deductUpfront: false,
+          hasProcessingFee: false, processingFee: '', processingFeeType: 'percentage',
+          penaltyType: 'none', penaltyValue: ''
+        });
         fetchLoans();
       }
     } catch (err) { console.error(err); }
   };
 
-  const formatINR = (num: number) => '₹' + num.toLocaleString('en-IN');
+  const fmt = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN');
+  const inp = { width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' as any };
+  const lbl = { display: 'block' as any, fontSize: '13px', fontWeight: '500' as any, marginBottom: '4px', color: '#374151' };
 
-  const highlight = (text: any) => {
-    const t = String(text ?? '');
-    if (!search.trim()) return t;
-    const i = t.toLowerCase().indexOf(search.toLowerCase());
-    if (i === -1) return t;
-    return (<span>{t.slice(0, i)}<mark style={{ background: '#fde047', padding: '0 2px', borderRadius: '2px' }}>{t.slice(i, i + search.length)}</mark>{t.slice(i + search.length)}</span>);
-  };
+  const p = Number(form.amount);
+  const emi = calcEMI();
+  const pf = calcProcessingFee();
+  const disbursed = calcDisbursed();
+  const showPreview = p > 0 && Number(form.interestRate) > 0 && Number(form.tenure) > 0;
 
   const filteredLoans = loans.filter((l: any) => {
     const q = search.toLowerCase();
     return (l.customer?.name || '').toLowerCase().includes(q) ||
       (l.type || '').toLowerCase().includes(q) ||
-      ('ln' + (1000 + l.id)).includes(q) ||
-      (l.status || '').toLowerCase().includes(q);
+      ('ln' + (1000 + l.id)).includes(q);
   });
-
-  const netDisbursed = calculateNetDisbursed();
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
@@ -97,87 +136,166 @@ export default function LoansPage() {
             <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Loans</h2>
             <p style={{ color: '#6b7280', margin: 0 }}>Manage all loans and EMI schedules</p>
           </div>
-          <button onClick={() => setShowForm(!showForm)} style={{ background: '#1e40af', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>+ New Loan</button>
+          <button onClick={() => setShowForm(!showForm)} style={{ background: '#1e40af', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
+            + New Loan
+          </button>
         </div>
 
         {showForm && (
           <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e5e7eb', marginBottom: '24px' }}>
-            <h3 style={{ fontWeight: '600', marginBottom: '16px' }}>Create New Loan</h3>
+            <h3 style={{ fontWeight: '700', marginBottom: '20px', fontSize: '16px' }}>Create New Loan</h3>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              {/* Customer */}
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '4px' }}>Customer</label>
-                <select value={form.customerId} onChange={e => setForm({ ...form, customerId: e.target.value })} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }}>
+                <label style={lbl}>Customer</label>
+                <select value={form.customerId} onChange={e => setForm({ ...form, customerId: e.target.value })} style={inp}>
                   <option value="">Select customer</option>
                   {customers.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
+
+              {/* Loan Type */}
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '4px' }}>Loan Type</label>
-                <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }}>
+                <label style={lbl}>Loan Type</label>
+                <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} style={inp}>
                   <option>Personal Loan</option>
                   <option>Business Loan</option>
                   <option>Gold Loan</option>
                   <option>Vehicle Loan</option>
+                  <option>Microfinance Loan</option>
+                  <option>Agricultural Loan</option>
                 </select>
               </div>
+
+              {/* Amount */}
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '4px' }}>Loan Amount (₹)</label>
-                <input type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }} />
+                <label style={lbl}>Loan Amount (₹)</label>
+                <input type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="100000" style={inp} />
               </div>
+
+              {/* Interest Type */}
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '4px' }}>Interest Type</label>
-                <select value={form.interestType} onChange={e => setForm({ ...form, interestType: e.target.value })} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }}>
-                  <option value="percentage">Percentage (% per year)</option>
-                  <option value="flat">Flat Amount (₹ total interest)</option>
+                <label style={lbl}>Interest Type</label>
+                <select value={form.interestType} onChange={e => setForm({ ...form, interestType: e.target.value })} style={inp}>
+                  <option value="percentage">Reducing Balance (Bank Style)</option>
+                  <option value="flat">Flat Rate (Simple Interest)</option>
                 </select>
               </div>
+
+              {/* Interest Rate */}
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '4px' }}>{form.interestType === 'flat' ? 'Total Interest Amount (₹)' : 'Interest Rate (% per year)'}</label>
-                <input type="number" value={form.interestRate} onChange={e => setForm({ ...form, interestRate: e.target.value })} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }} />
+                <label style={lbl}>Interest Rate (% per year)</label>
+                <input type="number" value={form.interestRate} onChange={e => setForm({ ...form, interestRate: e.target.value })} placeholder="12" style={inp} />
               </div>
+
+              {/* Frequency */}
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '4px' }}>Repayment Frequency</label>
-                <select value={form.frequency} onChange={e => setForm({ ...form, frequency: e.target.value })} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }}>
+                <label style={lbl}>Repayment Frequency</label>
+                <select value={form.frequency} onChange={e => setForm({ ...form, frequency: e.target.value })} style={inp}>
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
                   <option value="monthly">Monthly</option>
                 </select>
               </div>
+
+              {/* Tenure */}
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '4px' }}>
-                  Number of Installments {form.frequency === 'daily' ? '(days)' : form.frequency === 'weekly' ? '(weeks)' : '(months)'}
+                <label style={lbl}>
+                  Number of Installments ({form.frequency === 'daily' ? 'days' : form.frequency === 'weekly' ? 'weeks' : 'months'})
                 </label>
-                <input type="number" value={form.tenure} onChange={e => setForm({ ...form, tenure: e.target.value })} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }} />
+                <input type="number" value={form.tenure} onChange={e => setForm({ ...form, tenure: e.target.value })} placeholder="12" style={inp} />
               </div>
 
-              {/* Upfront deduction toggle */}
+              {/* Penalty */}
+              <div>
+                <label style={lbl}>Penalty for Late Payment</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select value={form.penaltyType} onChange={e => setForm({ ...form, penaltyType: e.target.value, penaltyValue: '' })} style={{ ...inp, flex: 1 }}>
+                    <option value="none">No Penalty</option>
+                    <option value="fixed">Fixed Amount per EMI (₹)</option>
+                    <option value="percentage">% of EMI Amount</option>
+                    <option value="daily">Per Day (₹)</option>
+                  </select>
+                  {form.penaltyType !== 'none' && (
+                    <input type="number" value={form.penaltyValue} onChange={e => setForm({ ...form, penaltyValue: e.target.value })}
+                      placeholder={form.penaltyType === 'percentage' ? '2' : '50'}
+                      style={{ ...inp, width: '100px' }} />
+                  )}
+                </div>
+              </div>
+
+              {/* Deduct Upfront */}
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '12px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                   <input type="checkbox" checked={form.deductUpfront} onChange={e => setForm({ ...form, deductUpfront: e.target.checked })} style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
                   <div>
                     <p style={{ margin: 0, fontSize: '14px', fontWeight: '600' }}>Deduct Interest Upfront</p>
-                    <p style={{ margin: 0, fontSize: '12px', color: '#6b7280' }}>Interest is deducted first — customer receives less but pays full installments</p>
+                    <p style={{ margin: 0, fontSize: '12px', color: '#6b7280' }}>Interest deducted first — customer receives less, repays full principal</p>
                   </div>
                 </label>
-                {form.deductUpfront && netDisbursed !== null && (
-                  <div style={{ marginTop: '8px', padding: '12px', background: '#eff6ff', borderRadius: '8px', fontSize: '13px', color: '#1e40af', border: '1px solid #bfdbfe' }}>
-                    💡 Customer will receive: <strong>₹{netDisbursed.toLocaleString('en-IN')}</strong> (loan ₹{Number(form.amount).toLocaleString('en-IN')} minus interest)
+              </div>
+
+              {/* Processing Fee */}
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', marginBottom: '8px' }}>
+                  <input type="checkbox" checked={form.hasProcessingFee} onChange={e => setForm({ ...form, hasProcessingFee: e.target.checked, processingFee: '' })} style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
+                  <span style={{ fontSize: '14px', fontWeight: '600' }}>Add Processing Fee</span>
+                </label>
+                {form.hasProcessingFee && (
+                  <div style={{ display: 'flex', gap: '8px', paddingLeft: '26px' }}>
+                    <select value={form.processingFeeType} onChange={e => setForm({ ...form, processingFeeType: e.target.value })} style={{ ...inp, width: '200px' }}>
+                      <option value="percentage">Percentage (%) of loan</option>
+                      <option value="flat">Flat Amount (₹)</option>
+                    </select>
+                    <input type="number" value={form.processingFee} onChange={e => setForm({ ...form, processingFee: e.target.value })}
+                      placeholder={form.processingFeeType === 'percentage' ? '2 (means 2%)' : 'Amount in ₹'}
+                      style={{ ...inp, flex: 1 }} />
                   </div>
                 )}
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-              <button onClick={addLoan} style={{ background: '#1e40af', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '8px', fontSize: '14px', cursor: 'pointer' }}>Create Loan</button>
-              <button onClick={() => setShowForm(false)} style={{ background: 'white', color: '#374151', border: '1px solid #d1d5db', padding: '8px 20px', borderRadius: '8px', fontSize: '14px', cursor: 'pointer' }}>Cancel</button>
+            {/* Live Preview */}
+            {showPreview && (
+              <div style={{ marginTop: '20px', padding: '16px', background: '#f0f9ff', borderRadius: '10px', border: '1px solid #bae6fd' }}>
+                <p style={{ fontWeight: '700', margin: '0 0 12px', fontSize: '14px', color: '#0369a1' }}>📋 Loan Summary Preview</p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+                  {[
+                    { label: 'Loan Amount', value: fmt(p) },
+                    { label: 'Processing Fee', value: pf > 0 ? `− ${fmt(pf)}` : 'None', color: pf > 0 ? '#dc2626' : '#16a34a' },
+                    { label: 'Interest Deducted', value: form.deductUpfront ? `− ${fmt(calcTotalInterest())}` : 'On EMI', color: form.deductUpfront ? '#dc2626' : '#6b7280' },
+                    { label: 'Customer Receives', value: fmt(Math.max(0, disbursed)), color: '#16a34a', bold: true },
+                    { label: 'EMI Amount', value: fmt(emi), bold: true },
+                    { label: 'Total Repayable', value: fmt(emi * Number(form.tenure)) },
+                    { label: 'Total Interest', value: fmt(calcTotalInterest()) },
+                    { label: 'Late Penalty', value: form.penaltyType === 'none' ? 'None' : form.penaltyType === 'fixed' ? `₹${form.penaltyValue} per EMI` : form.penaltyType === 'percentage' ? `${form.penaltyValue}% of EMI` : `₹${form.penaltyValue}/day` },
+                  ].map(item => (
+                    <div key={item.label} style={{ background: 'white', padding: '10px 12px', borderRadius: '8px' }}>
+                      <p style={{ color: '#6b7280', fontSize: '11px', margin: '0 0 4px' }}>{item.label}</p>
+                      <p style={{ margin: 0, fontSize: '14px', fontWeight: (item as any).bold ? '700' : '600', color: (item as any).color || '#111827' }}>{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: '20px' }}>
+              <button onClick={addLoan} style={{ background: '#1e40af', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
+                Create Loan
+              </button>
+              <button onClick={() => setShowForm(false)} style={{ background: 'white', color: '#374151', border: '1px solid #d1d5db', padding: '10px 24px', borderRadius: '8px', fontSize: '14px', cursor: 'pointer' }}>
+                Cancel
+              </button>
             </div>
           </div>
         )}
 
+        {/* Loans Table */}
         <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3 style={{ fontWeight: '600', margin: 0 }}>All Loans ({filteredLoans.length})</h3>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search by name, type, ID, status..." style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', width: '320px' }} />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search by name, type, ID..." style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', width: '280px' }} />
           </div>
           {loading ? (
             <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
@@ -185,30 +303,35 @@ export default function LoansPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                  <th style={{ textAlign: 'left', padding: '12px 20px', fontSize: '13px', color: '#6b7280', fontWeight: '500' }}>Loan ID</th>
-                  <th style={{ textAlign: 'left', padding: '12px 20px', fontSize: '13px', color: '#6b7280', fontWeight: '500' }}>Customer</th>
-                  <th style={{ textAlign: 'left', padding: '12px 20px', fontSize: '13px', color: '#6b7280', fontWeight: '500' }}>Type</th>
-                  <th style={{ textAlign: 'left', padding: '12px 20px', fontSize: '13px', color: '#6b7280', fontWeight: '500' }}>Amount</th>
-                  <th style={{ textAlign: 'left', padding: '12px 20px', fontSize: '13px', color: '#6b7280', fontWeight: '500' }}>Frequency</th>
-                  <th style={{ textAlign: 'left', padding: '12px 20px', fontSize: '13px', color: '#6b7280', fontWeight: '500' }}>Tenure</th>
-                  <th style={{ textAlign: 'left', padding: '12px 20px', fontSize: '13px', color: '#6b7280', fontWeight: '500' }}>Status</th>
+                  {['Loan ID', 'Customer', 'Type', 'Amount', 'Disbursed', 'Frequency', 'Tenure', 'Status'].map(h => (
+                    <th key={h} style={{ textAlign: 'left', padding: '12px 16px', fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {filteredLoans.map((l: any) => (
-                  <tr key={l.id} onClick={() => window.location.href = `/dashboard/loans/${l.id}`} style={{ borderBottom: '1px solid #f3f4f6', cursor: 'pointer' }}>
-                    <td style={{ padding: '14px 20px', fontSize: '14px', color: '#1e40af' }}>{highlight('LN' + (1000 + l.id))}</td>
-                    <td style={{ padding: '14px 20px', fontSize: '14px', fontWeight: '500' }}>{highlight(l.customer?.name)}</td>
-                    <td style={{ padding: '14px 20px', fontSize: '14px' }}>{highlight(l.type)}</td>
-                    <td style={{ padding: '14px 20px', fontSize: '14px', fontWeight: '500' }}>
-                      {formatINR(l.amount)}
-                      {l.deductUpfront && l.disbursedAmount && (
-                        <span style={{ display: 'block', fontSize: '11px', color: '#6b7280' }}>Disbursed: {formatINR(l.disbursedAmount)}</span>
-                      )}
+                  <tr key={l.id} onClick={() => window.location.href = `/dashboard/loans/${l.id}`}
+                    style={{ borderBottom: '1px solid #f3f4f6', cursor: 'pointer' }}>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', color: '#1e40af', fontWeight: '600' }}>LN{1000 + l.id}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '500' }}>{l.customer?.name}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px' }}>{l.type}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '500' }}>{fmt(l.amount)}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', color: l.disbursedAmount < l.amount ? '#dc2626' : '#16a34a' }}>
+                      {fmt(l.disbursedAmount ?? l.amount)}
+                      {l.disbursedAmount < l.amount && <span style={{ fontSize: '10px', display: 'block', color: '#6b7280' }}>after deductions</span>}
                     </td>
-                    <td style={{ padding: '14px 20px', fontSize: '14px', textTransform: 'capitalize' }}>{l.frequency || 'monthly'}</td>
-                    <td style={{ padding: '14px 20px', fontSize: '14px' }}>{l.tenure} {l.frequency === 'daily' ? 'days' : l.frequency === 'weekly' ? 'wks' : 'mo'}</td>
-                    <td style={{ padding: '14px 20px' }}><span style={{ background: '#dcfce7', color: '#16a34a', padding: '2px 10px', borderRadius: '20px', fontSize: '12px' }}>{highlight(l.status)}</span></td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', textTransform: 'capitalize' }}>{l.frequency || 'monthly'}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px' }}>{l.tenure} {l.frequency === 'daily' ? 'days' : l.frequency === 'weekly' ? 'wks' : 'mo'}</td>
+                    <td style={{ padding: '12px 16px' }}>
+    
+                      <span style={{
+  background: l.status === 'completed' ? '#eff6ff' : l.status === 'active' ? '#dcfce7' : '#f3f4f6',
+  color: l.status === 'completed' ? '#1e40af' : l.status === 'active' ? '#16a34a' : '#6b7280',
+  padding: '2px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600'
+}}>
+  {l.status === 'completed' ? '✅ Completed' : l.status}
+</span>
+                    </td>
                   </tr>
                 ))}
               </tbody>

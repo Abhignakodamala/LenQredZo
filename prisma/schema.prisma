@@ -79,8 +79,12 @@ model Loan {
   frequency    String   @default("monthly")
   tenure          Int
   disbursedAmount Float?
-  deductUpfront   Boolean  @default(false)
-  status          String   @default("pending")
+  deductUpfront      Boolean  @default(false)
+  processingFee      Float    @default(0)
+  processingFeeType  String   @default("percentage")
+  penaltyType        String   @default("none")
+  penaltyValue       Float    @default(0)
+  status             String   @default("pending")
   disbursedAt  DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -94,8 +98,10 @@ model EMI {
   loan      Loan     @relation(fields: [loanId], references: [id])
   amount    Float
   dueDate   DateTime
-  status    String   @default("pending")
-  createdAt DateTime @default(now())
+  status      String   @default("pending")
+  penalty     Float    @default(0)
+  penaltyPaid Boolean  @default(false)
+  createdAt   DateTime @default(now())
 }
 
 model Payment {

@@ -14,10 +14,11 @@ const calculateInstallment = (
   interestType: string, frequency: string, deductUpfront: boolean
 ): { emiAmount: number; disbursedAmount: number } => {
   let emiAmount: number;
-  let disbursedAmount: number = principal;
+  let disbursedAmount = principal;
+  const periodsPerYear = getPeriodsPerYear(frequency);
 
   if (interestType === 'flat') {
-    const totalInterest = rate;
+    const totalInterest = principal * (rate / 100) * (tenure / periodsPerYear);
     if (deductUpfront) {
       disbursedAmount = principal - totalInterest;
       emiAmount = principal / tenure;
@@ -25,19 +26,15 @@ const calculateInstallment = (
       emiAmount = (principal + totalInterest) / tenure;
     }
   } else {
-    const periodsPerYear = getPeriodsPerYear(frequency);
     const periodRate = rate / periodsPerYear / 100;
     if (deductUpfront) {
       const totalInterest = principal * (rate / 100) * (tenure / periodsPerYear);
       disbursedAmount = principal - totalInterest;
       emiAmount = principal / tenure;
     } else {
-      if (periodRate === 0) {
-        emiAmount = principal / tenure;
-      } else {
-        emiAmount = (principal * periodRate * Math.pow(1 + periodRate, tenure)) /
-                    (Math.pow(1 + periodRate, tenure) - 1);
-      }
+      emiAmount = periodRate === 0
+        ? principal / tenure
+        : (principal * periodRate * Math.pow(1 + periodRate, tenure)) / (Math.pow(1 + periodRate, tenure) - 1);
     }
   }
 
@@ -52,36 +49,59 @@ const getNextDueDate = (startDate: Date, index: number, frequency: string): Date
   return date;
 };
 
+const calculatePenalty = (emi: any, loan: any, today: Date): number => {
+  if (emi.status === 'paid' || new Date(emi.dueDate) >= today) return 0;
+  const daysOverdue = Math.floor((today.getTime() - new Date(emi.dueDate).getTime()) / 86400000);
+  if (loan.penaltyType === 'fixed') return loan.penaltyValue;
+  if (loan.penaltyType === 'percentage') return Math.round(emi.amount * loan.penaltyValue / 100);
+  if (loan.penaltyType === 'daily') return Math.round(daysOverdue * loan.penaltyValue);
+  return 0;
+};
+
 export const createLoan = async (req: any, res: Response) => {
   try {
     const companyId = req.user.companyId;
     const {
       customerId, type, amount, interestRate,
       interestType = 'percentage', frequency = 'monthly',
-      tenure, deductUpfront = false
+      tenure, deductUpfront = false,
+      processingFee = 0, processingFeeType = 'percentage',
+      penaltyType = 'none', penaltyValue = 0
     } = req.body;
 
-    const { emiAmount, disbursedAmount } = calculateInstallment(
+    const { emiAmount, disbursedAmount: baseDisburse } = calculateInstallment(
       amount, interestRate, tenure, interestType, frequency, deductUpfront
     );
 
+    // Calculate processing fee deduction
+    const processingFeeAmount = processingFeeType === 'percentage'
+      ? Math.round(amount * processingFee / 100)
+      : Math.round(processingFee);
+
+    const finalDisbursed = baseDisburse - processingFeeAmount;
+
     const loan = await prisma.loan.create({
       data: {
-        customerId, type, amount, disbursedAmount,
+        customerId, type, amount, disbursedAmount: finalDisbursed,
         interestRate, interestType, frequency,
-        deductUpfront, tenure, status: 'active', companyId
+        deductUpfront, tenure, status: 'active', companyId,
+        processingFee: processingFeeAmount,
+        processingFeeType, penaltyType, penaltyValue
       }
     });
 
     const startDate = new Date();
     const emis = [];
     for (let i = 1; i <= tenure; i++) {
-      const dueDate = getNextDueDate(startDate, i, frequency);
-      emis.push({ loanId: loan.id, amount: emiAmount, dueDate, status: 'pending' });
+      emis.push({
+        loanId: loan.id, amount: emiAmount,
+        dueDate: getNextDueDate(startDate, i, frequency),
+        status: 'pending'
+      });
     }
-
     await prisma.eMI.createMany({ data: emis });
-    res.status(201).json({ message: 'Loan created successfully', loan, emiAmount, disbursedAmount });
+
+    res.status(201).json({ message: 'Loan created successfully', loan, emiAmount, disbursedAmount: finalDisbursed, processingFeeAmount });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }
@@ -104,7 +124,7 @@ export const getLoanById = async (req: any, res: Response) => {
   try {
     const loan = await prisma.loan.findUnique({
       where: { id: Number(req.params.id) },
-      include: { customer: true, emis: true, payments: true }
+      include: { customer: true, emis: { orderBy: { dueDate: 'asc' } }, payments: true }
     });
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
     res.json(loan);
@@ -128,14 +148,44 @@ export const updateLoanStatus = async (req: any, res: Response) => {
 export const markEmiPaid = async (req: any, res: Response) => {
   try {
     const emiId = Number(req.params.emiId);
-    const emi = await prisma.eMI.update({
+    const { collectPenalty = false } = req.body;
+
+    const emi = await prisma.eMI.findUnique({
       where: { id: emiId },
-      data: { status: 'paid' }
+      include: { loan: true }
     });
+    if (!emi) return res.status(404).json({ message: 'EMI not found' });
+
+    const today = new Date();
+    const penaltyAmount = collectPenalty ? calculatePenalty(emi, emi.loan, today) : 0;
+    const totalAmount = emi.amount + penaltyAmount;
+
+    await prisma.eMI.update({
+      where: { id: emiId },
+      data: { status: 'paid', penalty: penaltyAmount, penaltyPaid: collectPenalty }
+    });
+
     await prisma.payment.create({
-      data: { loanId: emi.loanId, amount: emi.amount, method: 'cash', status: 'completed', paidAt: new Date() }
+      data: {
+        loanId: emi.loanId, amount: totalAmount,
+        method: req.body.method || 'cash',
+        status: 'completed', paidAt: new Date()
+      }
     });
-    res.json({ message: 'EMI marked as paid', emi });
+
+    // Auto-complete loan if all EMIs are paid
+    const remainingEmis = await prisma.eMI.count({
+      where: { loanId: emi.loanId, status: { not: 'paid' } }
+    });
+
+    if (remainingEmis === 0) {
+      await prisma.loan.update({
+        where: { id: emi.loanId },
+        data: { status: 'completed' }
+      });
+    }
+
+    res.json({ message: 'EMI marked as paid', emiAmount: emi.amount, penaltyAmount, totalAmount, loanCompleted: remainingEmis === 0 });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }
@@ -152,15 +202,25 @@ export const getCollections = async (req: any, res: Response) => {
 
     const today = new Date();
     const result = emis.map(emi => {
-      let display = emi.status;
-      if (emi.status !== 'paid' && new Date(emi.dueDate) < today) display = 'overdue';
+      const isOverdue = emi.status !== 'paid' && new Date(emi.dueDate) < today;
+      const status = emi.status === 'paid' ? 'paid' : isOverdue ? 'overdue' : 'pending';
+      const daysOverdue = isOverdue
+        ? Math.floor((today.getTime() - new Date(emi.dueDate).getTime()) / 86400000)
+        : 0;
+      const penalty = calculatePenalty(emi, emi.loan, today);
+
       return {
         id: emi.id,
         customerName: emi.loan.customer?.name,
         loanId: emi.loan.id,
         dueDate: emi.dueDate,
         amount: emi.amount,
-        status: display
+        penalty,
+        totalDue: emi.amount + penalty,
+        daysOverdue,
+        status,
+        penaltyType: emi.loan.penaltyType,
+        penaltyPaid: emi.penaltyPaid
       };
     });
 

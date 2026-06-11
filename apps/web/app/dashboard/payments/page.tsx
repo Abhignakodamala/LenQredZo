@@ -5,17 +5,17 @@ import Sidebar from '@/components/Sidebar';
 export default function PaymentsPage() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   useEffect(() => { fetchPayments(); }, []);
 
   const fetchPayments = async () => {
+    setLoading(true);
     try {
       const res = await fetch('http://localhost:5000/api/loans/payments/all', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
       });
       const data = await res.json();
-      setPayments(data);
+      setPayments(Array.isArray(data) ? data : []) ;
     } catch (err) { console.error(err); }
     setLoading(false);
   };

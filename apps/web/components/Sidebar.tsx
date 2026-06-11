@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 
+type User = { name?: string; role?: string };
+
 const menuItems = [
   { name: 'Dashboard', icon: '📊', href: '/dashboard' },
   { name: 'Customers', icon: '👥', href: '/dashboard/customers' },
@@ -16,11 +18,17 @@ const menuItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem('user');
-    if (stored) setUser(JSON.parse(stored));
+    if (stored) {
+      try {
+        setUser(JSON.parse(stored));
+      } catch {
+        setUser(null);
+      }
+    }
   }, []);
 
   return (

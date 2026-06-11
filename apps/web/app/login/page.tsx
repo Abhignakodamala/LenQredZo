@@ -24,7 +24,7 @@ export default function LoginPage() {
       } else {
         setError(data.message || 'Login failed');
       }
-    } catch (err) {
+    } catch {
       setError('Server not reachable. Make sure backend is running.');
     }
     setLoading(false);
