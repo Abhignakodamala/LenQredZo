@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { encrypt, decrypt, maskAadhaar, maskPan } from '../../utils/encryption';
+import { logAudit } from '../../utils/audit';
 
 const prisma = new PrismaClient();
 
@@ -98,7 +99,6 @@ export const createLoan = async (req: any, res: Response) => {
       amount, interestRate, tenure, interestType, frequency, deductUpfront
     );
 
-    // Calculate processing fee deduction
     const processingFeeAmount = processingFeeType === 'percentage'
       ? Math.round(amount * processingFee / 100)
       : Math.round(processingFee);
@@ -138,6 +138,11 @@ export const createLoan = async (req: any, res: Response) => {
         relationship: g.relationship || null,
         type: g.type || 'guarantor'
       }))
+    });
+
+    await logAudit({
+      req, action: 'CREATE_LOAN', entityType: 'Loan', entityId: loan.id,
+      details: `Created ${type} loan LN${1000 + loan.id} of ₹${amount} for customer #${customerId}`
     });
 
     res.status(201).json({ message: 'Loan created successfully', loan, emiAmount, disbursedAmount: finalDisbursed, processingFeeAmount });
@@ -188,6 +193,10 @@ export const updateLoanStatus = async (req: any, res: Response) => {
       where: { id: Number(req.params.id) },
       data: { status: req.body.status }
     });
+    await logAudit({
+      req, action: 'UPDATE_LOAN_STATUS', entityType: 'Loan', entityId: loan.id,
+      details: `Loan LN${1000 + loan.id} status changed to ${req.body.status}`
+    });
     res.json({ message: 'Loan status updated', loan });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
@@ -211,10 +220,7 @@ export const markEmiPaid = async (req: any, res: Response) => {
     const penaltyAmount = collectPenalty ? calculatePenalty(emi, emi.loan, today) : 0;
     const totalAmount = emi.amount + penaltyAmount;
 
-    // All money writes happen atomically — all succeed or all roll back.
     const result = await prisma.$transaction(async (tx) => {
-      // Re-check inside the transaction to prevent double collection
-      // (e.g. the Collect button clicked twice in quick succession).
       const fresh = await tx.eMI.findUnique({ where: { id: emiId } });
       if (!fresh || fresh.status === 'paid') {
         throw new Error('ALREADY_PAID');
@@ -246,6 +252,11 @@ export const markEmiPaid = async (req: any, res: Response) => {
       }
 
       return { loanCompleted };
+    });
+
+    await logAudit({
+      req, action: 'MARK_EMI_PAID', entityType: 'EMI', entityId: emiId,
+      details: `Collected ₹${totalAmount} (EMI ₹${emi.amount}${penaltyAmount ? ' + penalty ₹' + penaltyAmount : ''}) via ${method} on loan LN${1000 + emi.loanId}${result.loanCompleted ? ' — loan completed' : ''}`
     });
 
     res.json({

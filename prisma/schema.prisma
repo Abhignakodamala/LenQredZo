@@ -130,3 +130,18 @@ model Guarantor {
   type         String   @default("guarantor")
   createdAt    DateTime @default(now())
 }
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  companyId  Int
+  userId     Int?
+  userName   String?
+  action     String   // e.g. "MARK_EMI_PAID", "CREATE_CUSTOMER", "UPDATE_CUSTOMER"
+  entityType String   // e.g. "EMI", "Customer", "Loan", "Payment"
+  entityId   Int?
+  details    String?  // human-readable summary — never raw Aadhaar/PAN
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([companyId, createdAt])
+}

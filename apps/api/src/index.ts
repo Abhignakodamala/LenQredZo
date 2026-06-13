@@ -11,6 +11,7 @@ import dashboardRoutes from './modules/dashboard/dashboard.routes';
 import branchRoutes from './modules/branches/branches.routes';
 import settingsRoutes from './modules/settings/settings.routes';
 import exportRoutes from './modules/export/export.routes';
+import auditRoutes from './modules/audit/audit.routes';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -25,6 +26,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/branches', branchRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/export', exportRoutes);
+app.use('/api/audit', auditRoutes);
 app.get('/', (req, res) => {
   res.json({ message: 'FinSmart AI API is running!' });
 });

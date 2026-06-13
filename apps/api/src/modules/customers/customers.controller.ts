@@ -1,11 +1,10 @@
 import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { encrypt, decrypt, maskAadhaar, maskPan } from '../../utils/encryption';
+import { logAudit } from '../../utils/audit';
 
 const prisma = new PrismaClient();
 
-// Returns a customer object safe to send to the browser:
-// PII decrypted then masked, so full Aadhaar/PAN never leave the server.
 function toSafeCustomer(c: any) {
   return {
     ...c,
@@ -14,9 +13,6 @@ function toSafeCustomer(c: any) {
   };
 }
 
-// True if a value looks like a mask (came back from the UI unchanged).
-// Real Aadhaar is digits only and real PAN never contains 'XXX',
-// so this safely distinguishes a masked value from a newly typed one.
 function isMasked(v: string): boolean {
   return typeof v === 'string' && v.includes('XXX');
 }
@@ -58,6 +54,12 @@ export const createCustomer = async (req: any, res: Response) => {
         pan: pan ? encrypt(pan) : null
       }
     });
+
+    await logAudit({
+      req, action: 'CREATE_CUSTOMER', entityType: 'Customer', entityId: customer.id,
+      details: `Created customer ${customer.name} (#${customer.id})`
+    });
+
     res.status(201).json({ message: 'Customer created', customer: toSafeCustomer(customer) });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
@@ -66,27 +68,41 @@ export const createCustomer = async (req: any, res: Response) => {
 
 export const updateCustomer = async (req: any, res: Response) => {
   try {
+    const id = Number(req.params.id);
     const { name, email, phone, address, aadhar, pan, branchId } = req.body;
 
-    // Build the update explicitly — never spread req.body, which would let a
-    // client overwrite protected fields like companyId or id.
+    const existing = await prisma.customer.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ message: 'Customer not found' });
+
     const data: any = {};
-    if (name !== undefined) data.name = name;
-    if (email !== undefined) data.email = email;
-    if (phone !== undefined) data.phone = phone;
-    if (address !== undefined) data.address = address;
-    if (branchId !== undefined) data.branchId = branchId;
+    const changed: string[] = [];
 
-    // Only (re)encrypt PII when a real, newly-typed value is sent.
-    // If the UI submits the masked value unchanged, leave the stored
-    // encrypted value as-is so we never overwrite it with "XXXX...".
-    if (aadhar && !isMasked(aadhar)) data.aadhar = encrypt(aadhar);
-    if (pan && !isMasked(pan)) data.pan = encrypt(pan);
+    if (name !== undefined && name !== existing.name) { data.name = name; changed.push('name'); }
+    if (email !== undefined && email !== existing.email) { data.email = email; changed.push('email'); }
+    if (phone !== undefined && phone !== existing.phone) { data.phone = phone; changed.push('phone'); }
+    if (address !== undefined && address !== existing.address) { data.address = address; changed.push('address'); }
+    if (branchId !== undefined && branchId !== existing.branchId) { data.branchId = branchId; changed.push('branch'); }
 
-    const customer = await prisma.customer.update({
-      where: { id: Number(req.params.id) },
-      data
-    });
+    // Aadhaar/PAN: only if a real new value actually differs from the stored one
+    if (aadhar && !isMasked(aadhar)) {
+      const currentAadhar = existing.aadhar ? decrypt(existing.aadhar) : '';
+      if (aadhar !== currentAadhar) { data.aadhar = encrypt(aadhar); changed.push('aadhaar'); }
+    }
+    if (pan && !isMasked(pan)) {
+      const currentPan = existing.pan ? decrypt(existing.pan) : '';
+      if (pan !== currentPan) { data.pan = encrypt(pan); changed.push('pan'); }
+    }
+
+    const customer = await prisma.customer.update({ where: { id }, data });
+
+    // Only log if something genuinely changed; name it by customer, list only changed fields.
+    if (changed.length > 0) {
+      await logAudit({
+        req, action: 'UPDATE_CUSTOMER', entityType: 'Customer', entityId: id,
+        details: `Updated ${existing.name} (#${id}) — changed: ${changed.join(', ')}`
+      });
+    }
+
     res.json({ message: 'Customer updated', customer: toSafeCustomer(customer) });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
@@ -95,9 +111,16 @@ export const updateCustomer = async (req: any, res: Response) => {
 
 export const deleteCustomer = async (req: any, res: Response) => {
   try {
-    await prisma.customer.delete({
-      where: { id: Number(req.params.id) }
+    const id = Number(req.params.id);
+    const existing = await prisma.customer.findUnique({ where: { id }, select: { name: true } });
+
+    await prisma.customer.delete({ where: { id } });
+
+    await logAudit({
+      req, action: 'DELETE_CUSTOMER', entityType: 'Customer', entityId: id,
+      details: `Deleted customer ${existing?.name || ''} (#${id})`
     });
+
     res.json({ message: 'Customer deleted' });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });

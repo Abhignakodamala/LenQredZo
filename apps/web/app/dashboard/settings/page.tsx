@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
+import ActivityLog from '@/components/ActivityLog';
 
 export default function SettingsPage() {
   const [company, setCompany] = useState<any>({ name: '', primaryColor: '#1e40af', plan: 'starter' });
@@ -229,6 +230,8 @@ export default function SettingsPage() {
             {savingPwd ? 'Changing...' : 'Change Password'}
           </button>
         </div>
+        
+        <ActivityLog />
 
           {/* Data Export */}
         <div style={card}>
