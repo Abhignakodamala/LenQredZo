@@ -207,7 +207,17 @@ export const markEmiPaid = async (req: any, res: Response) => {
   try {
     const emiId = Number(req.params.emiId);
     const { collectPenalty = false } = req.body;
-    const method = req.body.method || 'cash';
+    const method = (req.body.method || 'cash').toLowerCase();
+    const reference = (req.body.reference || '').trim();
+
+    // Digital methods need a reference (proof). Cash is allowed without one.
+    const digitalMethods = ['upi', 'bank', 'cheque', 'card'];
+    if (digitalMethods.includes(method) && !reference) {
+      return res.status(400).json({ message: `A reference / transaction ID is required for ${method} payments` });
+    }
+
+    // Cash has no digital proof, so it is recorded as unverified.
+    const verified = method !== 'cash' && reference.length > 0;
 
     const emi = await prisma.eMI.findUnique({
       where: { id: emiId },
@@ -234,7 +244,8 @@ export const markEmiPaid = async (req: any, res: Response) => {
       await tx.payment.create({
         data: {
           loanId: emi.loanId, amount: totalAmount,
-          method, status: 'completed', paidAt: new Date()
+          method, reference: reference || null, verified,
+          status: 'completed', paidAt: new Date()
         }
       });
 
@@ -256,7 +267,7 @@ export const markEmiPaid = async (req: any, res: Response) => {
 
     await logAudit({
       req, action: 'MARK_EMI_PAID', entityType: 'EMI', entityId: emiId,
-      details: `Collected ₹${totalAmount} (EMI ₹${emi.amount}${penaltyAmount ? ' + penalty ₹' + penaltyAmount : ''}) via ${method} on loan LN${1000 + emi.loanId}${result.loanCompleted ? ' — loan completed' : ''}`
+      details: `Collected ₹${totalAmount} via ${method}${reference ? ' (ref: ' + reference + ')' : ''}${method === 'cash' ? ' [unverified cash]' : ''} on loan LN${1000 + emi.loanId}${result.loanCompleted ? ' — loan completed' : ''}`
     });
 
     res.json({
@@ -264,6 +275,8 @@ export const markEmiPaid = async (req: any, res: Response) => {
       emiAmount: emi.amount,
       penaltyAmount,
       totalAmount,
+      method,
+      verified,
       loanCompleted: result.loanCompleted
     });
   } catch (error: any) {

@@ -115,6 +115,8 @@ model Payment {
   status    String   @default("pending")
   paidAt    DateTime?
   createdAt DateTime @default(now())
+  reference String?
+  verified  Boolean @default(false)
 }
 
 model Guarantor {

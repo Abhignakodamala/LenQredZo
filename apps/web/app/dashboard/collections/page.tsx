@@ -8,7 +8,13 @@ export default function CollectionsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  
+
+  // Collect dialog state
+  const [dialog, setDialog] = useState<any>(null); // { emi, collectPenalty }
+  const [method, setMethod] = useState('cash');
+  const [reference, setReference] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [dialogError, setDialogError] = useState('');
 
   useEffect(() => { fetchCollections(); }, []);
 
@@ -24,15 +30,43 @@ export default function CollectionsPage() {
     setLoading(false);
   };
 
-  const markPaid = async (emiId: number, collectPenalty: boolean) => {
+  const openDialog = (emi: any, collectPenalty: boolean) => {
+    setDialog({ emi, collectPenalty });
+    setMethod('cash');
+    setReference('');
+    setDialogError('');
+  };
+
+  const closeDialog = () => { setDialog(null); setSubmitting(false); setDialogError(''); };
+
+  const submitCollection = async () => {
+    if (!dialog) return;
+    const ref = reference.trim();
+    if (method !== 'cash' && !ref) {
+      setDialogError('A reference / transaction ID is required for ' + method.toUpperCase() + ' payments.');
+      return;
+    }
+    setSubmitting(true);
+    setDialogError('');
     try {
-      await fetch(`http://localhost:5000/api/loans/emi/${emiId}/pay`, {
+      const res = await fetch(`http://localhost:5000/api/loans/emi/${dialog.emi.id}/pay`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
-        body: JSON.stringify({ collectPenalty, method: 'cash' })
+        body: JSON.stringify({ collectPenalty: dialog.collectPenalty, method, reference: ref })
       });
+      const data = await res.json();
+      if (!res.ok) {
+        setDialogError(data.message || 'Failed to record payment');
+        setSubmitting(false);
+        return;
+      }
+      closeDialog();
       fetchCollections();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      setDialogError('Server error. Please try again.');
+      setSubmitting(false);
+    }
   };
 
   const fmt = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN');
@@ -70,6 +104,9 @@ export default function CollectionsPage() {
     { label: 'Pending', value: 'pending', count: pendingCount },
     { label: 'Overdue', value: 'overdue', count: overdueCount },
   ];
+
+  const inp = { width: '100%', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' as any };
+  const lbl = { display: 'block' as any, fontSize: '13px', fontWeight: '500' as any, marginBottom: '6px', color: '#374151' };
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
@@ -153,17 +190,17 @@ export default function CollectionsPage() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           {e.penalty > 0 ? (
                             <>
-                              <button onClick={() => markPaid(e.id, true)}
+                              <button onClick={() => openDialog(e, true)}
                                 style={{ background: '#dc2626', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                                 Collect + Penalty
                               </button>
-                              <button onClick={() => markPaid(e.id, false)}
+                              <button onClick={() => openDialog(e, false)}
                                 style={{ background: '#1e40af', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}>
                                 EMI Only
                               </button>
                             </>
                           ) : (
-                            <button onClick={() => markPaid(e.id, false)}
+                            <button onClick={() => openDialog(e, false)}
                               style={{ background: '#1e40af', color: 'white', border: 'none', padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>
                               Collect
                             </button>
@@ -178,6 +215,87 @@ export default function CollectionsPage() {
           )}
         </div>
       </div>
+
+      {/* Collect dialog */}
+      {dialog && (
+        <div onClick={closeDialog} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '16px' }}>
+          <div onClick={ev => ev.stopPropagation()} style={{ background: 'white', borderRadius: '12px', width: '420px', maxWidth: '100%', padding: '24px', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+            <h3 style={{ margin: '0 0 4px', fontSize: '18px', fontWeight: '700', color: '#111827' }}>Collect Payment</h3>
+            <p style={{ margin: '0 0 16px', fontSize: '13px', color: '#6b7280' }}>
+              {dialog.emi.customerName} · LN{1000 + dialog.emi.loanId}
+            </p>
+
+            <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
+                <span style={{ color: '#6b7280' }}>EMI Amount</span>
+                <span style={{ fontWeight: '600' }}>{fmt(dialog.emi.amount)}</span>
+              </div>
+              {dialog.collectPenalty && dialog.emi.penalty > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
+                  <span style={{ color: '#6b7280' }}>Penalty</span>
+                  <span style={{ fontWeight: '600', color: '#dc2626' }}>{fmt(dialog.emi.penalty)}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', paddingTop: '6px', borderTop: '1px solid #bae6fd' }}>
+                <span style={{ fontWeight: '700', color: '#0369a1' }}>Total Collecting</span>
+                <span style={{ fontWeight: '700', color: '#0369a1' }}>
+                  {fmt(dialog.collectPenalty ? dialog.emi.totalDue : dialog.emi.amount)}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={lbl}>Payment Method</label>
+              <select value={method} onChange={ev => { setMethod(ev.target.value); setDialogError(''); }} style={inp}>
+                <option value="cash">Cash (hand-to-hand)</option>
+                <option value="upi">UPI (Paytm / GPay / PhonePe)</option>
+                <option value="bank">Bank Transfer</option>
+                <option value="cheque">Cheque</option>
+                <option value="card">Card</option>
+              </select>
+            </div>
+
+            {method !== 'cash' && (
+              <div style={{ marginBottom: '14px' }}>
+                <label style={lbl}>
+                  {method === 'upi' ? 'UPI Reference / Txn ID' : method === 'bank' ? 'Bank Ref / UTR Number' : method === 'cheque' ? 'Cheque Number' : 'Card Txn Reference'} *
+                </label>
+                <input value={reference} onChange={ev => { setReference(ev.target.value); setDialogError(''); }}
+                  placeholder="Enter the reference from the receipt / SMS"
+                  style={inp} />
+                <p style={{ fontSize: '11px', color: '#9ca3af', margin: '6px 0 0' }}>
+                  This is your proof of payment — copy it from the payment SMS or receipt.
+                </p>
+              </div>
+            )}
+
+            {method === 'cash' && (
+              <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px' }}>
+                <p style={{ margin: 0, fontSize: '12px', color: '#92400e' }}>
+                  ⚠️ Cash has no digital proof — it will be recorded as <b>unverified</b>.
+                </p>
+              </div>
+            )}
+
+            {dialogError && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '10px 12px', borderRadius: '8px', fontSize: '13px', marginBottom: '14px' }}>
+                {dialogError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={submitCollection} disabled={submitting}
+                style={{ flex: 1, background: '#1e40af', color: 'white', border: 'none', padding: '10px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', opacity: submitting ? 0.7 : 1 }}>
+                {submitting ? 'Recording...' : 'Confirm Payment'}
+              </button>
+              <button onClick={closeDialog} disabled={submitting}
+                style={{ background: 'white', color: '#374151', border: '1px solid #d1d5db', padding: '10px 18px', borderRadius: '8px', fontSize: '14px', cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

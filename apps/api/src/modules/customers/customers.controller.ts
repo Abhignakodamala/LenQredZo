@@ -34,7 +34,12 @@ export const getCustomerById = async (req: any, res: Response) => {
   try {
     const customer = await prisma.customer.findUnique({
       where: { id: Number(req.params.id) },
-      include: { loans: true }
+      include: {
+        loans: {
+          include: { payments: true, emis: true },
+          orderBy: { createdAt: 'desc' }
+        }
+      }
     });
     if (!customer) return res.status(404).json({ message: 'Customer not found' });
     res.json(toSafeCustomer(customer));
