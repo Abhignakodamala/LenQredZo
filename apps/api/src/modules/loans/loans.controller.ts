@@ -1,7 +1,27 @@
 import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { encrypt, decrypt, maskAadhaar, maskPan } from '../../utils/encryption';
 
 const prisma = new PrismaClient();
+
+// --- PII helpers: decrypt + mask before sending to the browser ---
+function maskCustomer(c: any) {
+  if (!c) return c;
+  return {
+    ...c,
+    aadhar: c.aadhar ? maskAadhaar(decrypt(c.aadhar)) : '',
+    pan: c.pan ? maskPan(decrypt(c.pan)) : ''
+  };
+}
+
+function maskGuarantor(g: any) {
+  if (!g) return g;
+  return {
+    ...g,
+    aadhar: g.aadhar ? maskAadhaar(decrypt(g.aadhar)) : '',
+    pan: g.pan ? maskPan(decrypt(g.pan)) : ''
+  };
+}
 
 const getPeriodsPerYear = (frequency: string) => {
   if (frequency === 'daily') return 365;
@@ -66,8 +86,13 @@ export const createLoan = async (req: any, res: Response) => {
       interestType = 'percentage', frequency = 'monthly',
       tenure, deductUpfront = false,
       processingFee = 0, processingFeeType = 'percentage',
-      penaltyType = 'none', penaltyValue = 0
+      penaltyType = 'none', penaltyValue = 0,
+      guarantors = []
     } = req.body;
+
+    if (!guarantors || guarantors.length === 0) {
+      return res.status(400).json({ message: 'At least one guarantor is required' });
+    }
 
     const { emiAmount, disbursedAmount: baseDisburse } = calculateInstallment(
       amount, interestRate, tenure, interestType, frequency, deductUpfront
@@ -101,6 +126,20 @@ export const createLoan = async (req: any, res: Response) => {
     }
     await prisma.eMI.createMany({ data: emis });
 
+    // Save guarantors — Aadhaar/PAN encrypted at rest
+    await prisma.guarantor.createMany({
+      data: guarantors.map((g: any) => ({
+        loanId: loan.id,
+        name: g.name,
+        phone: g.phone,
+        address: g.address || null,
+        aadhar: g.aadhar ? encrypt(g.aadhar) : null,
+        pan: g.pan ? encrypt(g.pan) : null,
+        relationship: g.relationship || null,
+        type: g.type || 'guarantor'
+      }))
+    });
+
     res.status(201).json({ message: 'Loan created successfully', loan, emiAmount, disbursedAmount: finalDisbursed, processingFeeAmount });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
@@ -114,7 +153,7 @@ export const getAllLoans = async (req: any, res: Response) => {
       where: { companyId },
       include: { customer: true, emis: true }
     });
-    res.json(loans);
+    res.json(loans.map(l => ({ ...l, customer: maskCustomer(l.customer) })));
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }
@@ -124,10 +163,20 @@ export const getLoanById = async (req: any, res: Response) => {
   try {
     const loan = await prisma.loan.findUnique({
       where: { id: Number(req.params.id) },
-      include: { customer: true, emis: { orderBy: { dueDate: 'asc' } }, payments: true }
+      include: {
+        customer: true,
+        emis: { orderBy: { dueDate: 'asc' } },
+        payments: true,
+        guarantors: true
+      }
     });
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
-    res.json(loan);
+    const safe = {
+      ...loan,
+      customer: maskCustomer(loan.customer),
+      guarantors: (loan.guarantors || []).map(maskGuarantor)
+    };
+    res.json(safe);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }
@@ -238,7 +287,10 @@ export const getPayments = async (req: any, res: Response) => {
       include: { loan: { include: { customer: true } } },
       orderBy: { paidAt: 'desc' }
     });
-    res.json(payments);
+    res.json(payments.map(p => ({
+      ...p,
+      loan: p.loan ? { ...p.loan, customer: maskCustomer((p.loan as any).customer) } : p.loan
+    })));
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }

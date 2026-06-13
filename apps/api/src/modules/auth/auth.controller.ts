@@ -5,6 +5,16 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// Fail fast at startup: if the signing secret isn't set, the server must
+// not run at all rather than silently fall back to a guessable key.
+const JWT_SECRET = process.env.JWT_SECRET as string;
+if (!JWT_SECRET) {
+  throw new Error(
+    'JWT_SECRET is not set in the environment. Refusing to start without a signing secret. ' +
+    'Add JWT_SECRET to your .env file.'
+  );
+}
+
 export const register = async (req: Request, res: Response) => {
   try {
     const { name, email, password, role, companyName } = req.body;
@@ -26,7 +36,8 @@ export const register = async (req: Request, res: Response) => {
 
     res.status(201).json({ message: 'User and company created', userId: user.id, companyId: company.id });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    console.error('REGISTER ERROR:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -46,12 +57,13 @@ export const login = async (req: Request, res: Response) => {
 
     const token = jwt.sign(
       { userId: user.id, role: user.role, companyId: user.companyId },
-      process.env.JWT_SECRET || 'secret123',
+      JWT_SECRET,
       { expiresIn: '7d' }
     );
 
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId } });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    console.error('LOGIN ERROR:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };

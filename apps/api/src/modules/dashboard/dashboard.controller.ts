@@ -6,11 +6,11 @@ const prisma = new PrismaClient();
 export const getDashboardStats = async (req: any, res: Response) => {
   try {
     const companyId = req.user.companyId;
-    const today = new Date();
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-
+    const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+    const istNow = new Date(Date.now() + IST_OFFSET);
+    const startOfMonth = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), 1) - IST_OFFSET);
+    const startOfLastMonth = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth() - 1, 1) - IST_OFFSET);
+    const endOfLastMonth = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), 1) - IST_OFFSET - 1000);
     const [loans, customers, payments, allEmis, branches] = await Promise.all([
       prisma.loan.findMany({ where: { companyId } }),
       prisma.customer.findMany({ where: { companyId } }),
@@ -48,7 +48,7 @@ export const getDashboardStats = async (req: any, res: Response) => {
     ];
     allEmis.forEach(emi => {
       if (emi.status !== 'paid') {
-        const days = Math.floor((today.getTime() - new Date(emi.dueDate).getTime()) / 86400000);
+        const days = Math.floor((istNow.getTime() - new Date(emi.dueDate).getTime()) / 86400000);
         if (days > 0) {
           overdueAmount += emi.amount;
           if (days <= 30) npaChartData[0].value += emi.amount;
@@ -61,7 +61,7 @@ export const getDashboardStats = async (req: any, res: Response) => {
     const npaPercentage = totalDisbursed > 0 ? Number(((overdueAmount / totalDisbursed) * 100).toFixed(2)) : 0;
 
     // === COLLECTION EFFICIENCY ===
-    const dueEmis = allEmis.filter(e => new Date(e.dueDate) <= today);
+    const dueEmis = allEmis.filter(e => new Date(e.dueDate) <= istNow);
     const collectionEfficiency = dueEmis.length > 0
       ? Number(((dueEmis.filter(e => e.status === 'paid').length / dueEmis.length) * 100).toFixed(1))
       : 0;
@@ -69,7 +69,7 @@ export const getDashboardStats = async (req: any, res: Response) => {
     // === AI INSIGHTS ===
     const customerOverdueMap: any = {};
     allEmis.forEach(emi => {
-      if (emi.status !== 'paid' && new Date(emi.dueDate) < today) {
+      if (emi.status !== 'paid' && new Date(emi.dueDate) < istNow) {
         const id = emi.loan.customer?.id;
         if (id) customerOverdueMap[id] = (customerOverdueMap[id] || 0) + 1;
       }
@@ -133,6 +133,143 @@ export const getDashboardStats = async (req: any, res: Response) => {
       disbursedChange, collectionChange, collectionEfficiency,
       recentLoans, portfolioData, npaChartData, aiInsights,
       branchPerformance: branchStats
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
+  }
+};
+
+export const getAnalytics = async (req: any, res: Response) => {
+  try {
+    const companyId = req.user.companyId;
+    const loans = await prisma.loan.findMany({
+      where: { companyId },
+      include: { customer: true }
+    });
+    const payments = await prisma.payment.findMany({
+      where: { loan: { companyId } }
+    });
+    const emis = await prisma.eMI.findMany({
+      where: { loan: { companyId } }
+    });
+
+    // Monthly disbursement trend (last 6 months)
+    const monthly: any = {};
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+      monthly[key] = { month: key, disbursed: 0, collected: 0 };
+    }
+    loans.forEach(l => {
+      const key = new Date(l.createdAt).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+      if (monthly[key]) monthly[key].disbursed += l.amount;
+    });
+    payments.forEach(p => {
+      if (!p.paidAt) return;
+      const key = new Date(p.paidAt).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+      if (monthly[key]) monthly[key].collected += p.amount;
+    });
+    const monthlyTrend = Object.values(monthly);
+
+    // Loan type breakdown
+    const typeMap: any = {};
+    loans.forEach(l => {
+      if (!typeMap[l.type]) typeMap[l.type] = { type: l.type, count: 0, amount: 0 };
+      typeMap[l.type].count += 1;
+      typeMap[l.type].amount += l.amount;
+    });
+    const loanTypeBreakdown = Object.values(typeMap);
+
+    // Collection efficiency
+    const istNow = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+    const dueEmis = emis.filter(e => new Date(e.dueDate) <= istNow);
+    const paidDue = dueEmis.filter(e => e.status === 'paid').length;
+    const collectionRate = dueEmis.length > 0 ? Math.round((paidDue / dueEmis.length) * 100) : 0;
+
+    // Top customers by total loan value
+    const custMap: any = {};
+    loans.forEach(l => {
+      const name = l.customer?.name || 'Unknown';
+      if (!custMap[name]) custMap[name] = { name, loanCount: 0, totalAmount: 0 };
+      custMap[name].loanCount += 1;
+      custMap[name].totalAmount += l.amount;
+    });
+    const topCustomers = Object.values(custMap)
+      .sort((a: any, b: any) => b.totalAmount - a.totalAmount)
+      .slice(0, 5);
+
+    // Status breakdown
+    const statusMap: any = { active: 0, completed: 0, pending: 0 };
+    loans.forEach(l => { statusMap[l.status] = (statusMap[l.status] || 0) + 1; });
+
+    res.json({
+      monthlyTrend,
+      loanTypeBreakdown,
+      collectionRate,
+      topCustomers,
+      statusBreakdown: statusMap,
+      totalLoans: loans.length,
+      avgLoanSize: loans.length > 0 ? Math.round(loans.reduce((s, l) => s + l.amount, 0) / loans.length) : 0
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
+  }
+};
+
+export const getTodayOverview = async (req: any, res: Response) => {
+  try {
+    const companyId = req.user.companyId;
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+
+    const emis = await prisma.eMI.findMany({
+      where: { loan: { companyId } },
+      include: { loan: { include: { customer: true } } },
+      orderBy: { dueDate: 'asc' }
+    });
+
+    // EMIs due today
+    const dueToday = emis
+      .filter(e => e.status !== 'paid' && new Date(e.dueDate) >= startOfToday && new Date(e.dueDate) <= endOfToday)
+      .map(e => ({
+        id: e.id,
+        customerName: e.loan.customer?.name,
+        loanId: e.loan.id,
+        amount: e.amount,
+        dueDate: e.dueDate
+      }));
+
+    // Overdue EMIs
+    const overdue = emis.filter(e => e.status !== 'paid' && new Date(e.dueDate) < startOfToday);
+    const overdueAmount = overdue.reduce((s, e) => s + e.amount, 0);
+
+    // Due-today total
+    const dueTodayAmount = dueToday.reduce((s, e) => s + e.amount, 0);
+
+    // Recent activity — last 5 payments
+    const recentPayments = await prisma.payment.findMany({
+      where: { loan: { companyId } },
+      include: { loan: { include: { customer: true } } },
+      orderBy: { paidAt: 'desc' },
+      take: 5
+    });
+    const recentActivity = recentPayments.map(p => ({
+      type: 'payment',
+      customerName: p.loan.customer?.name,
+      loanId: p.loanId,
+      amount: p.amount,
+      date: p.paidAt
+    }));
+
+    res.json({
+      dueToday,
+      dueTodayCount: dueToday.length,
+      dueTodayAmount,
+      overdueCount: overdue.length,
+      overdueAmount,
+      recentActivity
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
