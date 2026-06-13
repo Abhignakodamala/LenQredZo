@@ -90,6 +90,8 @@ model Loan {
   updatedAt    DateTime @updatedAt
   emis         EMI[]
   payments     Payment[]
+  guarantors   Guarantor[]
+  
 }
 
 model EMI {
@@ -113,4 +115,18 @@ model Payment {
   status    String   @default("pending")
   paidAt    DateTime?
   createdAt DateTime @default(now())
+}
+
+model Guarantor {
+  id           Int      @id @default(autoincrement())
+  loanId       Int
+  loan         Loan     @relation(fields: [loanId], references: [id])
+  name         String
+  phone        String
+  address      String?
+  aadhar       String?
+  pan          String?
+  relationship String?
+  type         String   @default("guarantor")
+  createdAt    DateTime @default(now())
 }

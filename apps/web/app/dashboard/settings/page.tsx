@@ -12,7 +12,7 @@ export default function SettingsPage() {
   const [pwd, setPwd] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [savingPwd, setSavingPwd] = useState(false);
   const [pwdError, setPwdError] = useState('');
-
+  const [exporting, setExporting] = useState(false);
   useEffect(() => { fetchSettings(); }, []);
 
   const fetchSettings = async () => {
@@ -66,7 +66,6 @@ export default function SettingsPage() {
     } catch (err) { console.error(err); }
     setSavingProfile(false);
   };
-
   const changePassword = async () => {
     setPwdError('');
     if (!pwd.currentPassword || !pwd.newPassword) { setPwdError('Fill all password fields'); return; }
@@ -89,6 +88,32 @@ export default function SettingsPage() {
     } catch (err) { setPwdError('Server error'); }
     setSavingPwd(false);
   };
+
+  const exportData = async () => {
+  setExporting(true);
+  try {
+    const res = await fetch('http://localhost:5000/api/export/data', {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+    });
+    
+  if (!res.ok) throw new Error('Export failed');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `finsmart-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    showMsg('✅ Data exported successfully');
+  } catch (err) {
+    console.error(err);
+    showMsg('❌ Export failed');
+  }
+  setExporting(false);
+};
 
   const inp = { width: '100%', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' as any };
   const lbl = { display: 'block' as any, fontSize: '13px', fontWeight: '500' as any, marginBottom: '6px', color: '#374151' };
@@ -202,6 +227,18 @@ export default function SettingsPage() {
           </div>
           <button onClick={changePassword} disabled={savingPwd} style={{ ...btn, marginTop: '16px', opacity: savingPwd ? 0.7 : 1 }}>
             {savingPwd ? 'Changing...' : 'Change Password'}
+          </button>
+        </div>
+
+          {/* Data Export */}
+        <div style={card}>
+          <h3 style={{ fontWeight: '700', fontSize: '16px', margin: '0 0 8px' }}>📊 Export My Data</h3>
+          <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px' }}>
+            Download all your company's data (customers, loans, EMIs, payments, guarantors) as an Excel file.
+            The file contains sensitive information including full Aadhaar and PAN numbers — store it securely.
+          </p>
+          <button onClick={exportData} disabled={exporting} style={{ ...btn, opacity: exporting ? 0.7 : 1 }}>
+            {exporting ? 'Preparing file...' : 'Download Excel Export'}
           </button>
         </div>
 
