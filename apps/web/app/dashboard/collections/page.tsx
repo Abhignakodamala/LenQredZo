@@ -13,6 +13,7 @@ export default function CollectionsPage() {
   const [dialog, setDialog] = useState<any>(null); // { emi, collectPenalty }
   const [method, setMethod] = useState('cash');
   const [reference, setReference] = useState('');
+  const [payAmount, setPayAmount] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [dialogError, setDialogError] = useState('');
 
@@ -34,6 +35,7 @@ export default function CollectionsPage() {
     setDialog({ emi, collectPenalty });
     setMethod('cash');
     setReference('');
+    setPayAmount(String(emi.remaining ?? emi.amount));
     setDialogError('');
   };
 
@@ -42,17 +44,25 @@ export default function CollectionsPage() {
   const submitCollection = async () => {
     if (!dialog) return;
     const ref = reference.trim();
+    const amt = Math.round(Number(payAmount));
+    const remaining = dialog.emi.remaining ?? dialog.emi.amount;
+
+    if (!amt || amt <= 0) { setDialogError('Please enter a valid amount.'); return; }
+    if (amt > remaining) { setDialogError('Amount cannot exceed the remaining balance of ₹' + remaining.toLocaleString('en-IN') + '.'); return; }
     if (method !== 'cash' && !ref) {
       setDialogError('A reference / transaction ID is required for ' + method.toUpperCase() + ' payments.');
       return;
     }
+
+    const clearsEmi = amt >= remaining;
     setSubmitting(true);
     setDialogError('');
     try {
       const res = await fetch(`http://localhost:5000/api/loans/emi/${dialog.emi.id}/pay`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
-        body: JSON.stringify({ collectPenalty: dialog.collectPenalty, method, reference: ref })
+        // Penalty only when this payment fully clears the EMI.
+        body: JSON.stringify({ amount: amt, collectPenalty: dialog.collectPenalty && clearsEmi, method, reference: ref })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -75,14 +85,16 @@ export default function CollectionsPage() {
   const badge = (status: string) => {
     if (status === 'paid') return { background: '#dcfce7', color: '#16a34a' };
     if (status === 'overdue') return { background: '#fee2e2', color: '#dc2626' };
+    if (status === 'partial') return { background: '#dbeafe', color: '#1e40af' };
     return { background: '#fef3c7', color: '#d97706' };
   };
 
-  const totalPending = emis.filter(e => e.status !== 'paid').reduce((s, e) => s + e.amount, 0);
+  const totalPending = emis.filter(e => e.status !== 'paid').reduce((s, e) => s + (e.remaining ?? e.amount), 0);
   const totalPenalty = emis.filter(e => e.status === 'overdue').reduce((s, e) => s + (e.penalty || 0), 0);
   const paidCount = emis.filter(e => e.status === 'paid').length;
   const overdueCount = emis.filter(e => e.status === 'overdue').length;
   const pendingCount = emis.filter(e => e.status === 'pending').length;
+  const partialCount = emis.filter(e => e.status === 'partial').length;
 
   let filtered = [...emis];
   if (search.trim()) {
@@ -101,12 +113,17 @@ export default function CollectionsPage() {
   const tabs = [
     { label: 'All', value: 'all', count: emis.length },
     { label: 'Paid', value: 'paid', count: paidCount },
+    { label: 'Partial', value: 'partial', count: partialCount },
     { label: 'Pending', value: 'pending', count: pendingCount },
     { label: 'Overdue', value: 'overdue', count: overdueCount },
   ];
 
   const inp = { width: '100%', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' as any };
   const lbl = { display: 'block' as any, fontSize: '13px', fontWeight: '500' as any, marginBottom: '6px', color: '#374151' };
+
+  const dialogRemaining = dialog ? (dialog.emi.remaining ?? dialog.emi.amount) : 0;
+  const dialogAmt = Math.round(Number(payAmount)) || 0;
+  const isPartial = dialog ? (dialogAmt > 0 && dialogAmt < dialogRemaining) : false;
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
@@ -163,7 +180,7 @@ export default function CollectionsPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                  {['Customer', 'Loan', 'Due Date', 'EMI Amount', 'Penalty', 'Total Due', 'Status', 'Action'].map(h => (
+                  {['Customer', 'Loan', 'Due Date', 'EMI Amount', 'Paid', 'Penalty', 'Total Due', 'Status', 'Action'].map(h => (
                     <th key={h} style={{ textAlign: 'left', padding: '12px 16px', fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>{h}</th>
                   ))}
                 </tr>
@@ -175,6 +192,9 @@ export default function CollectionsPage() {
                     <td style={{ padding: '12px 16px', fontSize: '13px', color: '#1e40af' }}>LN{1000 + e.loanId}</td>
                     <td style={{ padding: '12px 16px', fontSize: '13px' }}>{fmtDate(e.dueDate)}</td>
                     <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '600' }}>{fmt(e.amount)}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', color: e.paidAmount > 0 ? '#16a34a' : '#9ca3af' }}>
+                      {e.paidAmount > 0 ? fmt(e.paidAmount) : '—'}
+                    </td>
                     <td style={{ padding: '12px 16px', fontSize: '13px', color: e.penalty > 0 ? '#dc2626' : '#9ca3af', fontWeight: e.penalty > 0 ? '600' : '400' }}>
                       {e.penalty > 0 ? fmt(e.penalty) : '—'}
                       {e.daysOverdue > 0 && <span style={{ display: 'block', fontSize: '11px', color: '#dc2626' }}>{e.daysOverdue} days late</span>}
@@ -219,7 +239,7 @@ export default function CollectionsPage() {
       {/* Collect dialog */}
       {dialog && (
         <div onClick={closeDialog} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '16px' }}>
-          <div onClick={ev => ev.stopPropagation()} style={{ background: 'white', borderRadius: '12px', width: '420px', maxWidth: '100%', padding: '24px', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+          <div onClick={ev => ev.stopPropagation()} style={{ background: 'white', borderRadius: '12px', width: '440px', maxWidth: '100%', padding: '24px', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
             <h3 style={{ margin: '0 0 4px', fontSize: '18px', fontWeight: '700', color: '#111827' }}>Collect Payment</h3>
             <p style={{ margin: '0 0 16px', fontSize: '13px', color: '#6b7280' }}>
               {dialog.emi.customerName} · LN{1000 + dialog.emi.loanId}
@@ -230,18 +250,39 @@ export default function CollectionsPage() {
                 <span style={{ color: '#6b7280' }}>EMI Amount</span>
                 <span style={{ fontWeight: '600' }}>{fmt(dialog.emi.amount)}</span>
               </div>
-              {dialog.collectPenalty && dialog.emi.penalty > 0 && (
+              {dialog.emi.paidAmount > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
-                  <span style={{ color: '#6b7280' }}>Penalty</span>
-                  <span style={{ fontWeight: '600', color: '#dc2626' }}>{fmt(dialog.emi.penalty)}</span>
+                  <span style={{ color: '#6b7280' }}>Already Paid</span>
+                  <span style={{ fontWeight: '600', color: '#16a34a' }}>{fmt(dialog.emi.paidAmount)}</span>
                 </div>
               )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', paddingTop: '6px', borderTop: '1px solid #bae6fd' }}>
-                <span style={{ fontWeight: '700', color: '#0369a1' }}>Total Collecting</span>
-                <span style={{ fontWeight: '700', color: '#0369a1' }}>
-                  {fmt(dialog.collectPenalty ? dialog.emi.totalDue : dialog.emi.amount)}
-                </span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                <span style={{ color: '#6b7280' }}>Remaining</span>
+                <span style={{ fontWeight: '700', color: '#0369a1' }}>{fmt(dialogRemaining)}</span>
               </div>
+            </div>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={lbl}>Amount Paying Now</label>
+              <input type="number" value={payAmount}
+                onChange={ev => { setPayAmount(ev.target.value); setDialogError(''); }}
+                style={inp} />
+              <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                <button onClick={() => setPayAmount(String(dialogRemaining))}
+                  style={{ flex: 1, padding: '6px', fontSize: '12px', border: '1px solid #d1d5db', borderRadius: '6px', background: 'white', cursor: 'pointer' }}>
+                  Full ({fmt(dialogRemaining)})
+                </button>
+                <button onClick={() => setPayAmount(String(Math.round(dialogRemaining / 2)))}
+                  style={{ flex: 1, padding: '6px', fontSize: '12px', border: '1px solid #d1d5db', borderRadius: '6px', background: 'white', cursor: 'pointer' }}>
+                  Half
+                </button>
+              </div>
+              {isPartial && (
+                <p style={{ fontSize: '12px', color: '#1e40af', margin: '8px 0 0' }}>
+                  ℹ️ Partial payment — ₹{(dialogRemaining - dialogAmt).toLocaleString('en-IN')} will remain due on this EMI.
+                  {dialog.collectPenalty ? ' Penalty will be collected later when the EMI is fully cleared.' : ''}
+                </p>
+              )}
             </div>
 
             <div style={{ marginBottom: '14px' }}>
@@ -263,9 +304,6 @@ export default function CollectionsPage() {
                 <input value={reference} onChange={ev => { setReference(ev.target.value); setDialogError(''); }}
                   placeholder="Enter the reference from the receipt / SMS"
                   style={inp} />
-                <p style={{ fontSize: '11px', color: '#9ca3af', margin: '6px 0 0' }}>
-                  This is your proof of payment — copy it from the payment SMS or receipt.
-                </p>
               </div>
             )}
 
@@ -286,7 +324,7 @@ export default function CollectionsPage() {
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={submitCollection} disabled={submitting}
                 style={{ flex: 1, background: '#1e40af', color: 'white', border: 'none', padding: '10px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', opacity: submitting ? 0.7 : 1 }}>
-                {submitting ? 'Recording...' : 'Confirm Payment'}
+                {submitting ? 'Recording...' : (isPartial ? 'Record Partial Payment' : 'Confirm Payment')}
               </button>
               <button onClick={closeDialog} disabled={submitting}
                 style={{ background: 'white', color: '#374151', border: '1px solid #d1d5db', padding: '10px 18px', borderRadius: '8px', fontSize: '14px', cursor: 'pointer' }}>

@@ -215,8 +215,6 @@ export const markEmiPaid = async (req: any, res: Response) => {
     if (digitalMethods.includes(method) && !reference) {
       return res.status(400).json({ message: `A reference / transaction ID is required for ${method} payments` });
     }
-
-    // Cash has no digital proof, so it is recorded as unverified.
     const verified = method !== 'cash' && reference.length > 0;
 
     const emi = await prisma.eMI.findUnique({
@@ -224,11 +222,28 @@ export const markEmiPaid = async (req: any, res: Response) => {
       include: { loan: true }
     });
     if (!emi) return res.status(404).json({ message: 'EMI not found' });
-    if (emi.status === 'paid') return res.status(400).json({ message: 'EMI is already paid' });
+    if (emi.status === 'paid') return res.status(400).json({ message: 'EMI is already fully paid' });
 
+    const alreadyPaid = emi.paidAmount || 0;
+    const remaining = emi.amount - alreadyPaid;
+
+    // Amount being paid this time. If the frontend sends nothing, default to clearing the full remaining balance.
+    const payAmount = req.body.amount != null ? Math.round(Number(req.body.amount)) : remaining;
+
+    if (!payAmount || payAmount <= 0) {
+      return res.status(400).json({ message: 'Please enter a valid payment amount' });
+    }
+    if (payAmount > remaining) {
+      return res.status(400).json({ message: `Amount exceeds the remaining balance of ₹${remaining.toLocaleString('en-IN')}` });
+    }
+
+    const newPaid = alreadyPaid + payAmount;
+    const fullyCleared = newPaid >= emi.amount;
+
+    // Penalty is only collected when the EMI is fully cleared (v1 rule).
     const today = new Date();
-    const penaltyAmount = collectPenalty ? calculatePenalty(emi, emi.loan, today) : 0;
-    const totalAmount = emi.amount + penaltyAmount;
+    const penaltyAmount = (fullyCleared && collectPenalty) ? calculatePenalty(emi, emi.loan, today) : 0;
+    const paymentTotal = payAmount + penaltyAmount;
 
     const result = await prisma.$transaction(async (tx) => {
       const fresh = await tx.eMI.findUnique({ where: { id: emiId } });
@@ -238,23 +253,27 @@ export const markEmiPaid = async (req: any, res: Response) => {
 
       await tx.eMI.update({
         where: { id: emiId },
-        data: { status: 'paid', penalty: penaltyAmount, penaltyPaid: collectPenalty }
+        data: {
+          paidAmount: newPaid,
+          status: fullyCleared ? 'paid' : 'partial',
+          ...(fullyCleared ? { penalty: penaltyAmount, penaltyPaid: collectPenalty } : {})
+        }
       });
 
       await tx.payment.create({
         data: {
-          loanId: emi.loanId, amount: totalAmount,
+          loanId: emi.loanId, amount: paymentTotal,
           method, reference: reference || null, verified,
           status: 'completed', paidAt: new Date()
         }
       });
 
-      const remaining = await tx.eMI.count({
+      const remainingEmis = await tx.eMI.count({
         where: { loanId: emi.loanId, status: { not: 'paid' } }
       });
 
       let loanCompleted = false;
-      if (remaining === 0) {
+      if (remainingEmis === 0) {
         await tx.loan.update({
           where: { id: emi.loanId },
           data: { status: 'completed' }
@@ -265,23 +284,27 @@ export const markEmiPaid = async (req: any, res: Response) => {
       return { loanCompleted };
     });
 
+    const partialNote = fullyCleared ? '' : ` (partial — ₹${(emi.amount - newPaid).toLocaleString('en-IN')} still due)`;
     await logAudit({
       req, action: 'MARK_EMI_PAID', entityType: 'EMI', entityId: emiId,
-      details: `Collected ₹${totalAmount} via ${method}${reference ? ' (ref: ' + reference + ')' : ''}${method === 'cash' ? ' [unverified cash]' : ''} on loan LN${1000 + emi.loanId}${result.loanCompleted ? ' — loan completed' : ''}`
+      details: `Collected ₹${paymentTotal.toLocaleString('en-IN')} via ${method}${reference ? ' (ref: ' + reference + ')' : ''}${method === 'cash' ? ' [unverified cash]' : ''} on loan LN${1000 + emi.loanId}${partialNote}${result.loanCompleted ? ' — loan completed' : ''}`
     });
 
     res.json({
-      message: 'EMI marked as paid',
-      emiAmount: emi.amount,
+      message: fullyCleared ? 'EMI fully paid' : 'Partial payment recorded',
+      payAmount,
       penaltyAmount,
-      totalAmount,
+      paymentTotal,
+      paidAmount: newPaid,
+      remaining: emi.amount - newPaid,
+      status: fullyCleared ? 'paid' : 'partial',
       method,
       verified,
       loanCompleted: result.loanCompleted
     });
   } catch (error: any) {
     if (error?.message === 'ALREADY_PAID') {
-      return res.status(400).json({ message: 'EMI is already paid' });
+      return res.status(400).json({ message: 'EMI is already fully paid' });
     }
     console.error('MARK EMI PAID ERROR:', error);
     res.status(500).json({ message: 'Server error' });
@@ -299,12 +322,23 @@ export const getCollections = async (req: any, res: Response) => {
 
     const today = new Date();
     const result = emis.map(emi => {
+      const paidAmount = emi.paidAmount || 0;
+      const remaining = emi.amount - paidAmount;
+
       const isOverdue = emi.status !== 'paid' && new Date(emi.dueDate) < today;
-      const status = emi.status === 'paid' ? 'paid' : isOverdue ? 'overdue' : 'pending';
+      // status: paid | partial | overdue | pending
+      let status: string;
+      if (emi.status === 'paid') status = 'paid';
+      else if (paidAmount > 0) status = 'partial';
+      else if (isOverdue) status = 'overdue';
+      else status = 'pending';
+
       const daysOverdue = isOverdue
         ? Math.floor((today.getTime() - new Date(emi.dueDate).getTime()) / 86400000)
         : 0;
-      const penalty = calculatePenalty(emi, emi.loan, today);
+
+      // Penalty only applies to the still-due remainder, and only when not fully paid.
+      const penalty = emi.status === 'paid' ? 0 : calculatePenalty(emi, emi.loan, today);
 
       return {
         id: emi.id,
@@ -312,8 +346,10 @@ export const getCollections = async (req: any, res: Response) => {
         loanId: emi.loan.id,
         dueDate: emi.dueDate,
         amount: emi.amount,
+        paidAmount,
+        remaining,
         penalty,
-        totalDue: emi.amount + penalty,
+        totalDue: remaining + penalty,
         daysOverdue,
         status,
         penaltyType: emi.loan.penaltyType,
