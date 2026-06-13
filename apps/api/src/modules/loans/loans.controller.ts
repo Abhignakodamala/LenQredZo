@@ -198,45 +198,69 @@ export const markEmiPaid = async (req: any, res: Response) => {
   try {
     const emiId = Number(req.params.emiId);
     const { collectPenalty = false } = req.body;
+    const method = req.body.method || 'cash';
 
     const emi = await prisma.eMI.findUnique({
       where: { id: emiId },
       include: { loan: true }
     });
     if (!emi) return res.status(404).json({ message: 'EMI not found' });
+    if (emi.status === 'paid') return res.status(400).json({ message: 'EMI is already paid' });
 
     const today = new Date();
     const penaltyAmount = collectPenalty ? calculatePenalty(emi, emi.loan, today) : 0;
     const totalAmount = emi.amount + penaltyAmount;
 
-    await prisma.eMI.update({
-      where: { id: emiId },
-      data: { status: 'paid', penalty: penaltyAmount, penaltyPaid: collectPenalty }
-    });
-
-    await prisma.payment.create({
-      data: {
-        loanId: emi.loanId, amount: totalAmount,
-        method: req.body.method || 'cash',
-        status: 'completed', paidAt: new Date()
+    // All money writes happen atomically — all succeed or all roll back.
+    const result = await prisma.$transaction(async (tx) => {
+      // Re-check inside the transaction to prevent double collection
+      // (e.g. the Collect button clicked twice in quick succession).
+      const fresh = await tx.eMI.findUnique({ where: { id: emiId } });
+      if (!fresh || fresh.status === 'paid') {
+        throw new Error('ALREADY_PAID');
       }
-    });
 
-    // Auto-complete loan if all EMIs are paid
-    const remainingEmis = await prisma.eMI.count({
-      where: { loanId: emi.loanId, status: { not: 'paid' } }
-    });
-
-    if (remainingEmis === 0) {
-      await prisma.loan.update({
-        where: { id: emi.loanId },
-        data: { status: 'completed' }
+      await tx.eMI.update({
+        where: { id: emiId },
+        data: { status: 'paid', penalty: penaltyAmount, penaltyPaid: collectPenalty }
       });
-    }
 
-    res.json({ message: 'EMI marked as paid', emiAmount: emi.amount, penaltyAmount, totalAmount, loanCompleted: remainingEmis === 0 });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+      await tx.payment.create({
+        data: {
+          loanId: emi.loanId, amount: totalAmount,
+          method, status: 'completed', paidAt: new Date()
+        }
+      });
+
+      const remaining = await tx.eMI.count({
+        where: { loanId: emi.loanId, status: { not: 'paid' } }
+      });
+
+      let loanCompleted = false;
+      if (remaining === 0) {
+        await tx.loan.update({
+          where: { id: emi.loanId },
+          data: { status: 'completed' }
+        });
+        loanCompleted = true;
+      }
+
+      return { loanCompleted };
+    });
+
+    res.json({
+      message: 'EMI marked as paid',
+      emiAmount: emi.amount,
+      penaltyAmount,
+      totalAmount,
+      loanCompleted: result.loanCompleted
+    });
+  } catch (error: any) {
+    if (error?.message === 'ALREADY_PAID') {
+      return res.status(400).json({ message: 'EMI is already paid' });
+    }
+    console.error('MARK EMI PAID ERROR:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
