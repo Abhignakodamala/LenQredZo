@@ -15,8 +15,10 @@ export default function LoansPage() {
     hasProcessingFee: false, processingFee: '', processingFeeType: 'percentage',
     penaltyType: 'none', penaltyValue: ''
   });
-
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+  const [guarantors, setGuarantors] = useState([
+    { name: '', phone: '', aadhar: '', pan: '', relationship: '', type: 'guarantor' }
+  ]);
+  const [hasGuarantor, setHasGuarantor] = useState(false);
 
   useEffect(() => { fetchLoans(); fetchCustomers(); }, []);
 
@@ -34,7 +36,7 @@ export default function LoansPage() {
       const res = await fetch('http://localhost:5000/api/customers', { headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` } });
       const data = await res.json();
       setCustomers(Array.isArray(data) ? data : []);
-      } catch (err) { console.error(err); }
+    } catch (err) { console.error(err); }
   };
 
   const getPeriodsPerYear = () => form.frequency === 'daily' ? 365 : form.frequency === 'weekly' ? 52 : 12;
@@ -76,11 +78,20 @@ export default function LoansPage() {
     return pr === 0 ? Math.round(p / t) : Math.round((p * pr * Math.pow(1 + pr, t)) / (Math.pow(1 + pr, t) - 1));
   };
 
+  const updateGuarantor = (idx: number, field: string, value: string) => {
+    const ng = [...guarantors];
+    (ng[idx] as any)[field] = value;
+    setGuarantors(ng);
+  };
+
   const addLoan = async () => {
     if (!form.customerId) { alert('Select a customer'); return; }
-    if (!form.amount || Number(form.amount) < 1000) { alert('Minimum loan ₹1,000'); return; }
+    if (!form.amount || Number(form.amount) < 1000) { alert('Minimum loan 1000'); return; }
     if (!form.interestRate) { alert('Enter interest rate'); return; }
     if (!form.tenure) { alert('Enter tenure'); return; }
+    const validGuarantors = hasGuarantor ? guarantors.filter(g => g.name.trim() && g.phone.trim()) : [];
+    if (hasGuarantor && validGuarantors.length === 0) { alert('Add at least one guarantor or uncheck the guarantor option'); return; }
+
     try {
       const res = await fetch('http://localhost:5000/api/loans', {
         method: 'POST',
@@ -93,7 +104,8 @@ export default function LoansPage() {
           processingFee: form.hasProcessingFee ? Number(form.processingFee) : 0,
           processingFeeType: form.processingFeeType,
           penaltyType: form.penaltyType,
-          penaltyValue: Number(form.penaltyValue) || 0
+          penaltyValue: Number(form.penaltyValue) || 0,
+          guarantors: validGuarantors
         })
       });
       if (res.ok) {
@@ -105,12 +117,14 @@ export default function LoansPage() {
           hasProcessingFee: false, processingFee: '', processingFeeType: 'percentage',
           penaltyType: 'none', penaltyValue: ''
         });
+        setGuarantors([{ name: '', phone: '', aadhar: '', pan: '', relationship: '', type: 'guarantor' }]);
+        setHasGuarantor(false);
         fetchLoans();
       }
     } catch (err) { console.error(err); }
   };
 
-  const fmt = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN');
+  const fmt = (n: number) => '\u20B9' + Number(n || 0).toLocaleString('en-IN');
   const inp = { width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' as any };
   const lbl = { display: 'block' as any, fontSize: '13px', fontWeight: '500' as any, marginBottom: '4px', color: '#374151' };
 
@@ -146,7 +160,6 @@ export default function LoansPage() {
             <h3 style={{ fontWeight: '700', marginBottom: '20px', fontSize: '16px' }}>Create New Loan</h3>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              {/* Customer */}
               <div>
                 <label style={lbl}>Customer</label>
                 <select value={form.customerId} onChange={e => setForm({ ...form, customerId: e.target.value })} style={inp}>
@@ -155,7 +168,6 @@ export default function LoansPage() {
                 </select>
               </div>
 
-              {/* Loan Type */}
               <div>
                 <label style={lbl}>Loan Type</label>
                 <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} style={inp}>
@@ -168,28 +180,24 @@ export default function LoansPage() {
                 </select>
               </div>
 
-              {/* Amount */}
               <div>
-                <label style={lbl}>Loan Amount (₹)</label>
+                <label style={lbl}>Loan Amount</label>
                 <input type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="100000" style={inp} />
               </div>
 
-              {/* Interest Type */}
               <div>
                 <label style={lbl}>Interest Type</label>
                 <select value={form.interestType} onChange={e => setForm({ ...form, interestType: e.target.value })} style={inp}>
-                  <option value="percentage">Reducing Balance (Bank Style)</option>
-                  <option value="flat">Flat Rate (Simple Interest)</option>
+                  <option value="percentage">Reducing Balance</option>
+                  <option value="flat">Flat Rate</option>
                 </select>
               </div>
 
-              {/* Interest Rate */}
               <div>
-                <label style={lbl}>Interest Rate (% per year)</label>
+                <label style={lbl}>Interest Rate</label>
                 <input type="number" value={form.interestRate} onChange={e => setForm({ ...form, interestRate: e.target.value })} placeholder="12" style={inp} />
               </div>
 
-              {/* Frequency */}
               <div>
                 <label style={lbl}>Repayment Frequency</label>
                 <select value={form.frequency} onChange={e => setForm({ ...form, frequency: e.target.value })} style={inp}>
@@ -199,7 +207,6 @@ export default function LoansPage() {
                 </select>
               </div>
 
-              {/* Tenure */}
               <div>
                 <label style={lbl}>
                   Number of Installments ({form.frequency === 'daily' ? 'days' : form.frequency === 'weekly' ? 'weeks' : 'months'})
@@ -207,15 +214,14 @@ export default function LoansPage() {
                 <input type="number" value={form.tenure} onChange={e => setForm({ ...form, tenure: e.target.value })} placeholder="12" style={inp} />
               </div>
 
-              {/* Penalty */}
               <div>
                 <label style={lbl}>Penalty for Late Payment</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <select value={form.penaltyType} onChange={e => setForm({ ...form, penaltyType: e.target.value, penaltyValue: '' })} style={{ ...inp, flex: 1 }}>
                     <option value="none">No Penalty</option>
-                    <option value="fixed">Fixed Amount per EMI (₹)</option>
+                    <option value="fixed">Fixed Amount per EMI</option>
                     <option value="percentage">% of EMI Amount</option>
-                    <option value="daily">Per Day (₹)</option>
+                    <option value="daily">Per Day</option>
                   </select>
                   {form.penaltyType !== 'none' && (
                     <input type="number" value={form.penaltyValue} onChange={e => setForm({ ...form, penaltyValue: e.target.value })}
@@ -225,18 +231,16 @@ export default function LoansPage() {
                 </div>
               </div>
 
-              {/* Deduct Upfront */}
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '12px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                   <input type="checkbox" checked={form.deductUpfront} onChange={e => setForm({ ...form, deductUpfront: e.target.checked })} style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
                   <div>
                     <p style={{ margin: 0, fontSize: '14px', fontWeight: '600' }}>Deduct Interest Upfront</p>
-                    <p style={{ margin: 0, fontSize: '12px', color: '#6b7280' }}>Interest deducted first — customer receives less, repays full principal</p>
+                    <p style={{ margin: 0, fontSize: '12px', color: '#6b7280' }}>Interest deducted first</p>
                   </div>
                 </label>
               </div>
 
-              {/* Processing Fee */}
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', marginBottom: '8px' }}>
                   <input type="checkbox" checked={form.hasProcessingFee} onChange={e => setForm({ ...form, hasProcessingFee: e.target.checked, processingFee: '' })} style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
@@ -245,31 +249,74 @@ export default function LoansPage() {
                 {form.hasProcessingFee && (
                   <div style={{ display: 'flex', gap: '8px', paddingLeft: '26px' }}>
                     <select value={form.processingFeeType} onChange={e => setForm({ ...form, processingFeeType: e.target.value })} style={{ ...inp, width: '200px' }}>
-                      <option value="percentage">Percentage (%) of loan</option>
-                      <option value="flat">Flat Amount (₹)</option>
+                      <option value="percentage">Percentage of loan</option>
+                      <option value="flat">Flat Amount</option>
                     </select>
                     <input type="number" value={form.processingFee} onChange={e => setForm({ ...form, processingFee: e.target.value })}
-                      placeholder={form.processingFeeType === 'percentage' ? '2 (means 2%)' : 'Amount in ₹'}
+                      placeholder="amount"
                       style={{ ...inp, flex: 1 }} />
                   </div>
                 )}
               </div>
+
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', marginBottom: hasGuarantor ? '12px' : '0' }}>
+                  <input type="checkbox" checked={hasGuarantor} onChange={e => setHasGuarantor(e.target.checked)} style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
+                  <span style={{ fontSize: '14px', fontWeight: '600' }}>This loan has a guarantor / co-signer</span>
+                </label>
+              </div>
+
+              {hasGuarantor && (
+                <div style={{ gridColumn: '1 / -1', marginTop: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: '600' }}>Guarantors (at least one required)</span>
+                    <button type="button" onClick={() => setGuarantors([...guarantors, { name: '', phone: '', aadhar: '', pan: '', relationship: '', type: 'guarantor' }])}
+                      style={{ background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe', padding: '4px 12px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>
+                      + Add Guarantor
+                    </button>
+                  </div>
+                  {guarantors.map((g, idx) => (
+                    <div key={idx} style={{ background: '#f9fafb', padding: '14px', borderRadius: '8px', border: '1px solid #e5e7eb', marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>Guarantor {idx + 1}</span>
+                        {guarantors.length > 1 && (
+                          <button type="button" onClick={() => setGuarantors(guarantors.filter((_, i) => i !== idx))}
+                            style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '3px 10px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}>
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                        <input placeholder="Name *" value={g.name} maxLength={40} onChange={e => updateGuarantor(idx, 'name', e.target.value)} style={inp} />
+                        <input placeholder="Phone *" value={g.phone} maxLength={10} onChange={e => updateGuarantor(idx, 'phone', e.target.value)} style={inp} />
+                        <select value={g.type} onChange={e => updateGuarantor(idx, 'type', e.target.value)} style={inp}>
+                          <option value="guarantor">Guarantor</option>
+                          <option value="co-signer">Co-signer</option>
+                          <option value="nominee">Nominee</option>
+                        </select>
+                        <input placeholder="Relationship" value={g.relationship} onChange={e => updateGuarantor(idx, 'relationship', e.target.value)} style={inp} />
+                        <input placeholder="Aadhaar" value={g.aadhar} maxLength={12} onChange={e => updateGuarantor(idx, 'aadhar', e.target.value)} style={inp} />
+                        <input placeholder="PAN" value={g.pan} maxLength={10} onChange={e => updateGuarantor(idx, 'pan', e.target.value)} style={inp} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Live Preview */}
             {showPreview && (
               <div style={{ marginTop: '20px', padding: '16px', background: '#f0f9ff', borderRadius: '10px', border: '1px solid #bae6fd' }}>
-                <p style={{ fontWeight: '700', margin: '0 0 12px', fontSize: '14px', color: '#0369a1' }}>📋 Loan Summary Preview</p>
+                <p style={{ fontWeight: '700', margin: '0 0 12px', fontSize: '14px', color: '#0369a1' }}>Loan Summary Preview</p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
                   {[
                     { label: 'Loan Amount', value: fmt(p) },
-                    { label: 'Processing Fee', value: pf > 0 ? `− ${fmt(pf)}` : 'None', color: pf > 0 ? '#dc2626' : '#16a34a' },
-                    { label: 'Interest Deducted', value: form.deductUpfront ? `− ${fmt(calcTotalInterest())}` : 'On EMI', color: form.deductUpfront ? '#dc2626' : '#6b7280' },
+                    { label: 'Processing Fee', value: pf > 0 ? `- ${fmt(pf)}` : 'None', color: pf > 0 ? '#dc2626' : '#16a34a' },
+                    { label: 'Interest Deducted', value: form.deductUpfront ? `- ${fmt(calcTotalInterest())}` : 'On EMI', color: form.deductUpfront ? '#dc2626' : '#6b7280' },
                     { label: 'Customer Receives', value: fmt(Math.max(0, disbursed)), color: '#16a34a', bold: true },
                     { label: 'EMI Amount', value: fmt(emi), bold: true },
                     { label: 'Total Repayable', value: fmt(emi * Number(form.tenure)) },
                     { label: 'Total Interest', value: fmt(calcTotalInterest()) },
-                    { label: 'Late Penalty', value: form.penaltyType === 'none' ? 'None' : form.penaltyType === 'fixed' ? `₹${form.penaltyValue} per EMI` : form.penaltyType === 'percentage' ? `${form.penaltyValue}% of EMI` : `₹${form.penaltyValue}/day` },
+                    { label: 'Late Penalty', value: form.penaltyType === 'none' ? 'None' : form.penaltyType === 'fixed' ? `${form.penaltyValue} per EMI` : form.penaltyType === 'percentage' ? `${form.penaltyValue}% of EMI` : `${form.penaltyValue}/day` },
                   ].map(item => (
                     <div key={item.label} style={{ background: 'white', padding: '10px 12px', borderRadius: '8px' }}>
                       <p style={{ color: '#6b7280', fontSize: '11px', margin: '0 0 4px' }}>{item.label}</p>
@@ -291,11 +338,10 @@ export default function LoansPage() {
           </div>
         )}
 
-        {/* Loans Table */}
         <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3 style={{ fontWeight: '600', margin: 0 }}>All Loans ({filteredLoans.length})</h3>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search by name, type, ID..." style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', width: '280px' }} />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, type, ID..." style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', width: '280px' }} />
           </div>
           {loading ? (
             <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
@@ -323,14 +369,13 @@ export default function LoansPage() {
                     <td style={{ padding: '12px 16px', fontSize: '13px', textTransform: 'capitalize' }}>{l.frequency || 'monthly'}</td>
                     <td style={{ padding: '12px 16px', fontSize: '13px' }}>{l.tenure} {l.frequency === 'daily' ? 'days' : l.frequency === 'weekly' ? 'wks' : 'mo'}</td>
                     <td style={{ padding: '12px 16px' }}>
-    
                       <span style={{
-  background: l.status === 'completed' ? '#eff6ff' : l.status === 'active' ? '#dcfce7' : '#f3f4f6',
-  color: l.status === 'completed' ? '#1e40af' : l.status === 'active' ? '#16a34a' : '#6b7280',
-  padding: '2px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600'
-}}>
-  {l.status === 'completed' ? '✅ Completed' : l.status}
-</span>
+                        background: l.status === 'completed' ? '#eff6ff' : l.status === 'active' ? '#dcfce7' : '#f3f4f6',
+                        color: l.status === 'completed' ? '#1e40af' : l.status === 'active' ? '#16a34a' : '#6b7280',
+                        padding: '2px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600'
+                      }}>
+                        {l.status === 'completed' ? 'Completed' : l.status}
+                      </span>
                     </td>
                   </tr>
                 ))}

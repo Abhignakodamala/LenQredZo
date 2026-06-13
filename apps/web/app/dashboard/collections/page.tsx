@@ -8,7 +8,7 @@ export default function CollectionsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+  
 
   useEffect(() => { fetchCollections(); }, []);
 

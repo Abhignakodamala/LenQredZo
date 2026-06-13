@@ -4,17 +4,16 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 export default function CollectionsChart() {
   const [data, setData] = useState<any[]>([]);
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const res = await fetch('http://localhost:5000/api/loans/collections/all', {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
         });
-        const emis = await res.json();
+        const result = await res.json();
+        const emis = Array.isArray(result) ? result : [];
 
-        // Group by due date label
         const grouped: any = {};
         emis.forEach((emi: any) => {
           const label = new Date(emi.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
