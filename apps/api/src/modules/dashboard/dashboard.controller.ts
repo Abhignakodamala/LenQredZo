@@ -220,10 +220,11 @@ export const getAnalytics = async (req: any, res: Response) => {
 export const getTodayOverview = async (req: any, res: Response) => {
   try {
     const companyId = req.user.companyId;
-    const today = new Date();
-    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
-
+    // Compute "today" in India time so day boundaries are correct regardless of server timezone.
+    const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+    const istNow = new Date(Date.now() + IST_OFFSET);
+    const startOfToday = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), istNow.getUTCDate()) - IST_OFFSET);
+    const endOfToday = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), istNow.getUTCDate(), 23, 59, 59) - IST_OFFSET);
     const emis = await prisma.eMI.findMany({
       where: { loan: { companyId } },
       include: { loan: { include: { customer: true } } },

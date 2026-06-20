@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter} from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
+import { getAuthUser } from '@/lib/authUser';
+import { API_URL } from '@/lib/api';
 
 export default function LoanDetailPage() {
   const params = useParams();
@@ -10,11 +12,34 @@ export default function LoanDetailPage() {
   const [loan, setLoan] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+const [me, setMe] = useState<any>(null);
+  const [deleting, setDeleting] = useState(false);
+  useEffect(() => { setMe(getAuthUser()); }, []);
+  const canDelete = me && ['owner', 'admin', 'Super Admin', 'branch_manager'].includes(me.role);
+
+  const deleteLoan = async () => {
+    if (!confirm(`Delete loan LN${1000 + loan.id}? This removes its EMIs, payments and guarantors. This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`${API_URL}/api/loans/${loan.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.message || 'Could not delete'); setDeleting(false); return; }
+      router.push('/dashboard/loans');
+    } catch (err) {
+      console.error(err);
+      alert('Server error. Please try again.');
+      setDeleting(false);
+    }
+  };
+  
   useEffect(() => { if (id) fetchLoan(); }, [id]);
 
   const fetchLoan = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/loans/${id}`, {
+      const res = await fetch(`${API_URL}/api/loans/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
       });
       const data = await res.json();
@@ -25,6 +50,9 @@ export default function LoanDetailPage() {
 
   const fmt = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN');
   const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  const fmtDateTimeIST = (d: string) => d
+    ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })
+    : '—';
 
   const paidEmis = loan?.emis?.filter((e: any) => e.status === 'paid').length || 0;
   const totalEmis = loan?.emis?.length || 0;
@@ -66,6 +94,8 @@ export default function LoanDetailPage() {
     </div>
   );
 
+  const outstanding = loan.emis?.filter((e: any) => e.status !== 'paid').reduce((s: number, e: any) => s + (e.amount - (e.paidAmount || 0)), 0) || 0;
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Sidebar />
@@ -90,6 +120,12 @@ export default function LoanDetailPage() {
           }}>
             {loan.status === 'completed' ? '✅ Completed' : loan.status === 'active' ? '🟢 Active' : loan.status}
           </span>
+          {canDelete && (
+            <button onClick={deleteLoan} disabled={deleting}
+              style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', opacity: deleting ? 0.6 : 1 }}>
+              {deleting ? 'Deleting...' : '🗑 Delete Loan'}
+            </button>
+          )}
         </div>
 
         {/* Stat Cards */}
@@ -98,7 +134,7 @@ export default function LoanDetailPage() {
             { label: 'Loan Amount', value: fmt(loan.amount), color: '#111827' },
             { label: 'Disbursed', value: fmt(loan.disbursedAmount ?? loan.amount), color: '#16a34a' },
             { label: 'EMI Amount', value: fmt(loan.emiAmount), color: '#1e40af' },
-            { label: 'Outstanding', value: fmt(loan.emis?.filter((e: any) => e.status !== 'paid').reduce((s: number, e: any) => s + e.amount, 0) || 0), color: '#dc2626' },
+            { label: 'Outstanding', value: fmt(outstanding), color: '#dc2626' },
           ].map(c => (
             <div key={c.label} style={{ background: 'white', padding: '16px 20px', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
               <p style={{ color: '#6b7280', fontSize: '12px', margin: '0 0 4px' }}>{c.label}</p>
@@ -185,14 +221,23 @@ export default function LoanDetailPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                  {['#', 'Due Date', 'Amount', 'Penalty', 'Status', 'Paid On'].map(h => (
+                  {['#', 'Due Date', 'Amount', 'Paid', 'Remaining', 'Status', 'Paid On'].map(h => (
                     <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {(loan.emis || []).map((e: any, idx: number) => {
+                  const paidAmt = e.paidAmount || 0;
+                  const remaining = e.amount - paidAmt;
                   const isOverdue = e.status !== 'paid' && new Date(e.dueDate) < new Date();
+                  const isPartial = e.status !== 'paid' && paidAmt > 0;
+
+                  let label = 'Pending', bg = '#f3f4f6', color = '#6b7280';
+                  if (e.status === 'paid') { label = '✓ Paid'; bg = '#dcfce7'; color = '#16a34a'; }
+                  else if (isPartial) { label = 'Partial'; bg = '#dbeafe'; color = '#1e40af'; }
+                  else if (isOverdue) { label = 'Overdue'; bg = '#fee2e2'; color = '#dc2626'; }
+
                   return (
                     <tr key={e.id} style={{ borderBottom: '1px solid #f3f4f6', background: isOverdue ? '#fff7ed' : 'white' }}>
                       <td style={{ padding: '10px 16px', fontSize: '13px', color: '#6b7280' }}>{idx + 1}</td>
@@ -201,20 +246,19 @@ export default function LoanDetailPage() {
                         {isOverdue && <span style={{ fontSize: '10px', display: 'block', color: '#dc2626' }}>OVERDUE</span>}
                       </td>
                       <td style={{ padding: '10px 16px', fontSize: '13px', fontWeight: '600' }}>{fmt(e.amount)}</td>
-                      <td style={{ padding: '10px 16px', fontSize: '13px', color: e.penaltyApplied > 0 ? '#dc2626' : '#9ca3af' }}>
-                        {e.penaltyApplied > 0 ? fmt(e.penaltyApplied) : '—'}
+                      <td style={{ padding: '10px 16px', fontSize: '13px', color: paidAmt > 0 ? '#16a34a' : '#9ca3af' }}>
+                        {paidAmt > 0 ? fmt(paidAmt) : '—'}
+                      </td>
+                      <td style={{ padding: '10px 16px', fontSize: '13px', color: e.status === 'paid' ? '#9ca3af' : '#111827', fontWeight: e.status === 'paid' ? '400' : '600' }}>
+                        {e.status === 'paid' ? '—' : fmt(remaining)}
                       </td>
                       <td style={{ padding: '10px 16px' }}>
-                        <span style={{
-                          background: e.status === 'paid' ? '#dcfce7' : isOverdue ? '#fee2e2' : '#f3f4f6',
-                          color: e.status === 'paid' ? '#16a34a' : isOverdue ? '#dc2626' : '#6b7280',
-                          padding: '2px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '600'
-                        }}>
-                          {e.status === 'paid' ? '✓ Paid' : isOverdue ? 'Overdue' : 'Pending'}
+                        <span style={{ background: bg, color, padding: '2px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '600' }}>
+                          {label}
                         </span>
                       </td>
                       <td style={{ padding: '10px 16px', fontSize: '12px', color: '#6b7280' }}>
-                        {e.paidAt ? fmtDate(e.paidAt) : '—'}
+                        {e.status === 'paid' && e.paidAt ? fmtDate(e.paidAt) : '—'}
                       </td>
                     </tr>
                   );
@@ -233,7 +277,7 @@ export default function LoanDetailPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                  {['Date', 'Amount', 'Note'].map(h => (
+                  {['Date & Time (IST)', 'Amount', 'Method', 'Reference', 'Status'].map(h => (
                     <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>{h}</th>
                   ))}
                 </tr>
@@ -241,9 +285,19 @@ export default function LoanDetailPage() {
               <tbody>
                 {loan.payments.map((p: any) => (
                   <tr key={p.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={{ padding: '10px 16px', fontSize: '13px' }}>{fmtDate(p.createdAt)}</td>
+                    <td style={{ padding: '10px 16px', fontSize: '13px' }}>{fmtDateTimeIST(p.paidAt)}</td>
                     <td style={{ padding: '10px 16px', fontSize: '13px', fontWeight: '600', color: '#16a34a' }}>{fmt(p.amount)}</td>
-                    <td style={{ padding: '10px 16px', fontSize: '13px', color: '#6b7280' }}>{p.note || '—'}</td>
+                    <td style={{ padding: '10px 16px', fontSize: '13px', textTransform: 'capitalize' }}>{p.method || 'cash'}</td>
+                    <td style={{ padding: '10px 16px', fontSize: '12px', color: p.reference ? '#374151' : '#9ca3af' }}>{p.reference || '—'}</td>
+                    <td style={{ padding: '10px 16px' }}>
+                      <span style={{
+                        background: p.verified ? '#dcfce7' : '#f3f4f6',
+                        color: p.verified ? '#16a34a' : '#6b7280',
+                        padding: '2px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '600'
+                      }}>
+                       {p.verified ? '✓ Ref recorded' : 'Cash / no proof'}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>

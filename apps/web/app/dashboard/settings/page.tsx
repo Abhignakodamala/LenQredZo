@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
-import ActivityLog from '@/components/ActivityLog';
+import { API_URL } from '@/lib/api';
 
 export default function SettingsPage() {
   const [company, setCompany] = useState<any>({ name: '', primaryColor: '#1e40af', plan: 'starter' });
@@ -19,7 +19,7 @@ export default function SettingsPage() {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/settings', {
+      const res = await fetch(`${API_URL}/api/settings`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
       });
       const data = await res.json();
@@ -34,7 +34,7 @@ export default function SettingsPage() {
   const saveCompany = async () => {
     setSavingCompany(true);
     try {
-      const res = await fetch('http://localhost:5000/api/settings/company', {
+      const res = await fetch(`${API_URL}/api/settings/company`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
         body: JSON.stringify({ name: company.name, primaryColor: company.primaryColor, plan: company.plan })
@@ -47,7 +47,7 @@ export default function SettingsPage() {
   const saveProfile = async () => {
     setSavingProfile(true);
     try {
-      const res = await fetch('http://localhost:5000/api/settings/profile', {
+      const res = await fetch(`${API_URL}/api/settings/profile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
         body: JSON.stringify({ name: user.name, email: user.email })
@@ -74,7 +74,7 @@ export default function SettingsPage() {
     if (pwd.newPassword !== pwd.confirmPassword) { setPwdError('New passwords do not match'); return; }
     setSavingPwd(true);
     try {
-      const res = await fetch('http://localhost:5000/api/settings/password', {
+      const res = await fetch(`${API_URL}/api/settings/password`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
         body: JSON.stringify({ currentPassword: pwd.currentPassword, newPassword: pwd.newPassword })
@@ -93,7 +93,7 @@ export default function SettingsPage() {
   const exportData = async () => {
   setExporting(true);
   try {
-    const res = await fetch('http://localhost:5000/api/export/data', {
+   const res = await fetch(`${API_URL}/api/export/data`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
     });
     

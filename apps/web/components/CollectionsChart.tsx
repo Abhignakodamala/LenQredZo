@@ -8,7 +8,7 @@ export default function CollectionsChart() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/loans/collections/all', {
+        const res = await fetch(`${API_URL}/api/loans/collections/all', {
           headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
         });
         const result = await res.json();

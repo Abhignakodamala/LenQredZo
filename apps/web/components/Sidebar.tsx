@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 
 type User = { name?: string; role?: string };
 
-const menuItems = [
+const baseMenuItems = [
   { name: 'Dashboard', icon: '📊', href: '/dashboard' },
   { name: 'Customers', icon: '👥', href: '/dashboard/customers' },
   { name: 'Loans', icon: '💰', href: '/dashboard/loans' },
@@ -15,6 +15,20 @@ const menuItems = [
   { name: 'Branches', icon: '🏢', href: '/dashboard/branches' },
   { name: 'Settings', icon: '⚙️', href: '/dashboard/settings' },
 ];
+
+// Only owner-level roles can manage staff.
+const OWNER_ROLES = ['owner', 'admin', 'Super Admin'];
+
+const ROLE_LABELS: Record<string, string> = {
+  owner: 'Finance Owner',
+  admin: 'Finance Owner',
+  'Super Admin': 'Super Admin',
+  branch_manager: 'Branch Manager',
+  loan_officer: 'Loan Officer',
+  accountant: 'Accountant',
+  collection_agent: 'Collection Agent',
+  recovery_officer: 'Recovery Officer',
+};
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -30,6 +44,17 @@ export default function Sidebar() {
       }
     }
   }, []);
+
+  const isOwner = OWNER_ROLES.includes(user?.role || '');
+
+  // Staff link is shown only to owners; insert it just before Settings.
+  const menuItems = [...baseMenuItems];
+  if (isOwner) {
+    const settingsIdx = menuItems.findIndex(m => m.name === 'Settings');
+    menuItems.splice(settingsIdx, 0, { name: 'Staff', icon: '🧑‍💼', href: '/dashboard/staff' });
+  }
+
+  const roleLabel = ROLE_LABELS[user?.role || ''] || user?.role || 'User';
 
   return (
     <div style={{width:'240px',background:'white',height:'100vh',position:'fixed',left:0,top:0,borderRight:'1px solid #e5e7eb',display:'flex',flexDirection:'column'}}>
@@ -62,7 +87,7 @@ export default function Sidebar() {
           </div>
           <div>
             <p style={{fontSize:'13px',fontWeight:'600',margin:0}}>{user?.name || 'User'}</p>
-            <p style={{fontSize:'11px',color:'#6b7280',margin:0}}>{user?.role || 'Admin'}</p>
+            <p style={{fontSize:'11px',color:'#6b7280',margin:0}}>{roleLabel}</p>
           </div>
         </div>
         <button

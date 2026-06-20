@@ -2,6 +2,8 @@ import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { encrypt, decrypt, maskAadhaar, maskPan } from '../../utils/encryption';
 import { logAudit } from '../../utils/audit';
+import { loanScope, emiScope, paymentScope, isBranchScoped } from '../../utils/scoping';
+import { validateReference } from '../../utils/refcheck';
 
 const prisma = new PrismaClient();
 
@@ -88,41 +90,55 @@ export const createLoan = async (req: any, res: Response) => {
       tenure, deductUpfront = false,
       processingFee = 0, processingFeeType = 'percentage',
       penaltyType = 'none', penaltyValue = 0,
+      roundEmi = false,
       guarantors = []
     } = req.body;
 
-    if (!guarantors || guarantors.length === 0) {
-      return res.status(400).json({ message: 'At least one guarantor is required' });
-    }
-
+    
     const { emiAmount, disbursedAmount: baseDisburse } = calculateInstallment(
       amount, interestRate, tenure, interestType, frequency, deductUpfront
     );
+    
+    if (processingFeeType === 'percentage' && processingFee > 10) {
+      return res.status(400).json({ message: 'Processing fee cannot exceed 10% of the loan amount.' });
+    }
 
     const processingFeeAmount = processingFeeType === 'percentage'
       ? Math.round(amount * processingFee / 100)
       : Math.round(processingFee);
 
     const finalDisbursed = baseDisburse - processingFeeAmount;
-
+    if (finalDisbursed <= 0) {
+      return res.status(400).json({
+        message: `Upfront deductions (interest + processing fee) exceed the loan amount — the customer would receive ₹${finalDisbursed.toLocaleString('en-IN')}. Reduce the interest rate, lower the processing fee, or turn off "Deduct Interest Upfront".`
+      });
+    }
     const loan = await prisma.loan.create({
       data: {
         customerId, type, amount, disbursedAmount: finalDisbursed,
         interestRate, interestType, frequency,
         deductUpfront, tenure, status: 'active', companyId,
         processingFee: processingFeeAmount,
-        processingFeeType, penaltyType, penaltyValue
+        processingFeeType, penaltyType, penaltyValue, roundEmi
       }
     });
 
     const startDate = new Date();
+    const roundedEmi = Math.round(emiAmount);
+    const totalRepayable = Math.round(emiAmount * tenure);
     const emis = [];
-    for (let i = 1; i <= tenure; i++) {
-      emis.push({
-        loanId: loan.id, amount: emiAmount,
-        dueDate: getNextDueDate(startDate, i, frequency),
-        status: 'pending'
-      });
+    if (roundEmi) {
+      const roundedEmi = Math.round(emiAmount);
+      const totalRepayable = Math.round(emiAmount * tenure);
+      for (let i = 1; i <= tenure; i++) {
+        const isLast = i === tenure;
+        const thisAmount = isLast ? (totalRepayable - roundedEmi * (tenure - 1)) : roundedEmi;
+        emis.push({ loanId: loan.id, amount: thisAmount, dueDate: getNextDueDate(startDate, i, frequency), status: 'pending' });
+      }
+    } else {
+      for (let i = 1; i <= tenure; i++) {
+        emis.push({ loanId: loan.id, amount: emiAmount, dueDate: getNextDueDate(startDate, i, frequency), status: 'pending' });
+      }
     }
     await prisma.eMI.createMany({ data: emis });
 
@@ -153,9 +169,8 @@ export const createLoan = async (req: any, res: Response) => {
 
 export const getAllLoans = async (req: any, res: Response) => {
   try {
-    const companyId = req.user.companyId;
     const loans = await prisma.loan.findMany({
-      where: { companyId },
+      where: loanScope(req.user),
       include: { customer: true, emis: true }
     });
     res.json(loans.map(l => ({ ...l, customer: maskCustomer(l.customer) })));
@@ -176,6 +191,15 @@ export const getLoanById = async (req: any, res: Response) => {
       }
     });
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
+
+    // Branch isolation: block opening a loan outside the user's company/branch.
+    if (loan.companyId !== req.user.companyId) {
+      return res.status(404).json({ message: 'Loan not found' });
+    }
+    if (isBranchScoped(req.user) && loan.customer?.branchId !== req.user.branchId) {
+      return res.status(403).json({ message: 'This loan belongs to another branch' });
+    }
+
     const safe = {
       ...loan,
       customer: maskCustomer(loan.customer),
@@ -206,15 +230,26 @@ export const updateLoanStatus = async (req: any, res: Response) => {
 export const markEmiPaid = async (req: any, res: Response) => {
   try {
     const emiId = Number(req.params.emiId);
-    const { collectPenalty = false } = req.body;
+    const { collectPenalty = false, waivePenalty = false, waiveReason = '' } = req.body;
     const method = (req.body.method || 'cash').toLowerCase();
     const reference = (req.body.reference || '').trim();
 
-    // Digital methods need a reference (proof). Cash is allowed without one.
-    const digitalMethods = ['upi', 'bank', 'cheque', 'card'];
-    if (digitalMethods.includes(method) && !reference) {
-      return res.status(400).json({ message: `A reference / transaction ID is required for ${method} payments` });
+    // Validate the reference format if a digital payment method is used.
+    if (method !== 'cash' && reference) {
+      const { ok, message } = validateReference(method, reference);
+      if (!ok) {
+        return res.status(400).json({ message });
+      }
     }
+
+    // Validate the reference format (Level 2 — catches obviously-fake references).
+    const refCheck = validateReference(method, reference);
+    if (!refCheck.ok) {
+      return res.status(400).json({ message: refCheck.message });
+    }
+    // "referenceRecorded": a digital payment with a well-formed reference. This means the
+    // reference was captured and passes a format check — NOT that the bank confirmed it.
+    // True confirmation requires a payment gateway (Pro feature).
     const verified = method !== 'cash' && reference.length > 0;
 
     const emi = await prisma.eMI.findUnique({
@@ -242,7 +277,17 @@ export const markEmiPaid = async (req: any, res: Response) => {
 
     // Penalty is only collected when the EMI is fully cleared (v1 rule).
     const today = new Date();
-    const penaltyAmount = (fullyCleared && collectPenalty) ? calculatePenalty(emi, emi.loan, today) : 0;
+    // Penalty waiver: only managers/owners may waive, reason required, fully audited.
+    const canWaive = ['owner', 'admin', 'Super Admin', 'branch_manager'].includes(req.user.role);
+    const isWaiving = fullyCleared && collectPenalty && waivePenalty;
+    if (isWaiving && !canWaive) {
+      return res.status(403).json({ message: 'You do not have permission to waive penalties' });
+    }
+    if (isWaiving && !waiveReason.trim()) {
+      return res.status(400).json({ message: 'A reason is required to waive the penalty' });
+    }
+    const penaltyAmount = (fullyCleared && collectPenalty && !isWaiving) ? calculatePenalty(emi, emi.loan, today) : 0;
+    const waivedAmount = isWaiving ? calculatePenalty(emi, emi.loan, today) : 0;
     const paymentTotal = payAmount + penaltyAmount;
 
     const result = await prisma.$transaction(async (tx) => {
@@ -285,6 +330,12 @@ export const markEmiPaid = async (req: any, res: Response) => {
     });
 
     const partialNote = fullyCleared ? '' : ` (partial — ₹${(emi.amount - newPaid).toLocaleString('en-IN')} still due)`;
+    if (isWaiving && waivedAmount > 0) {
+      await logAudit({
+        req, action: 'WAIVE_PENALTY', entityType: 'EMI', entityId: emiId,
+        details: `Waived ₹${waivedAmount.toLocaleString('en-IN')} penalty on loan LN${1000 + emi.loanId} — reason: ${waiveReason.trim()}`
+      });
+    }
     await logAudit({
       req, action: 'MARK_EMI_PAID', entityType: 'EMI', entityId: emiId,
       details: `Collected ₹${paymentTotal.toLocaleString('en-IN')} via ${method}${reference ? ' (ref: ' + reference + ')' : ''}${method === 'cash' ? ' [unverified cash]' : ''} on loan LN${1000 + emi.loanId}${partialNote}${result.loanCompleted ? ' — loan completed' : ''}`
@@ -295,6 +346,7 @@ export const markEmiPaid = async (req: any, res: Response) => {
       payAmount,
       penaltyAmount,
       paymentTotal,
+      waivedAmount,
       paidAmount: newPaid,
       remaining: emi.amount - newPaid,
       status: fullyCleared ? 'paid' : 'partial',
@@ -313,9 +365,8 @@ export const markEmiPaid = async (req: any, res: Response) => {
 
 export const getCollections = async (req: any, res: Response) => {
   try {
-    const companyId = req.user.companyId;
     const emis = await prisma.eMI.findMany({
-      where: { loan: { companyId } },
+      where: emiScope(req.user),
       include: { loan: { include: { customer: true } } },
       orderBy: { dueDate: 'asc' }
     });
@@ -324,22 +375,16 @@ export const getCollections = async (req: any, res: Response) => {
     const result = emis.map(emi => {
       const paidAmount = emi.paidAmount || 0;
       const remaining = emi.amount - paidAmount;
-
       const isOverdue = emi.status !== 'paid' && new Date(emi.dueDate) < today;
-      // status: paid | partial | overdue | pending
       let status: string;
       if (emi.status === 'paid') status = 'paid';
       else if (paidAmount > 0) status = 'partial';
       else if (isOverdue) status = 'overdue';
       else status = 'pending';
-
       const daysOverdue = isOverdue
         ? Math.floor((today.getTime() - new Date(emi.dueDate).getTime()) / 86400000)
         : 0;
-
-      // Penalty only applies to the still-due remainder, and only when not fully paid.
       const penalty = emi.status === 'paid' ? 0 : calculatePenalty(emi, emi.loan, today);
-
       return {
         id: emi.id,
         customerName: emi.loan.customer?.name,
@@ -365,9 +410,8 @@ export const getCollections = async (req: any, res: Response) => {
 
 export const getPayments = async (req: any, res: Response) => {
   try {
-    const companyId = req.user.companyId;
     const payments = await prisma.payment.findMany({
-      where: { loan: { companyId } },
+      where: paymentScope(req.user),
       include: { loan: { include: { customer: true } } },
       orderBy: { paidAt: 'desc' }
     });
@@ -379,3 +423,33 @@ export const getPayments = async (req: any, res: Response) => {
     res.status(500).json({ message: 'Server error', error });
   }
 };
+
+export const deleteLoan = async (req: any, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const allowed = ['owner', 'admin', 'Super Admin', 'branch_manager'];
+    if (!allowed.includes(req.user.role)) {
+      return res.status(403).json({ message: 'You do not have permission to delete loans' });
+    }
+    const loan = await prisma.loan.findUnique({ where: { id } });
+    if (!loan || loan.companyId !== req.user.companyId) {
+      return res.status(404).json({ message: 'Loan not found' });
+    }
+    // Remove child records first (DB blocks deleting a loan while these exist), then the loan.
+    await prisma.$transaction([
+      prisma.payment.deleteMany({ where: { loanId: id } }),
+      prisma.eMI.deleteMany({ where: { loanId: id } }),
+      prisma.guarantor.deleteMany({ where: { loanId: id } }),
+      prisma.loan.delete({ where: { id } })
+    ]);
+    await logAudit({
+      req, action: 'DELETE_LOAN', entityType: 'Loan', entityId: id,
+      details: `Deleted loan LN${1000 + id} (${loan.type}, ₹${loan.amount})`
+    });
+    res.json({ message: 'Loan deleted' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+

@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { encrypt, decrypt, maskAadhaar, maskPan } from '../../utils/encryption';
 import { logAudit } from '../../utils/audit';
+import { customerScope, isBranchScoped } from '../../utils/scoping';
 
 const prisma = new PrismaClient();
 
@@ -19,9 +20,8 @@ function isMasked(v: string): boolean {
 
 export const getAllCustomers = async (req: any, res: Response) => {
   try {
-    const companyId = req.user.companyId;
     const customers = await prisma.customer.findMany({
-      where: { companyId },
+      where: customerScope(req.user),
       include: { loans: true }
     });
     res.json(customers.map(toSafeCustomer));
@@ -42,6 +42,11 @@ export const getCustomerById = async (req: any, res: Response) => {
       }
     });
     if (!customer) return res.status(404).json({ message: 'Customer not found' });
+    // Multi-tenant + branch guard: don't reveal records outside the user's company/branch.
+    if (customer.companyId !== req.user.companyId) return res.status(404).json({ message: 'Customer not found' });
+    if (isBranchScoped(req.user) && customer.branchId !== req.user.branchId) {
+      return res.status(404).json({ message: 'Customer not found' });
+    }
     res.json(toSafeCustomer(customer));
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });

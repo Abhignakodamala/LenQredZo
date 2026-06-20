@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from 'recharts';
+import { API_URL } from '@/lib/api';
 
 const COLORS = ['#1e40af', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -10,7 +11,7 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/dashboard/analytics', {
+    fetch(`${API_URL}/api/dashboard/analytics`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
     })
       .then(r => r.json())

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import Navbar from '@/components/Navbar';
+import { API_URL } from '@/lib/api';
 
 export default function Dashboard() {
   const [stats, setStats] = useState<any>(null);
@@ -12,8 +13,8 @@ export default function Dashboard() {
   useEffect(() => {
     const token = localStorage.getItem('token') || '';
     Promise.all([
-      fetch('http://localhost:5000/api/dashboard/stats', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch('http://localhost:5000/api/dashboard/today', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
+      fetch(`${API_URL}/api/dashboard/stats`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      fetch(`${API_URL}/api/dashboard/today`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
     ]).then(([s, t]) => {
       setStats(s);
       setToday(t);

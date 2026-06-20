@@ -1,10 +1,14 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
-
+import { getAuthUser, can } from '@/lib/authUser';
+import { API_URL } from '@/lib/api';
 export default function LoansPage() {
-  const [loans, setLoans] = useState([]);
-  const [customers, setCustomers] = useState([]);
+  const [me, setMe] = useState<any>(null);
+  useEffect(() => { setMe(getAuthUser()); }, []);
+  const canCreateLoan = can(me, 'loan:create');
+  const [loans, setLoans] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState('');
@@ -13,18 +17,20 @@ export default function LoansPage() {
     interestRate: '', interestType: 'percentage',
     frequency: 'monthly', tenure: '', deductUpfront: false,
     hasProcessingFee: false, processingFee: '', processingFeeType: 'percentage',
-    penaltyType: 'none', penaltyValue: ''
+    penaltyType: 'none', penaltyValue: '', roundEmi: false
   });
   const [guarantors, setGuarantors] = useState([
     { name: '', phone: '', aadhar: '', pan: '', relationship: '', type: 'guarantor' }
   ]);
   const [hasGuarantor, setHasGuarantor] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => { fetchLoans(); fetchCustomers(); }, []);
 
   const fetchLoans = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/loans', { headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` } });
+      const res = await fetch(`${API_URL}/api/loans`, { headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` } });
       const data = await res.json();
       setLoans(Array.isArray(data) ? data : []);
     } catch (err) { console.error(err); }
@@ -33,7 +39,7 @@ export default function LoansPage() {
 
   const fetchCustomers = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/customers', { headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` } });
+      const res = await fetch(`${API_URL}/api/customers`, { headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` } });
       const data = await res.json();
       setCustomers(Array.isArray(data) ? data : []);
     } catch (err) { console.error(err); }
@@ -84,16 +90,18 @@ export default function LoansPage() {
     setGuarantors(ng);
   };
 
-  const addLoan = async () => {
-    if (!form.customerId) { alert('Select a customer'); return; }
-    if (!form.amount || Number(form.amount) < 1000) { alert('Minimum loan 1000'); return; }
-    if (!form.interestRate) { alert('Enter interest rate'); return; }
-    if (!form.tenure) { alert('Enter tenure'); return; }
+ const addLoan = async () => {
+    setFormError('');
+    if (!form.customerId) { setFormError('Please select a customer.'); return; }
+    if (!form.amount || Number(form.amount) < 1000) { setFormError('Minimum loan amount is ₹1,000.'); return; }
+    if (!form.interestRate) { setFormError('Please enter an interest rate.'); return; }
+    if (!form.tenure) { setFormError('Please enter the number of installments.'); return; }
     const validGuarantors = hasGuarantor ? guarantors.filter(g => g.name.trim() && g.phone.trim()) : [];
-    if (hasGuarantor && validGuarantors.length === 0) { alert('Add at least one guarantor or uncheck the guarantor option'); return; }
+    if (hasGuarantor && validGuarantors.length === 0) { setFormError('Add at least one guarantor (name + phone) or uncheck the guarantor option.'); return; }
 
+    setSaving(true);
     try {
-      const res = await fetch('http://localhost:5000/api/loans', {
+      const res = await fetch(`${API_URL}/api/loans`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
         body: JSON.stringify({
@@ -108,20 +116,28 @@ export default function LoansPage() {
           guarantors: validGuarantors
         })
       });
-      if (res.ok) {
-        setShowForm(false);
-        setForm({
-          customerId: '', type: 'Personal Loan', amount: '',
-          interestRate: '', interestType: 'percentage',
-          frequency: 'monthly', tenure: '', deductUpfront: false,
-          hasProcessingFee: false, processingFee: '', processingFeeType: 'percentage',
-          penaltyType: 'none', penaltyValue: ''
-        });
-        setGuarantors([{ name: '', phone: '', aadhar: '', pan: '', relationship: '', type: 'guarantor' }]);
-        setHasGuarantor(false);
-        fetchLoans();
+      const data = await res.json();
+      if (!res.ok) {
+        setFormError(data.message || 'Could not create the loan. Please check the details and try again.');
+        setSaving(false);
+        return;
       }
-    } catch (err) { console.error(err); }
+      setShowForm(false);
+      setForm({
+        customerId: '', type: 'Personal Loan', amount: '',
+        interestRate: '', interestType: 'percentage',
+        frequency: 'monthly', tenure: '', deductUpfront: false,
+        hasProcessingFee: false, processingFee: '', processingFeeType: 'percentage',
+        penaltyType: 'none', penaltyValue: '',roundEmi: false
+      });
+      setGuarantors([{ name: '', phone: '', aadhar: '', pan: '', relationship: '', type: 'guarantor' }]);
+      setHasGuarantor(false);
+      fetchLoans();
+    } catch (err) {
+      console.error(err);
+      setFormError('Server error. Please make sure you are logged in and try again.');
+    }
+    setSaving(false);
   };
 
   const fmt = (n: number) => '\u20B9' + Number(n || 0).toLocaleString('en-IN');
@@ -150,9 +166,11 @@ export default function LoansPage() {
             <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Loans</h2>
             <p style={{ color: '#6b7280', margin: 0 }}>Manage all loans and EMI schedules</p>
           </div>
-          <button onClick={() => setShowForm(!showForm)} style={{ background: '#1e40af', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
-            + New Loan
-          </button>
+          {canCreateLoan && (
+            <button onClick={() => setShowForm(!showForm)} style={{ background: '#1e40af', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
+              + New Loan
+            </button>
+          )}
         </div>
 
         {showForm && (
@@ -233,10 +251,20 @@ export default function LoansPage() {
 
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '12px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                  <input type="checkbox" checked={form.deductUpfront} onChange={e => setForm({ ...form, deductUpfront: e.target.checked })} style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
+                  <input type="checkbox" checked={form.roundEmi} onChange={e => setForm({ ...form, roundEmi: e.target.checked })} style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
                   <div>
                     <p style={{ margin: 0, fontSize: '14px', fontWeight: '600' }}>Deduct Interest Upfront</p>
                     <p style={{ margin: 0, fontSize: '12px', color: '#6b7280' }}>Interest deducted first</p>
+                  </div>
+                </label>
+              </div>
+
+                  <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '12px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                  <input type="checkbox" checked={form.roundEmi} onChange={e => setForm({ ...form, roundEmi: e.target.checked })} style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
+                  <div>
+                    <p style={{ margin: 0, fontSize: '14px', fontWeight: '600' }}>Round EMI to clean ₹ amount</p>
+                    <p style={{ margin: 0, fontSize: '12px', color: '#6b7280' }}>e.g. ₹8,333 instead of ₹8,333.33 — last EMI adjusts</p>
                   </div>
                 </label>
               </div>
@@ -327,9 +355,15 @@ export default function LoansPage() {
               </div>
             )}
 
+            {formError && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '10px 12px', borderRadius: '8px', fontSize: '13px', marginTop: '16px' }}>
+                ⚠️ {formError}
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: '8px', marginTop: '20px' }}>
-              <button onClick={addLoan} style={{ background: '#1e40af', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
-                Create Loan
+              <button onClick={addLoan} disabled={saving} style={{ background: '#1e40af', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+                {saving ? 'Creating...' : 'Create Loan'}
               </button>
               <button onClick={() => setShowForm(false)} style={{ background: 'white', color: '#374151', border: '1px solid #d1d5db', padding: '10px 24px', borderRadius: '8px', fontSize: '14px', cursor: 'pointer' }}>
                 Cancel

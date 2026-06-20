@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { API_URL } from '@/lib/api';
 
 export default function ActivityLog() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -9,7 +10,7 @@ export default function ActivityLog() {
 
   const fetchLogs = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/audit', {
+      const res = await fetch(`${API_URL}/api/audit`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
       });
       const data = await res.json();
@@ -29,7 +30,8 @@ export default function ActivityLog() {
     if (days < 7) return `${days} day${days > 1 ? 's' : ''} ago`;
     return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   };
-
+  const fmtIST = (d: string) =>
+    new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) + ' IST';
   const iconFor = (action: string) => {
     if (action === 'MARK_EMI_PAID') return '💰';
     if (action === 'CREATE_LOAN') return '📄';
@@ -57,7 +59,7 @@ export default function ActivityLog() {
               <div style={{ flex: 1 }}>
                 <p style={{ margin: 0, fontSize: '14px', color: '#111827' }}>{log.details || log.action}</p>
                 <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#9ca3af' }}>
-                  by {log.userName || 'Unknown'} · {timeAgo(log.createdAt)}
+                  by {log.userName || 'Unknown'} · {fmtIST(log.createdAt)}
                 </p>
               </div>
             </div>

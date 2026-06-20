@@ -1,6 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
+import { getAuthUser, can } from '@/lib/authUser';
+import { API_URL } from '@/lib/api';
 
 export default function CollectionsPage() {
   const [emis, setEmis] = useState<any[]>([]);
@@ -16,13 +18,16 @@ export default function CollectionsPage() {
   const [payAmount, setPayAmount] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [dialogError, setDialogError] = useState('');
+  const [waivePenalty, setWaivePenalty] = useState(false);
+  const [waiveReason, setWaiveReason] = useState('');
+  const [me, setMe] = useState<any>(null);
 
-  useEffect(() => { fetchCollections(); }, []);
+ useEffect(() => { fetchCollections(); setMe(getAuthUser()); }, []);
 
   const fetchCollections = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/loans/collections/all', {
+      const res = await fetch(`${API_URL}/api/loans/collections/all`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
       });
       const data = await res.json();
@@ -37,9 +42,13 @@ export default function CollectionsPage() {
     setReference('');
     setPayAmount(String(emi.remaining ?? emi.amount));
     setDialogError('');
+    setWaivePenalty(false);
+    setWaiveReason('');
   };
 
   const closeDialog = () => { setDialog(null); setSubmitting(false); setDialogError(''); };
+
+  const canWaive = can(me, 'penalty:waive');
 
   const submitCollection = async () => {
     if (!dialog) return;
@@ -53,16 +62,17 @@ export default function CollectionsPage() {
       setDialogError('A reference / transaction ID is required for ' + method.toUpperCase() + ' payments.');
       return;
     }
+    if (waivePenalty && !waiveReason.trim()) { setDialogError('Please enter a reason for waiving the penalty.'); return; }
 
     const clearsEmi = amt >= remaining;
     setSubmitting(true);
     setDialogError('');
     try {
-      const res = await fetch(`http://localhost:5000/api/loans/emi/${dialog.emi.id}/pay`, {
+      const res = await fetch(`${API_URL}/api/loans/emi/${dialog.emi.id}/pay`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
         // Penalty only when this payment fully clears the EMI.
-        body: JSON.stringify({ amount: amt, collectPenalty: dialog.collectPenalty && clearsEmi, method, reference: ref })
+        body: JSON.stringify({ amount: amt, collectPenalty: dialog.collectPenalty && clearsEmi, method, reference: ref, waivePenalty: waivePenalty && clearsEmi, waiveReason: waiveReason.trim() })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -284,7 +294,24 @@ export default function CollectionsPage() {
                 </p>
               )}
             </div>
-
+              {dialog.collectPenalty && dialog.emi.penalty > 0 && canWaive && (
+              <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px', marginBottom: '14px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#92400e' }}>
+                  <input type="checkbox" checked={waivePenalty} onChange={ev => { setWaivePenalty(ev.target.checked); setDialogError(''); }} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                  Waive the ₹{Number(dialog.emi.penalty).toLocaleString('en-IN')} penalty (manager approval)
+                </label>
+                {waivePenalty && (
+                  <div style={{ marginTop: '10px' }}>
+                    <input value={waiveReason} onChange={ev => { setWaiveReason(ev.target.value); setDialogError(''); }}
+                      placeholder="Reason for waiving (required) — e.g. family medical emergency"
+                      style={{ ...inp, background: 'white' }} />
+                    <p style={{ fontSize: '11px', color: '#92400e', margin: '6px 0 0' }}>
+                      Applies only when the EMI is fully cleared. This action is logged.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
             <div style={{ marginBottom: '14px' }}>
               <label style={lbl}>Payment Method</label>
               <select value={method} onChange={ev => { setMethod(ev.target.value); setDialogError(''); }} style={inp}>

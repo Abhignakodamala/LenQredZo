@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
-
+import { API_URL } from '@/lib/api';
 type Branch = {
   id: number;
   name: string;
@@ -27,7 +27,7 @@ export default function BranchesPage() {
   const fetchBranches = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/branches', {
+      const res = await fetch(`${API_URL}/api/branches`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
       });
       const data = await res.json();
@@ -53,8 +53,8 @@ export default function BranchesPage() {
     setSaving(true);
     try {
       const url = editing
-        ? `http://localhost:5000/api/branches/${editing.id}`
-        : 'http://localhost:5000/api/branches';
+        ? `${API_URL}/api/branches/${editing.id}`
+        : `${API_URL}/api/branches`;
       const res = await fetch(url, {
         method: editing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },

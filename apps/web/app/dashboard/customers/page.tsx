@@ -1,6 +1,9 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
+import { getAuthUser, can } from '@/lib/authUser';
+import { API_URL } from '@/lib/api';
 
 type Customer = {
   id: number;
@@ -14,21 +17,36 @@ type Customer = {
 };
 
 export default function CustomersPage() {
+  const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [form, setForm] = useState({ name: '', email: '', phone: '', address: '', aadhar: '', pan: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', address: '', aadhar: '', pan: '', branchId: '' });
   const [errors, setErrors] = useState<any>({});
   const [search, setSearch] = useState('');
+  const [branches, setBranches] = useState<any[]>([]);
+  const [me, setMe] = useState<any>(null);
+  useEffect(() => { setMe(getAuthUser()); }, []);
+  const canCreate = can(me, 'customer:create');
+  const canEdit = can(me, 'customer:edit');
   const [saving, setSaving] = useState(false);
+useEffect(() => { fetchCustomers(); fetchBranches(); }, []);
 
-  useEffect(() => { fetchCustomers(); }, []);
+  const fetchBranches = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/branches`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+      });
+      const data = await res.json();
+      setBranches(Array.isArray(data) ? data : []);
+    } catch (err) { console.error(err); }
+  };
 
   const fetchCustomers = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/customers', {
+      const res = await fetch(`${API_URL}/api/customers`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
       });
       const data = await res.json();
@@ -55,7 +73,7 @@ export default function CustomersPage() {
 
   const openAddForm = () => {
     setEditingCustomer(null);
-    setForm({ name: '', email: '', phone: '', address: '', aadhar: '', pan: '' });
+    setForm({ name: '', email: '', phone: '', address: '', aadhar: '', pan: '', branchId: '' });
     setErrors({});
     setShowForm(true);
   };
@@ -69,6 +87,7 @@ export default function CustomersPage() {
       address: customer.address || '',
       aadhar: customer.aadhar || '',
       pan: customer.pan || '',
+      branchId: (customer as any).branchId ? String((customer as any).branchId) : '',
     });
     setErrors({});
     setShowForm(true);
@@ -79,18 +98,18 @@ export default function CustomersPage() {
     setSaving(true);
     try {
       const url = editingCustomer
-        ? `http://localhost:5000/api/customers/${editingCustomer.id}`
-        : 'http://localhost:5000/api/customers';
+        ? `${API_URL}/api/customers/${editingCustomer.id}`
+        : `${API_URL}/api/customers`;
       const method = editingCustomer ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
-        body: JSON.stringify({ ...form, pan: form.pan.toUpperCase() })
+        body: JSON.stringify({ ...form, pan: form.pan.toUpperCase(), branchId: form.branchId ? Number(form.branchId) : null })
       });
       if (res.ok) {
         setShowForm(false);
         setEditingCustomer(null);
-        setForm({ name: '', email: '', phone: '', address: '', aadhar: '', pan: '' });
+        setForm({ name: '', email: '', phone: '', address: '', aadhar: '', pan: '', branchId: '' });
         setErrors({});
         fetchCustomers();
       }
@@ -148,10 +167,12 @@ export default function CustomersPage() {
             <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Customers</h2>
             <p style={{ color: '#6b7280', margin: 0 }}>Manage all your customers</p>
           </div>
-          <button onClick={openAddForm}
-            style={{ background: '#1e40af', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
-            + Add Customer
-          </button>
+          {canCreate && (
+            <button onClick={openAddForm}
+              style={{ background: '#1e40af', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
+              + Add Customer
+            </button>
+          )}
         </div>
 
         {showForm && (
@@ -173,6 +194,14 @@ export default function CustomersPage() {
                   {errors[f.key] && <p style={{ color: '#ef4444', fontSize: '12px', margin: '4px 0 0' }}>{errors[f.key]}</p>}
                 </div>
               ))}
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>Branch</label>
+                <select value={form.branchId} onChange={e => setForm({ ...form, branchId: e.target.value })}
+                  style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }}>
+                  <option value="">— No branch —</option>
+                  {branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
             </div>
             <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
               <button onClick={saveCustomer} disabled={saving}
@@ -213,7 +242,14 @@ export default function CustomersPage() {
               <tbody>
                 {filtered.map((c) => (
                   <tr key={c.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={{ padding: '14px 20px', fontSize: '14px', fontWeight: '600' }}>{highlight(c.name)}</td>
+                    <td style={{ padding: '14px 20px', fontSize: '14px', fontWeight: '600' }}>
+                      <span
+                        onClick={() => router.push(`/dashboard/customers/${c.id}`)}
+                        style={{ color: '#1e40af', cursor: 'pointer' }}
+                      >
+                        {highlight(c.name)}
+                      </span>
+                    </td>
                     <td style={{ padding: '14px 20px', fontSize: '13px', color: '#6b7280' }}>{c.email ? highlight(c.email) : '—'}</td>
                     <td style={{ padding: '14px 20px', fontSize: '13px' }}>
                       {c.phone?.replace(/\s/g, '').length > 10
@@ -229,10 +265,14 @@ export default function CustomersPage() {
                       <span style={{ background: '#dcfce7', color: '#16a34a', padding: '2px 10px', borderRadius: '20px', fontSize: '12px' }}>Active</span>
                     </td>
                     <td style={{ padding: '14px 20px' }}>
-                      <button onClick={() => openEditForm(c)}
-                        style={{ background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe', padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>
-                        ✏️ Edit
-                      </button>
+                      {canEdit ? (
+                        <button onClick={() => openEditForm(c)}
+                          style={{ background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe', padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>
+                          ✏️ Edit
+                        </button>
+                      ) : (
+                        <span style={{ color: '#9ca3af', fontSize: '12px' }}>View only</span>
+                      )}
                     </td>
                   </tr>
                 ))}

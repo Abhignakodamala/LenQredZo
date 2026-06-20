@@ -91,7 +91,7 @@ model Loan {
   emis         EMI[]
   payments     Payment[]
   guarantors   Guarantor[]
-  
+  roundEmi          Boolean   @default(false)
 }
 
 model EMI {
