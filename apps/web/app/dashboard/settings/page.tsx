@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { API_URL } from '@/lib/api';
+import ActivityLog from '@/components/ActivityLog';
 
 export default function SettingsPage() {
   const [company, setCompany] = useState<any>({ name: '', primaryColor: '#1e40af', plan: 'starter' });
