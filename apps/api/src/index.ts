@@ -1,7 +1,8 @@
 import dotenv from 'dotenv';
-import path from 'path';
+import path from 'path';dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+// Locally, load the root .env file. On Railway, env vars are injected directly, so this is just a no-op fallback.
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
-
+dotenv.config(); // also load any platform-provided env (Railway)
 import express from 'express';
 import cors from 'cors';
 import authRoutes from './modules/auth/auth.routes';

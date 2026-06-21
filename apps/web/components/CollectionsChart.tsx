@@ -1,4 +1,5 @@
 'use client';
+import { API_URL } from '@/lib/api';
 import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -8,7 +9,7 @@ export default function CollectionsChart() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/loans/collections/all', {
+        const res = await fetch(`${API_URL}/api/loans/collections/all`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
         });
         const result = await res.json();
