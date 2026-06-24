@@ -1,8 +1,8 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { ChangeEvent, CSSProperties, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
-import { getAuthUser, can } from '@/lib/authUser';
+import { getAuthUser, can, type AuthUser } from '@/lib/authUser';
 import { API_URL } from '@/lib/api';
 
 type Customer = {
@@ -13,7 +13,23 @@ type Customer = {
   address?: string;
   aadhar?: string;
   pan?: string;
-  loans?: any[];
+  branchId?: number | null;
+  loans?: Array<{ id: number; amount: number; status: string }>;
+};
+
+type Branch = {
+  id: number;
+  name: string;
+};
+
+type FormState = {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  aadhar: string;
+  pan: string;
+  branchId: string;
 };
 
 export default function CustomersPage() {
@@ -22,16 +38,17 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [form, setForm] = useState({ name: '', email: '', phone: '', address: '', aadhar: '', pan: '', branchId: '' });
-  const [errors, setErrors] = useState<any>({});
+  const [form, setForm] = useState<FormState>({ name: '', email: '', phone: '', address: '', aadhar: '', pan: '', branchId: '' });
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [search, setSearch] = useState('');
-  const [branches, setBranches] = useState<any[]>([]);
-  const [me, setMe] = useState<any>(null);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [me, setMe] = useState<AuthUser | null>(null);
   useEffect(() => { setMe(getAuthUser()); }, []);
   const canCreate = can(me, 'customer:create');
   const canEdit = can(me, 'customer:edit');
   const [saving, setSaving] = useState(false);
-useEffect(() => { fetchCustomers(); fetchBranches(); }, []);
+
+  useEffect(() => { fetchCustomers(); fetchBranches(); }, []);
 
   const fetchBranches = async () => {
     try {
@@ -59,7 +76,7 @@ useEffect(() => { fetchCustomers(); fetchBranches(); }, []);
   };
 
   const validate = () => {
-    const e: any = {};
+    const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = 'Name is required';
     else if (form.name.trim().length < 3) e.name = 'Min 3 characters';
     if (!form.phone) e.phone = 'Phone is required';
@@ -87,7 +104,7 @@ useEffect(() => { fetchCustomers(); fetchBranches(); }, []);
       address: customer.address || '',
       aadhar: customer.aadhar || '',
       pan: customer.pan || '',
-      branchId: (customer as any).branchId ? String((customer as any).branchId) : '',
+      branchId: customer.branchId != null ? String(customer.branchId) : '',
     });
     setErrors({});
     setShowForm(true);
@@ -117,7 +134,7 @@ useEffect(() => { fetchCustomers(); fetchBranches(); }, []);
     setSaving(false);
   };
 
-  const highlight = (text: any) => {
+  const highlight = (text: string | number | undefined) => {
     const t = String(text ?? '');
     if (!search.trim()) return t;
     const i = t.toLowerCase().indexOf(search.toLowerCase());
@@ -197,9 +214,9 @@ useEffect(() => { fetchCustomers(); fetchBranches(); }, []);
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>Branch</label>
                 <select value={form.branchId} onChange={e => setForm({ ...form, branchId: e.target.value })}
-                  style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }}>
+                  style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' as CSSProperties['boxSizing'] }}>
                   <option value="">— No branch —</option>
-                  {branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </div>
             </div>

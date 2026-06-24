@@ -1,20 +1,25 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { ChangeEvent, useState, useEffect } from 'react';
+import Link from 'next/link';
 // Type definitions for 'xlsx' may not be installed in this project. Ignore TS module not found error.
-// @ts-ignore: TS2307
 import * as XLSX from 'xlsx';
 import Sidebar from '@/components/Sidebar';
 import { API_URL } from '@/lib/api';
-import { getAuthUser } from '@/lib/authUser';
+import { getAuthUser, type AuthUser } from '@/lib/authUser';
+
+type SkipReason = { row: number; name: string; reason: string };
 
 const ALLOWED = ['owner', 'admin', 'Super Admin', 'branch_manager'];
 
 export default function BulkImportPage() {
-  const [me, setMe] = useState<any>(null);
-  const [rows, setRows] = useState<any[]>([]);
+  type ImportRow = { [key: string]: string | number };
+  type ImportResult = { addedCount: number; skippedCount: number; skipped: SkipReason[] } | null;
+
+  const [me, setMe] = useState<AuthUser | null>(null);
+  const [rows, setRows] = useState<ImportRow[]>([]);
   const [fileName, setFileName] = useState('');
   const [importing, setImporting] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<ImportResult>(null);
   const [error, setError] = useState('');
 
   useEffect(() => { setMe(getAuthUser()); }, []);
@@ -28,19 +33,21 @@ export default function BulkImportPage() {
     XLSX.writeFile(wb, 'FinSmart_Customer_Import_Template.xlsx');
   };
 
-  const onFile = (e: any) => {
+  const onFile = (e: ChangeEvent<HTMLInputElement>) => {
     setError('');
     setResult(null);
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
     const reader = new FileReader();
-    reader.onload = (ev: any) => {
+    reader.onload = (ev: ProgressEvent<FileReader>) => {
       try {
-        const wb = XLSX.read(ev.target.result, { type: 'array' });
+        const result = ev.target?.result;
+        if (!result) throw new Error('File load failed');
+        const wb = XLSX.read(result, { type: 'array' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
         const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-        setRows(json as any[]);
+        setRows(json as ImportRow[]);
       } catch (err) {
         console.error(err);
         setError('Could not read this file. Please upload the .xlsx template.');
@@ -72,7 +79,7 @@ export default function BulkImportPage() {
 
   const allowed = me && ALLOWED.includes(me.role);
   const card = { background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e5e7eb', marginBottom: '20px' };
-  const btn = { background: '#1e40af', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', fontSize: '14px', fontWeight: 600 as any, cursor: 'pointer' };
+  const btn = { background: '#1e40af', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', fontSize: '14px', fontWeight: 600 as const, cursor: 'pointer' };
 
   if (me && !allowed) {
     return (
@@ -99,7 +106,7 @@ export default function BulkImportPage() {
           <h3 style={{ fontWeight: 700, fontSize: '16px', margin: '0 0 8px' }}>Step 1 — Download the template</h3>
           <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px' }}>
             Fill your customers into this Excel file. Keep the column names as they are. Name and Phone are required;
-            Email, Address, Aadhaar, PAN and Branch are optional. The Branch name must match a branch you've already created.
+            Email, Address, Aadhaar, PAN and Branch are optional. The Branch name must match a branch you&apos;ve already created.
           </p>
           <button onClick={downloadTemplate} style={{ ...btn, background: '#059669' }}>⬇ Download Excel Template</button>
         </div>
@@ -123,7 +130,7 @@ export default function BulkImportPage() {
         <div style={card}>
           <h3 style={{ fontWeight: 700, fontSize: '16px', margin: '0 0 8px' }}>Step 3 — Import</h3>
           <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px' }}>
-            We'll check each row and add the valid ones. Aadhaar and PAN are encrypted on save.
+            We&apos;ll check each row and add the valid ones. Aadhaar and PAN are encrypted on save.
           </p>
           <button onClick={doImport} disabled={importing || rows.length === 0}
             style={{ ...btn, opacity: (importing || rows.length === 0) ? 0.6 : 1 }}>
@@ -148,7 +155,7 @@ export default function BulkImportPage() {
               <div>
                 <p style={{ fontSize: '13px', fontWeight: 600, color: '#374151', margin: '0 0 8px' }}>Skipped rows:</p>
                 <div style={{ maxHeight: '220px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
-                  {result.skipped.map((s: any, i: number) => (
+                  {result.skipped.map((s: SkipReason, i: number) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '1px solid #f3f4f6', fontSize: '13px' }}>
                       <span style={{ color: '#374151' }}>Row {s.row}: {s.name}</span>
                       <span style={{ color: '#dc2626' }}>{s.reason}</span>
@@ -157,9 +164,9 @@ export default function BulkImportPage() {
                 </div>
               </div>
             )}
-            <a href="/dashboard/customers" style={{ display: 'inline-block', marginTop: '16px', color: '#1e40af', fontWeight: 600, fontSize: '14px', textDecoration: 'none' }}>
+            <Link href="/dashboard/customers" style={{ display: 'inline-block', marginTop: '16px', color: '#1e40af', fontWeight: 600, fontSize: '14px', textDecoration: 'none' }}>
               → View customers
-            </a>
+            </Link>
           </div>
         )}
       </div>

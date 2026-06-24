@@ -5,19 +5,44 @@ import Sidebar from '@/components/Sidebar';
 import { getAuthUser } from '@/lib/authUser';
 import { API_URL } from '@/lib/api';
 
+type LoanDetail = {
+  id: number;
+  type: string;
+  amount: number;
+  disbursedAmount?: number;
+  emiAmount: number;
+  outstandingAmount?: number;
+  customer?: { id: number; name: string; phone?: string };
+  createdAt: string;
+  status: string;
+  interestType?: string;
+  interestRate?: number;
+  frequency?: string;
+  tenure?: number;
+  processingFee?: number;
+  penaltyType?: string;
+  penaltyValue?: number;
+  deductUpfront?: boolean;
+  emis?: Array<{ id: number; dueDate: string; amount: number; status: string; paidAmount?: number; paidAt?: string }>;
+  payments?: Array<{ id: number; amount: number; method?: string; reference?: string; verified?: boolean; paidAt?: string }>;
+  guarantors?: Array<{ id: number; name: string; phone?: string; relationship?: string; aadhar?: string; pan?: string; type?: string }>;
+};
+
+type AuthUser = { userId: number; role: string; companyId: number | null; branchId: number | null } | null;
+
 export default function LoanDetailPage() {
   const params = useParams();
   const id = params?.id;
   const router = useRouter();
-  const [loan, setLoan] = useState<any>(null);
+  const [loan, setLoan] = useState<LoanDetail | null>(null);
   const [loading, setLoading] = useState(true);
-
-const [me, setMe] = useState<any>(null);
+  const [me, setMe] = useState<AuthUser>(null);
   const [deleting, setDeleting] = useState(false);
   useEffect(() => { setMe(getAuthUser()); }, []);
   const canDelete = me && ['owner', 'admin', 'Super Admin', 'branch_manager'].includes(me.role);
 
   const deleteLoan = async () => {
+    if (!loan) return;
     if (!confirm(`Delete loan LN${1000 + loan.id}? This removes its EMIs, payments and guarantors. This cannot be undone.`)) return;
     setDeleting(true);
     try {
@@ -34,19 +59,25 @@ const [me, setMe] = useState<any>(null);
       setDeleting(false);
     }
   };
-  
-  useEffect(() => { if (id) fetchLoan(); }, [id]);
 
-  const fetchLoan = async () => {
-    try {
-      const res = await fetch(`${API_URL}/api/loans/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
-      });
-      const data = await res.json();
-      setLoan(data && data.id ? data : null);
-    } catch (err) { console.error(err); }
-    setLoading(false);
-  };
+  useEffect(() => {
+    if (!id) return;
+
+    const loadLoan = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/loans/${id}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+        });
+        const data = await res.json();
+        setLoan(data && data.id ? data : null);
+      } catch (err) {
+        console.error(err);
+      }
+      setLoading(false);
+    };
+
+    loadLoan();
+  }, [id]);
 
   const fmt = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN');
   const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -54,7 +85,7 @@ const [me, setMe] = useState<any>(null);
     ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })
     : '—';
 
-  const paidEmis = loan?.emis?.filter((e: any) => e.status === 'paid').length || 0;
+  const paidEmis = loan?.emis?.filter((e) => e.status === 'paid').length || 0;
   const totalEmis = loan?.emis?.length || 0;
   const progressPct = totalEmis > 0 ? Math.round((paidEmis / totalEmis) * 100) : 0;
 
@@ -68,7 +99,7 @@ const [me, setMe] = useState<any>(null);
     padding: '2px 10px',
     borderRadius: '20px',
     fontSize: '11px',
-    fontWeight: '600' as any,
+    fontWeight: 600,
     background: t === 'co-signer' ? '#fef3c7' : t === 'nominee' ? '#f3e8ff' : '#dbeafe',
     color: t === 'co-signer' ? '#92400e' : t === 'nominee' ? '#6b21a8' : '#1e40af',
   });
@@ -94,7 +125,7 @@ const [me, setMe] = useState<any>(null);
     </div>
   );
 
-  const outstanding = loan.emis?.filter((e: any) => e.status !== 'paid').reduce((s: number, e: any) => s + (e.amount - (e.paidAmount || 0)), 0) || 0;
+  const outstanding = loan.emis?.filter((e) => e.status !== 'paid').reduce((s, e) => s + (e.amount - (e.paidAmount || 0)), 0) || 0;
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
@@ -165,10 +196,10 @@ const [me, setMe] = useState<any>(null);
               ['Loan Type', loan.type],
               ['Interest Type', loan.interestType === 'flat' ? 'Flat Rate' : 'Reducing Balance'],
               ['Interest Rate', `${loan.interestRate}% p.a.`],
-              ['Frequency', loan.frequency?.charAt(0).toUpperCase() + loan.frequency?.slice(1)],
-              ['Tenure', `${loan.tenure} ${loan.frequency === 'daily' ? 'days' : loan.frequency === 'weekly' ? 'weeks' : 'months'}`],
-              ['Processing Fee', loan.processingFee > 0 ? fmt(loan.processingFee) : 'None'],
-              ['Penalty', loan.penaltyType === 'none' ? 'None' : loan.penaltyType === 'fixed' ? `₹${loan.penaltyValue} per EMI` : loan.penaltyType === 'percentage' ? `${loan.penaltyValue}% of EMI` : `₹${loan.penaltyValue}/day`],
+              ['Frequency', loan.frequency ? loan.frequency.charAt(0).toUpperCase() + loan.frequency.slice(1) : '—'],
+              ['Tenure', loan.tenure ? `${loan.tenure} ${loan.frequency === 'daily' ? 'days' : loan.frequency === 'weekly' ? 'weeks' : 'months'}` : '—'],
+              ['Processing Fee', loan.processingFee != null && loan.processingFee > 0 ? fmt(loan.processingFee) : 'None'],
+              ['Penalty', loan.penaltyType === 'none' ? 'None' : loan.penaltyType === 'fixed' ? `₹${loan.penaltyValue ?? 0} per EMI` : loan.penaltyType === 'percentage' ? `${loan.penaltyValue ?? 0}% of EMI` : `₹${loan.penaltyValue ?? 0}/day`],
               ['Upfront Interest', loan.deductUpfront ? 'Yes — deducted upfront' : 'No'],
             ].map(([k, v]) => (
               <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f3f4f6', fontSize: '13px' }}>
@@ -187,11 +218,11 @@ const [me, setMe] = useState<any>(null);
                 <p style={{ margin: 0, fontSize: '13px' }}>No guarantors recorded for this loan</p>
               </div>
             ) : (
-              loan.guarantors.map((g: any, idx: number) => (
-                <div key={g.id} style={{ background: '#f9fafb', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '14px', marginBottom: idx < loan.guarantors.length - 1 ? '12px' : 0 }}>
+              loan.guarantors?.map((g, idx: number) => (
+                <div key={g.id} style={{ background: '#f9fafb', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '14px', marginBottom: idx < (loan.guarantors?.length ?? 0) - 1 ? '12px' : 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                     <span style={{ fontWeight: '700', fontSize: '14px', color: '#111827' }}>{g.name}</span>
-                    <span style={guarantorTypeBadgeStyle(g.type)}>{guarantorTypeLabel(g.type)}</span>
+                    <span style={guarantorTypeBadgeStyle(g.type ?? 'guarantor')}>{guarantorTypeLabel(g.type ?? 'guarantor')}</span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
                     {[
@@ -227,7 +258,7 @@ const [me, setMe] = useState<any>(null);
                 </tr>
               </thead>
               <tbody>
-                {(loan.emis || []).map((e: any, idx: number) => {
+                {(loan.emis || []).map((e, idx: number) => {
                   const paidAmt = e.paidAmount || 0;
                   const remaining = e.amount - paidAmt;
                   const isOverdue = e.status !== 'paid' && new Date(e.dueDate) < new Date();
@@ -283,9 +314,9 @@ const [me, setMe] = useState<any>(null);
                 </tr>
               </thead>
               <tbody>
-                {loan.payments.map((p: any) => (
+                {loan.payments?.map((p) => (
                   <tr key={p.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={{ padding: '10px 16px', fontSize: '13px' }}>{fmtDateTimeIST(p.paidAt)}</td>
+                    <td style={{ padding: '10px 16px', fontSize: '13px' }}>{fmtDateTimeIST(p.paidAt ?? '')}</td>
                     <td style={{ padding: '10px 16px', fontSize: '13px', fontWeight: '600', color: '#16a34a' }}>{fmt(p.amount)}</td>
                     <td style={{ padding: '10px 16px', fontSize: '13px', textTransform: 'capitalize' }}>{p.method || 'cash'}</td>
                     <td style={{ padding: '10px 16px', fontSize: '12px', color: p.reference ? '#374151' : '#9ca3af' }}>{p.reference || '—'}</td>
