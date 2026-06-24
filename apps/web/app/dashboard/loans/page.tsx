@@ -260,18 +260,24 @@ export default function LoansPage() {
               </div>
 
               <div style={{ gridColumn: '1 / -1' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                   <label style={lbl}>Loan Amount</label>
-                  <span style={{ fontWeight: '700', fontSize: '16px', color: '#111827' }}>{fmt(Number(form.amount) || 0)}</span>
+                  <input
+                    type="number"
+                    value={form.amount}
+                    onChange={e => setForm({ ...form, amount: e.target.value })}
+                    placeholder="100000"
+                    style={{ width: '140px', padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', fontWeight: '700', textAlign: 'right' as any }}
+                  />
                 </div>
                 <input
-                  type="range" min={1000} max={1000000000} step={1000}
+                  type="range" min={1000} max={10000000} step={1000}
                   value={form.amount || 1000}
                   onChange={e => setForm({ ...form, amount: e.target.value })}
                   style={{ width: '100%', accentColor: '#1e40af' }}
                 />
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af' }}>
-                  <span>₹1K</span><span>₹10Cr</span>
+                  <span>₹1K</span><span>₹1Cr</span>
                 </div>
               </div>
 
@@ -284,9 +290,15 @@ export default function LoansPage() {
               </div>
 
               <div style={{ gridColumn: '1 / -1' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
-                  <label style={lbl}>Interest Rate</label>
-                  <span style={{ fontWeight: '700', fontSize: '16px', color: '#111827' }}>{form.interestRate || 0}% p.a.</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <label style={lbl}>Interest Rate (% p.a.)</label>
+                  <input
+                    type="number" step="0.1"
+                    value={form.interestRate}
+                    onChange={e => setForm({ ...form, interestRate: e.target.value })}
+                    placeholder="12"
+                    style={{ width: '140px', padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', fontWeight: '700', textAlign: 'right' as any }}
+                  />
                 </div>
                 <input
                   type="range" min={5} max={30} step={0.1}
