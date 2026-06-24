@@ -93,7 +93,11 @@ export default function LoansPage() {
     } catch (err) { console.error(err); }
   };
 
-  const getPeriodsPerYear = () => form.frequency === 'daily' ? 365 : form.frequency === 'weekly' ? 52 : 12;
+  const getPeriodsPerYear = () =>
+    form.frequency === 'daily' ? 365 :
+    form.frequency === 'weekly' ? 52 :
+    form.frequency === 'yearly' ? 1 :
+    12;
 
   const calcTotalInterest = () => {
     const p = Number(form.amount), r = Number(form.interestRate), t = Number(form.tenure);
@@ -250,12 +254,28 @@ export default function LoansPage() {
               <div>
                 <label style={lbl}>Loan Type</label>
                 <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} style={inp}>
-                  <option>Personal Loan</option>
-                  <option>Business Loan</option>
-                  <option>Gold Loan</option>
-                  <option>Vehicle Loan</option>
-                  <option>Microfinance Loan</option>
-                  <option>Agricultural Loan</option>
+                  <optgroup label="Consumer & Personal Loans">
+                    <option>Personal Loan</option>
+                    <option>Mortgage Loan</option>
+                    <option>Payday Loan</option>
+                  </optgroup>
+                  <optgroup label="Asset & Equity Loans">
+                    <option>Home Equity Loan</option>
+                    <option>Gold Loan</option>
+                    <option>Loan Against Property</option>
+                  </optgroup>
+                  <optgroup label="Business & Commercial Loans">
+                    <option>Working Capital Loan</option>
+                    <option>Term Loan</option>
+                    <option>Equipment Financing</option>
+                    <option>Invoice Discounting</option>
+                  </optgroup>
+                  <optgroup label="Other Loans">
+                    <option>Business Loan</option>
+                    <option>Microfinance Loan</option>
+                    <option>Agricultural Loan</option>
+                    <option>Vehicle Loan</option>
+                  </optgroup>
                 </select>
               </div>
 
@@ -317,14 +337,33 @@ export default function LoansPage() {
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
                   <option value="monthly">Monthly</option>
+                  <option value="yearly">Yearly</option>
                 </select>
               </div>
 
-              <div>
-                <label style={lbl}>
-                  Number of Installments ({form.frequency === 'daily' ? 'days' : form.frequency === 'weekly' ? 'weeks' : 'months'})
-                </label>
-                <input type="number" value={form.tenure} onChange={e => setForm({ ...form, tenure: e.target.value })} placeholder="12" style={inp} />
+              <div style={{ gridColumn: '1 / -1' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <label style={lbl}>
+                    Tenure ({form.frequency === 'daily' ? 'days' : form.frequency === 'weekly' ? 'weeks' : form.frequency === 'yearly' ? 'years' : 'months'})
+                  </label>
+                  <input
+                    type="number"
+                    value={form.tenure}
+                    onChange={e => setForm({ ...form, tenure: e.target.value })}
+                    placeholder="12"
+                    style={{ width: '140px', padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', fontWeight: '700', textAlign: 'right' as any }}
+                  />
+                </div>
+                <input
+                  type="range" min={1} max={form.frequency === 'daily' ? 365 : form.frequency === 'weekly' ? 104 : form.frequency === 'yearly' ? 30 : 240} step={1}
+                  value={form.tenure || 1}
+                  onChange={e => setForm({ ...form, tenure: e.target.value })}
+                  style={{ width: '100%', accentColor: '#1e40af' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af' }}>
+                  <span>1</span>
+                  <span>{form.frequency === 'daily' ? 365 : form.frequency === 'weekly' ? 104 : form.frequency === 'yearly' ? 30 : 240}</span>
+                </div>
               </div>
 
               <div>
