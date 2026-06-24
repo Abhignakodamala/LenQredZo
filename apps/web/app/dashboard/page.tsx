@@ -58,9 +58,12 @@ export default function Dashboard() {
     }).catch(() => setLoading(false));
   }, []);
 
-  const fmt = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN');
+  const fmt = (n?: number) => '₹' + Number(n || 0).toLocaleString('en-IN');
   const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : '—';
   const fmtTime = (d: string) => d ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }) : '';
+
+  const overdueCount = today?.overdueCount ?? 0;
+  const overdueAmount = today?.overdueAmount ?? 0;
 
   const statCards = [
     { label: 'Total Disbursed', value: fmt(stats?.totalDisbursed), sub: `${stats?.totalLoans || 0} loans`, icon: '💰', bg: '#1e40af' },
@@ -80,17 +83,17 @@ export default function Dashboard() {
         {/* Header */}
         <div style={{ marginBottom: '20px' }}>
           <h2 style={{ fontSize: '22px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Dashboard</h2>
-          <p style={{ color: '#6b7280', margin: 0, fontSize: '14px' }}>
+          <p suppressHydrationWarning style={{ color: '#6b7280', margin: 0, fontSize: '14px' }}>
             {todayLabel || '\u00A0'}
           </p>
         </div>
 
         {/* Overdue Alert Banner */}
-        {today?.overdueCount > 0 && (
+        {overdueCount > 0 && (
           <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', padding: '16px 20px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <p style={{ margin: 0, fontWeight: '700', color: '#dc2626', fontSize: '15px' }}>
-                ⚠️ {today.overdueCount} EMIs are overdue — {fmt(today.overdueAmount)} pending
+                ⚠️ {overdueCount} EMIs are overdue — {fmt(overdueAmount)} pending
               </p>
               <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#991b1b' }}>Follow up with these customers to recover dues.</p>
             </div>
@@ -112,7 +115,7 @@ export default function Dashboard() {
           </Link>
           <Link href="/dashboard/collections" style={{ flex: 1, ...card, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
             <div style={{ width: '40px', height: '40px', background: '#fef9c3', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>💳</div>
-            <div><p style={{ margin: 0, fontWeight: '600', fontSize: '14px', color: '#111827' }}>Collect EMI</p><p style={{ margin: 0, fontSize: '12px', color: '#6b7280' }}>Today's dues</p></div>
+            <div><p style={{ margin: 0, fontWeight: '600', fontSize: '14px', color: '#111827' }}>Collect EMI</p><p style={{ margin: 0, fontSize: '12px', color: '#6b7280' }}>Today&apos;s dues</p></div>
           </Link>
         </div>
 
@@ -136,7 +139,7 @@ export default function Dashboard() {
           {/* Today's Collections Due */}
           <div style={card}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ fontWeight: '600', fontSize: '15px', margin: 0 }}>📅 Today's Collections Due</h3>
+              <h3 style={{ fontWeight: '600', fontSize: '15px', margin: 0 }}>📅 Today&apos;s Collections Due</h3>
               <span style={{ fontSize: '13px', color: '#6b7280' }}>{fmt(today?.dueTodayAmount)} ({today?.dueTodayCount || 0})</span>
             </div>
             {loading ? (
