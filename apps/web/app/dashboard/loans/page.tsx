@@ -1,25 +1,73 @@
 'use client';
-import { useState, useEffect } from 'react';
+import CustomerSearchSelect from '../../../components/CustomerSearchSelect';
+import { CSSProperties, useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
-import { getAuthUser, can } from '@/lib/authUser';
+import { AuthUser, getAuthUser, can } from '@/lib/authUser';
 import { API_URL } from '@/lib/api';
+
+type Customer = { id: number; name: string; phone?: string };
+
+type Guarantor = {
+  name: string;
+  phone: string;
+  aadhar: string;
+  pan: string;
+  relationship: string;
+  type: string;
+};
+
+type Loan = {
+  id: number;
+  customer?: { name: string } | null;
+  type: string;
+  amount: number;
+  disbursedAmount: number;
+  frequency: string;
+  tenure: number;
+  status: string;
+};
+
+type LoanForm = {
+  customerId: string;
+  type: string;
+  amount: string;
+  interestRate: string;
+  interestType: string;
+  frequency: string;
+  tenure: string;
+  deductUpfront: boolean;
+  hasProcessingFee: boolean;
+  processingFee: string;
+  processingFeeType: string;
+  penaltyType: string;
+  penaltyValue: string;
+  roundEmi: boolean;
+};
+
+type SummaryItem = {
+  label: string;
+  value: string;
+  color?: string;
+  bold?: boolean;
+};
+
 export default function LoansPage() {
-  const [me, setMe] = useState<any>(null);
+  const [me, setMe] = useState<AuthUser | null>(null);
   useEffect(() => { setMe(getAuthUser()); }, []);
   const canCreateLoan = can(me, 'loan:create');
-  const [loans, setLoans] = useState<any[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState('');
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<LoanForm>({
     customerId: '', type: 'Personal Loan', amount: '',
     interestRate: '', interestType: 'percentage',
     frequency: 'monthly', tenure: '', deductUpfront: false,
     hasProcessingFee: false, processingFee: '', processingFeeType: 'percentage',
     penaltyType: 'none', penaltyValue: '', roundEmi: false
   });
-  const [guarantors, setGuarantors] = useState([
+  const [guarantors, setGuarantors] = useState<Guarantor[]>([
     { name: '', phone: '', aadhar: '', pan: '', relationship: '', type: 'guarantor' }
   ]);
   const [hasGuarantor, setHasGuarantor] = useState(false);
@@ -84,9 +132,9 @@ export default function LoansPage() {
     return pr === 0 ? Math.round(p / t) : Math.round((p * pr * Math.pow(1 + pr, t)) / (Math.pow(1 + pr, t) - 1));
   };
 
-  const updateGuarantor = (idx: number, field: string, value: string) => {
+  const updateGuarantor = (idx: number, field: keyof Guarantor, value: string) => {
     const ng = [...guarantors];
-    (ng[idx] as any)[field] = value;
+    ng[idx] = { ...ng[idx], [field]: value };
     setGuarantors(ng);
   };
 
@@ -141,8 +189,8 @@ export default function LoansPage() {
   };
 
   const fmt = (n: number) => '\u20B9' + Number(n || 0).toLocaleString('en-IN');
-  const inp = { width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' as any };
-  const lbl = { display: 'block' as any, fontSize: '13px', fontWeight: '500' as any, marginBottom: '4px', color: '#374151' };
+  const inp: CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' };
+  const lbl: CSSProperties = { display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px', color: '#374151' };
 
   const p = Number(form.amount);
   const emi = calcEMI();
@@ -150,7 +198,18 @@ export default function LoansPage() {
   const disbursed = calcDisbursed();
   const showPreview = p > 0 && Number(form.interestRate) > 0 && Number(form.tenure) > 0;
 
-  const filteredLoans = loans.filter((l: any) => {
+  const previewItems: SummaryItem[] = [
+    { label: 'Loan Amount', value: fmt(p) },
+    { label: 'Processing Fee', value: pf > 0 ? `- ${fmt(pf)}` : 'None', color: pf > 0 ? '#dc2626' : '#16a34a' },
+    { label: 'Interest Deducted', value: form.deductUpfront ? `- ${fmt(calcTotalInterest())}` : 'On EMI', color: form.deductUpfront ? '#dc2626' : '#6b7280' },
+    { label: 'Customer Receives', value: fmt(Math.max(0, disbursed)), color: '#16a34a', bold: true },
+    { label: 'EMI Amount', value: fmt(emi), bold: true },
+    { label: 'Total Repayable', value: fmt(emi * Number(form.tenure)) },
+    { label: 'Total Interest', value: fmt(calcTotalInterest()) },
+    { label: 'Late Penalty', value: form.penaltyType === 'none' ? 'None' : form.penaltyType === 'fixed' ? `${form.penaltyValue} per EMI` : form.penaltyType === 'percentage' ? `${form.penaltyValue}% of EMI` : `${form.penaltyValue}/day` },
+  ];
+
+  const filteredLoans = loans.filter((l: Loan) => {
     const q = search.toLowerCase();
     return (l.customer?.name || '').toLowerCase().includes(q) ||
       (l.type || '').toLowerCase().includes(q) ||
@@ -180,10 +239,12 @@ export default function LoansPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div>
                 <label style={lbl}>Customer</label>
-                <select value={form.customerId} onChange={e => setForm({ ...form, customerId: e.target.value })} style={inp}>
-                  <option value="">Select customer</option>
-                  {customers.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                <CustomerSearchSelect
+                  customers={customers}
+                  value={form.customerId}
+                  onChange={(customerId: string) => setForm({ ...form, customerId })}
+                  style={inp}
+                />
               </div>
 
               <div>
@@ -198,9 +259,20 @@ export default function LoansPage() {
                 </select>
               </div>
 
-              <div>
-                <label style={lbl}>Loan Amount</label>
-                <input type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="100000" style={inp} />
+              <div style={{ gridColumn: '1 / -1' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+                  <label style={lbl}>Loan Amount</label>
+                  <span style={{ fontWeight: '700', fontSize: '16px', color: '#111827' }}>{fmt(Number(form.amount) || 0)}</span>
+                </div>
+                <input
+                  type="range" min={1000} max={1000000000} step={1000}
+                  value={form.amount || 1000}
+                  onChange={e => setForm({ ...form, amount: e.target.value })}
+                  style={{ width: '100%', accentColor: '#1e40af' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af' }}>
+                  <span>₹1K</span><span>₹10Cr</span>
+                </div>
               </div>
 
               <div>
@@ -211,9 +283,20 @@ export default function LoansPage() {
                 </select>
               </div>
 
-              <div>
-                <label style={lbl}>Interest Rate</label>
-                <input type="number" value={form.interestRate} onChange={e => setForm({ ...form, interestRate: e.target.value })} placeholder="12" style={inp} />
+              <div style={{ gridColumn: '1 / -1' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+                  <label style={lbl}>Interest Rate</label>
+                  <span style={{ fontWeight: '700', fontSize: '16px', color: '#111827' }}>{form.interestRate || 0}% p.a.</span>
+                </div>
+                <input
+                  type="range" min={5} max={30} step={0.1}
+                  value={form.interestRate || 5}
+                  onChange={e => setForm({ ...form, interestRate: e.target.value })}
+                  style={{ width: '100%', accentColor: '#1e40af' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af' }}>
+                  <span>5%</span><span>30%</span>
+                </div>
               </div>
 
               <div>
@@ -251,7 +334,7 @@ export default function LoansPage() {
 
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '12px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                  <input type="checkbox" checked={form.roundEmi} onChange={e => setForm({ ...form, roundEmi: e.target.checked })} style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
+                  <input type="checkbox" checked={form.deductUpfront} onChange={e => setForm({ ...form, deductUpfront: e.target.checked })} style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
                   <div>
                     <p style={{ margin: 0, fontSize: '14px', fontWeight: '600' }}>Deduct Interest Upfront</p>
                     <p style={{ margin: 0, fontSize: '12px', color: '#6b7280' }}>Interest deducted first</p>
@@ -259,7 +342,7 @@ export default function LoansPage() {
                 </label>
               </div>
 
-                  <div style={{ gridColumn: '1 / -1' }}>
+              <div style={{ gridColumn: '1 / -1' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '12px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                   <input type="checkbox" checked={form.roundEmi} onChange={e => setForm({ ...form, roundEmi: e.target.checked })} style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
                   <div>
@@ -336,19 +419,10 @@ export default function LoansPage() {
               <div style={{ marginTop: '20px', padding: '16px', background: '#f0f9ff', borderRadius: '10px', border: '1px solid #bae6fd' }}>
                 <p style={{ fontWeight: '700', margin: '0 0 12px', fontSize: '14px', color: '#0369a1' }}>Loan Summary Preview</p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
-                  {[
-                    { label: 'Loan Amount', value: fmt(p) },
-                    { label: 'Processing Fee', value: pf > 0 ? `- ${fmt(pf)}` : 'None', color: pf > 0 ? '#dc2626' : '#16a34a' },
-                    { label: 'Interest Deducted', value: form.deductUpfront ? `- ${fmt(calcTotalInterest())}` : 'On EMI', color: form.deductUpfront ? '#dc2626' : '#6b7280' },
-                    { label: 'Customer Receives', value: fmt(Math.max(0, disbursed)), color: '#16a34a', bold: true },
-                    { label: 'EMI Amount', value: fmt(emi), bold: true },
-                    { label: 'Total Repayable', value: fmt(emi * Number(form.tenure)) },
-                    { label: 'Total Interest', value: fmt(calcTotalInterest()) },
-                    { label: 'Late Penalty', value: form.penaltyType === 'none' ? 'None' : form.penaltyType === 'fixed' ? `${form.penaltyValue} per EMI` : form.penaltyType === 'percentage' ? `${form.penaltyValue}% of EMI` : `${form.penaltyValue}/day` },
-                  ].map(item => (
+                  {previewItems.map(item => (
                     <div key={item.label} style={{ background: 'white', padding: '10px 12px', borderRadius: '8px' }}>
                       <p style={{ color: '#6b7280', fontSize: '11px', margin: '0 0 4px' }}>{item.label}</p>
-                      <p style={{ margin: 0, fontSize: '14px', fontWeight: (item as any).bold ? '700' : '600', color: (item as any).color || '#111827' }}>{item.value}</p>
+                      <p style={{ margin: 0, fontSize: '14px', fontWeight: item.bold ? '700' : '600', color: item.color || '#111827' }}>{item.value}</p>
                     </div>
                   ))}
                 </div>
@@ -389,16 +463,16 @@ export default function LoansPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredLoans.map((l: any) => (
+                {filteredLoans.map((l: Loan) => (
                   <tr key={l.id} onClick={() => window.location.href = `/dashboard/loans/${l.id}`}
                     style={{ borderBottom: '1px solid #f3f4f6', cursor: 'pointer' }}>
                     <td style={{ padding: '12px 16px', fontSize: '13px', color: '#1e40af', fontWeight: '600' }}>LN{1000 + l.id}</td>
                     <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '500' }}>{l.customer?.name}</td>
                     <td style={{ padding: '12px 16px', fontSize: '13px' }}>{l.type}</td>
                     <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '500' }}>{fmt(l.amount)}</td>
-                    <td style={{ padding: '12px 16px', fontSize: '13px', color: l.disbursedAmount < l.amount ? '#dc2626' : '#16a34a' }}>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', color: (l.disbursedAmount ?? l.amount) < l.amount ? '#dc2626' : '#16a34a' }}>
                       {fmt(l.disbursedAmount ?? l.amount)}
-                      {l.disbursedAmount < l.amount && <span style={{ fontSize: '10px', display: 'block', color: '#6b7280' }}>after deductions</span>}
+                      {(l.disbursedAmount ?? l.amount) < l.amount && <span style={{ fontSize: '10px', display: 'block', color: '#6b7280' }}>after deductions</span>}
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: '13px', textTransform: 'capitalize' }}>{l.frequency || 'monthly'}</td>
                     <td style={{ padding: '12px 16px', fontSize: '13px' }}>{l.tenure} {l.frequency === 'daily' ? 'days' : l.frequency === 'weekly' ? 'wks' : 'mo'}</td>

@@ -136,3 +136,80 @@ export const deleteCustomer = async (req: any, res: Response) => {
     res.status(500).json({ message: 'Server error', error });
   }
 };
+
+export const bulkImportCustomers = async (req: any, res: Response) => {
+  try {
+    // Owner / managers only.
+    const allowed = ['owner', 'admin', 'Super Admin', 'branch_manager'];
+    if (!allowed.includes(req.user.role)) {
+      return res.status(403).json({ message: 'You do not have permission to import customers' });
+    }
+
+    const companyId = req.user.companyId;
+    const rows = Array.isArray(req.body.rows) ? req.body.rows : [];
+    if (rows.length === 0) {
+      return res.status(400).json({ message: 'No rows to import. Please upload a filled template.' });
+    }
+    if (rows.length > 2000) {
+      return res.status(400).json({ message: 'Too many rows. Please import at most 2000 at a time.' });
+    }
+
+    // Load this company's branches once, to resolve branch names -> ids.
+    const branches = await prisma.branch.findMany({ where: { companyId } });
+    const branchByName: Record<string, number> = {};
+    branches.forEach(b => { branchByName[(b.name || '').trim().toLowerCase()] = b.id; });
+
+    const added: string[] = [];
+    const skipped: { row: number; name: string; reason: string }[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i] || {};
+      const rowNum = i + 2; // +2 because row 1 is the header in the sheet
+
+      const name = String(r.name ?? r.Name ?? '').trim();
+      const phone = String(r.phone ?? r.Phone ?? '').trim();
+      const email = String(r.email ?? r.Email ?? '').trim();
+      const address = String(r.address ?? r.Address ?? '').trim();
+      const aadhar = String(r.aadhar ?? r.Aadhaar ?? r.aadhaar ?? '').replace(/\s/g, '').trim();
+      const pan = String(r.pan ?? r.PAN ?? r.Pan ?? '').trim();
+      const branchName = String(r.branch ?? r.Branch ?? '').trim();
+
+      // --- validation ---
+      if (!name) { skipped.push({ row: rowNum, name: '(blank)', reason: 'Name is required' }); continue; }
+      if (!phone) { skipped.push({ row: rowNum, name, reason: 'Phone is required' }); continue; }
+      if (aadhar && !/^\d{12}$/.test(aadhar)) { skipped.push({ row: rowNum, name, reason: 'Aadhaar must be 12 digits' }); continue; }
+      if (pan && !/^[A-Za-z]{5}[0-9]{4}[A-Za-z]$/.test(pan)) { skipped.push({ row: rowNum, name, reason: 'PAN format looks invalid' }); continue; }
+
+      // --- resolve branch (optional) ---
+      let branchId: number | null = null;
+      if (branchName) {
+        const found = branchByName[branchName.toLowerCase()];
+        if (!found) { skipped.push({ row: rowNum, name, reason: `Branch "${branchName}" not found` }); continue; }
+        branchId = found;
+      }
+
+      try {
+        await prisma.customer.create({
+          data: {
+            name, email: email || null, phone, address: address || null,
+            branchId, companyId,
+            aadhar: aadhar ? encrypt(aadhar) : null,
+            pan: pan ? encrypt(pan.toUpperCase()) : null
+          }
+        });
+        added.push(name);
+      } catch (e) {
+        skipped.push({ row: rowNum, name, reason: 'Could not save (duplicate or bad data)' });
+      }
+    }
+
+    await logAudit({
+      req, action: 'BULK_IMPORT_CUSTOMERS', entityType: 'Customer', entityId: 0,
+      details: `Bulk imported customers: ${added.length} added, ${skipped.length} skipped`
+    });
+
+    res.json({ addedCount: added.length, skippedCount: skipped.length, skipped });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
+  }
+};

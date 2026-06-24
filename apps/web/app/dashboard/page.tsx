@@ -5,12 +5,48 @@ import Sidebar from '@/components/Sidebar';
 import Navbar from '@/components/Navbar';
 import { API_URL } from '@/lib/api';
 
+type DashboardStats = {
+  totalDisbursed: number;
+  totalLoans: number;
+  totalCollections: number;
+  activeCustomers: number;
+  activeLoans: number;
+  npaPercentage: number;
+};
+
+type DueItem = {
+  id: number;
+  customerName: string;
+  loanId: number;
+  amount: number;
+};
+
+type ActivityItem = {
+  customerName: string;
+  loanId: number;
+  amount: number;
+  date: string;
+};
+
+type TodayData = {
+  overdueCount: number;
+  overdueAmount: number;
+  dueTodayAmount: number;
+  dueTodayCount: number;
+  dueToday: DueItem[];
+  recentActivity: ActivityItem[];
+};
+
 export default function Dashboard() {
-  const [stats, setStats] = useState<any>(null);
-  const [today, setToday] = useState<any>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [today, setToday] = useState<TodayData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [todayLabel, setTodayLabel] = useState('');
 
   useEffect(() => {
+    setTodayLabel(
+      new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
+    );
     const token = localStorage.getItem('token') || '';
     Promise.all([
       fetch(`${API_URL}/api/dashboard/stats`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
@@ -45,7 +81,7 @@ export default function Dashboard() {
         <div style={{ marginBottom: '20px' }}>
           <h2 style={{ fontSize: '22px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Dashboard</h2>
           <p style={{ color: '#6b7280', margin: 0, fontSize: '14px' }}>
-            {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+            {todayLabel || '\u00A0'}
           </p>
         </div>
 
@@ -115,7 +151,7 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {today.dueToday.map((e: any) => (
+                  {today.dueToday.map((e: DueItem) => (
                     <tr key={e.id} style={{ borderBottom: '1px solid #f9fafb' }}>
                       <td style={{ padding: '10px 8px', fontSize: '13px', fontWeight: '500' }}>{e.customerName}</td>
                       <td style={{ padding: '10px 8px', fontSize: '13px', color: '#1e40af' }}>LN{1000 + e.loanId}</td>
@@ -136,11 +172,12 @@ export default function Dashboard() {
               <p style={{ color: '#6b7280', fontSize: '13px', textAlign: 'center', padding: '20px' }}>Loading...</p>
             ) : today?.recentActivity?.length ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {today.recentActivity.map((a: any, i: number) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '12px', borderBottom: i < today.recentActivity.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                {today.recentActivity.map((a: ActivityItem, i: number) => (
+                  <div key={`${a.loanId}-${i}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '12px', borderBottom: i < today.recentActivity.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
                     <div>
                       <p style={{ margin: 0, fontSize: '13px', fontWeight: '500' }}>{a.customerName}</p>
-                      <p style={{ margin: 0, fontSize: '11px', color: '#9ca3af' }}>LN{1000 + a.loanId} · {fmtDate(a.date)} · {fmtTime(a.date)} IST</p>                    </div>
+                      <p style={{ margin: 0, fontSize: '11px', color: '#9ca3af' }}>LN{1000 + a.loanId} · {fmtDate(a.date)} · {fmtTime(a.date)} IST</p>
+                    </div>
                     <span style={{ fontSize: '13px', fontWeight: '600', color: '#16a34a' }}>+{fmt(a.amount)}</span>
                   </div>
                 ))}

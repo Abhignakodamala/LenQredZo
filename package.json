@@ -8,10 +8,14 @@
     "lint": "turbo run lint"
   },
   "devDependencies": {
+    "@types/react": "^19.2.17",
     "turbo": "latest"
   },
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  }
 }
