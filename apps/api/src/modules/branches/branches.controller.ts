@@ -1,7 +1,6 @@
+import prisma from '../../lib/prisma';
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
 
 export const getAllBranches = async (req: any, res: Response) => {
   try {

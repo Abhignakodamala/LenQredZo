@@ -1,10 +1,9 @@
+import prisma from '../../lib/prisma';
 import { Response } from 'express';
 import bcrypt from 'bcrypt';
-import { PrismaClient } from '@prisma/client';
 import { logAudit } from '../../utils/audit';
 import { ROLES } from '../../utils/permissions';
 
-const prisma = new PrismaClient();
 
 // Roles an owner is allowed to assign through this screen (not Super Admin / platform).
 const ASSIGNABLE_ROLES = ['branch_manager', 'loan_officer', 'accountant', 'collection_agent', 'recovery_officer', 'owner'];

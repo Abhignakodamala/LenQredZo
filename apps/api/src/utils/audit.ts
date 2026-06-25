@@ -1,6 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 
 interface AuditParams {
   req: any;                 // the Express request (carries req.user from the token)

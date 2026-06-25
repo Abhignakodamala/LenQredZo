@@ -1,9 +1,8 @@
+import prisma from '../../lib/prisma';
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
 
 // Fail fast at startup: if the signing secret isn't set, the server must
 // not run at all rather than silently fall back to a guessable key.

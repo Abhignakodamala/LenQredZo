@@ -1,11 +1,10 @@
+import prisma from '../lib/prisma';
 import dotenv from 'dotenv';
 import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 
-import { PrismaClient } from '@prisma/client';
 import { encrypt } from '../utils/encryption';
 
-const prisma = new PrismaClient();
 
 function isEncrypted(v: string | null): boolean {
   return typeof v === 'string' && v.split(':').length === 3;

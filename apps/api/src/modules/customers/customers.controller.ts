@@ -1,10 +1,10 @@
+import prisma from '../../lib/prisma';
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { encrypt, decrypt, maskAadhaar, maskPan } from '../../utils/encryption';
 import { logAudit } from '../../utils/audit';
 import { customerScope, isBranchScoped } from '../../utils/scoping';
+import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
 
 function toSafeCustomer(c: any) {
   return {
@@ -159,6 +159,22 @@ export const bulkImportCustomers = async (req: any, res: Response) => {
     const branchByName: Record<string, number> = {};
     branches.forEach(b => { branchByName[(b.name || '').trim().toLowerCase()] = b.id; });
 
+    // Load existing customers for this company to prevent duplicates by phone or Aadhaar.
+    // Aadhaar is stored encrypted; decrypt here to compare safely. This keeps the import idempotent.
+    const existingCustomers = await prisma.customer.findMany({ where: { companyId }, select: { id: true, phone: true, aadhar: true } });
+    const existingPhones = new Set(existingCustomers.map(c => (c.phone || '').trim()));
+    const existingAadhaars = new Set<string>();
+    existingCustomers.forEach(c => {
+      if (c.aadhar) {
+        try {
+          const dec = decrypt(c.aadhar as string).replace(/\s/g, '').trim();
+          if (dec) existingAadhaars.add(dec);
+        } catch {
+          // ignore decryption errors for legacy/tampered values
+        }
+      }
+    });
+
     const added: string[] = [];
     const skipped: { row: number; name: string; reason: string }[] = [];
 
@@ -180,6 +196,19 @@ export const bulkImportCustomers = async (req: any, res: Response) => {
       if (aadhar && !/^\d{12}$/.test(aadhar)) { skipped.push({ row: rowNum, name, reason: 'Aadhaar must be 12 digits' }); continue; }
       if (pan && !/^[A-Za-z]{5}[0-9]{4}[A-Za-z]$/.test(pan)) { skipped.push({ row: rowNum, name, reason: 'PAN format looks invalid' }); continue; }
 
+      // --- duplicate checks ---
+      if (existingPhones.has(phone)) {
+        skipped.push({ row: rowNum, name, reason: 'Duplicate phone' });
+        continue;
+      }
+      if (aadhar) {
+        const cleaned = aadhar.replace(/\s/g, '').trim();
+        if (existingAadhaars.has(cleaned)) {
+          skipped.push({ row: rowNum, name, reason: 'Duplicate Aadhaar' });
+          continue;
+        }
+      }
+
       // --- resolve branch (optional) ---
       let branchId: number | null = null;
       if (branchName) {
@@ -198,6 +227,10 @@ export const bulkImportCustomers = async (req: any, res: Response) => {
           }
         });
         added.push(name);
+
+        // record this entry so subsequent rows in the same batch don't duplicate
+        existingPhones.add(phone);
+        if (aadhar) existingAadhaars.add(aadhar.replace(/\s/g, '').trim());
       } catch (e) {
         skipped.push({ row: rowNum, name, reason: 'Could not save (duplicate or bad data)' });
       }

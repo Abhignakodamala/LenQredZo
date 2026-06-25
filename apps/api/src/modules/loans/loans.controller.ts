@@ -1,11 +1,10 @@
+import prisma from '../../lib/prisma';
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { encrypt, decrypt, maskAadhaar, maskPan } from '../../utils/encryption';
 import { logAudit } from '../../utils/audit';
 import { loanScope, emiScope, paymentScope, isBranchScoped } from '../../utils/scoping';
 import { validateReference } from '../../utils/refcheck';
 
-const prisma = new PrismaClient();
 
 // --- PII helpers: decrypt + mask before sending to the browser ---
 function maskCustomer(c: any) {
@@ -451,5 +450,6 @@ export const deleteLoan = async (req: any, res: Response) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 

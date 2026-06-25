@@ -1,11 +1,10 @@
+import prisma from '../lib/prisma';
 import dotenv from 'dotenv';
 import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
-import { PrismaClient } from '@prisma/client';
 import { encrypt } from '../utils/encryption';
 
-const prisma = new PrismaClient();
 
 // A value is already encrypted if it has the "iv:tag:cipher" 3-part shape.
 function isEncrypted(v: string | null): boolean {

@@ -1,7 +1,6 @@
+import prisma from '../../lib/prisma';
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
 
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
 const AI_SERVICE_KEY = process.env.AI_SERVICE_KEY || '';

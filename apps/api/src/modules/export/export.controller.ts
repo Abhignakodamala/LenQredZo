@@ -1,9 +1,8 @@
+import prisma from '../../lib/prisma';
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import ExcelJS from 'exceljs';
 import { decrypt } from '../../utils/encryption';
 
-const prisma = new PrismaClient();
 
 const fmtDate = (d: any) => (d ? new Date(d).toLocaleString('en-IN') : '');
 
