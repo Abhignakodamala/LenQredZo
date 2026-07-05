@@ -21,7 +21,7 @@ export const register = async (req: Request, res: Response) => {
     // --- Access-code gate: only people with your secret code can create a company ---
     const REQUIRED_CODE = process.env.SIGNUP_ACCESS_CODE || '';
     if (!REQUIRED_CODE || accessCode !== REQUIRED_CODE) {
-      return res.status(403).json({ message: 'Invalid or missing access code. Contact FinSmart to get one.' });
+      return res.status(403).json({ message: 'Invalid or missing access code. Contact LenQredZo to get one.' });
     }
 
     // --- Basic validation ---

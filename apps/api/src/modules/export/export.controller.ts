@@ -31,7 +31,7 @@ export const exportCompanyData = async (req: any, res: Response) => {
     ]);
 
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'FinSmart AI';
+    wb.creator = 'LenQredZo AI';
     wb.created = new Date();
 
     // --- Customers ---
@@ -161,7 +161,7 @@ export const exportCompanyData = async (req: any, res: Response) => {
     });
 
     const dateStr = new Date().toISOString().slice(0, 10);
-    const safeCompany = (company?.name || 'finsmart').replace(/[^a-z0-9]/gi, '-').toLowerCase();
+    const safeCompany = (company?.name || 'LenQredZo').replace(/[^a-z0-9]/gi, '-').toLowerCase();
     const filename = `${safeCompany}-export-${dateStr}.xlsx`;
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

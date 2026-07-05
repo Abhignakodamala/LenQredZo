@@ -36,7 +36,12 @@ export default function LoginPage() {
     <div style={{minHeight:'100vh',background:'#f0f4ff',display:'flex',alignItems:'center',justifyContent:'center'}}>
       <div style={{background:'white',padding:'40px',borderRadius:'16px',boxShadow:'0 4px 24px rgba(0,0,0,0.08)',width:'100%',maxWidth:'400px'}}>
         <div style={{textAlign:'center',marginBottom:'32px'}}>
-          <div style={{width:'48px',height:'48px',background:'#1e40af',borderRadius:'12px',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 12px',color:'white',fontWeight:'bold',fontSize:'20px'}}>F</div>
+        
+          <img 
+            src="/lenqredzo-logo.png" 
+            alt="LenQredZo" 
+            style={{ width: '80px', height: '80px', objectFit: 'contain' }} 
+          />
           <h1 style={{fontSize:'24px',fontWeight:'bold',color:'#111827',margin:'0 0 4px'}}>LenQredZo</h1>
           <p style={{color:'#6b7280',fontSize:'14px',margin:0}}>Sign in to your account</p>
         </div>

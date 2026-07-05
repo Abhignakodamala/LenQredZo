@@ -65,7 +65,11 @@ export default function RegisterPage() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#eff6ff', padding: '20px' }}>
       <div style={{ background: 'white', padding: '40px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', width: '100%', maxWidth: '440px' }}>
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <div style={{ width: '52px', height: '52px', background: '#1e40af', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', color: 'white', fontSize: '24px', fontWeight: 'bold' }}>F</div>
+        <img 
+            src="/lenqredzo-logo.png" 
+            alt="LenQredZo" 
+            style={{ width: '80px', height: '80px', objectFit: 'contain' }} 
+          />
           <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Create your company</h1>
           <p style={{ color: '#6b7280', fontSize: '14px', margin: '4px 0 0' }}>Set up your LenQredZo owner account</p>
         </div>

@@ -39,7 +39,7 @@ app.use('/api/audit', auditRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/ai', aiRoutes);
 app.get('/', (req, res) => {
-  res.json({ message: 'FinSmart AI API is running!' });
+  res.json({ message: 'LenQredZo AI API is running!' });
 });
 
 app.listen(PORT, () => {

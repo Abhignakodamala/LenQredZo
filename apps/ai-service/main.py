@@ -1,5 +1,5 @@
 """
-FinSmart AI — Analysis Microservice
+LenQredZo AI — Analysis Microservice
 A small FastAPI service that turns anonymized loan-portfolio statistics into
 plain-language insights using Google's Gemini API.
 
@@ -51,7 +51,7 @@ DISCLAIMER = (
 )
 
 
-app = FastAPI(title="FinSmart AI Analysis Service", version="1.0.0")
+app = FastAPI(title="LenQredZo AI Analysis Service", version="1.0.0")
 
 # No browser origins are allowed — all calls must come server-to-server from the Node API.
 app.add_middleware(
@@ -139,7 +139,7 @@ def build_prompt(prompt_type: str, stats: PortfolioStats, question: str) -> str:
 def health():
     # Public health check — exposes no secrets, only whether keys are configured.
     return {
-        "service": "FinSmart AI Analysis",
+        "service": "LenQredZo AI Analysis",
         "status": "running",
         "model": GEMINI_MODEL,
         "gemini_key_configured": bool(GEMINI_API_KEY),
