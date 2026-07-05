@@ -291,13 +291,13 @@ export default function LoansPage() {
                   />
                 </div>
                 <input
-                  type="range" min={1000} max={100000000} step={1000}
+                  type="range" min={1000} max={10000000} step={1000}
                   value={form.amount || 1000}
                   onChange={e => setForm({ ...form, amount: e.target.value })}
                   style={{ width: '100%', accentColor: '#1e40af' }}
                 />
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af' }}>
-                  <span>₹1K</span><span>₹10Cr</span>
+                  <span>₹1K</span><span>₹1Cr</ span>
                 </div>
               </div>
 
