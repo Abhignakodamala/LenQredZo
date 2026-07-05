@@ -67,7 +67,7 @@ export default function RegisterPage() {
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
           <div style={{ width: '52px', height: '52px', background: '#1e40af', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', color: 'white', fontSize: '24px', fontWeight: 'bold' }}>F</div>
           <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Create your company</h1>
-          <p style={{ color: '#6b7280', fontSize: '14px', margin: '4px 0 0' }}>Set up your FinSmart owner account</p>
+          <p style={{ color: '#6b7280', fontSize: '14px', margin: '4px 0 0' }}>Set up your LenQredZo owner account</p>
         </div>
 
         {error && (
@@ -89,7 +89,7 @@ export default function RegisterPage() {
         <input style={inp} type="password" value={form.password} onChange={e => update('password', e.target.value)} placeholder="min 6 characters" />
 
         <label style={lbl}>Access Code</label>
-        <input style={inp} value={form.accessCode} onChange={e => update('accessCode', e.target.value)} placeholder="Code provided by FinSmart" />
+        <input style={inp} value={form.accessCode} onChange={e => update('accessCode', e.target.value)} placeholder="Code provided by LenQredZo" />
 
         <button onClick={submit} disabled={saving}
           style={{ width: '100%', background: '#1e40af', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', fontSize: '15px', fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1, marginTop: '4px' }}>

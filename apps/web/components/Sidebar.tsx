@@ -58,28 +58,31 @@ export default function Sidebar() {
 
   return (
     <div style={{width:'240px',background:'white',height:'100vh',position:'fixed',left:0,top:0,borderRight:'1px solid #e5e7eb',display:'flex',flexDirection:'column'}}>
-      <div style={{padding:'20px 16px',borderBottom:'1px solid #e5e7eb'}}>
-        <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-          <div style={{width:'32px',height:'32px',background:'#1e40af',borderRadius:'8px',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:'bold',fontSize:'14px'}}>F</div>
-          <div>
-            <p style={{fontWeight:'bold',fontSize:'15px',color:'#1e40af',margin:0}}>FinSmart</p>
-            <p style={{fontSize:'11px',color:'#6b7280',margin:0}}>Finance Management</p>
-          </div>
-        </div>
+      
+      {/* Logo */}
+      <div style={{padding:'10px 12px',borderBottom:'1px solid #e5e7eb'}}>
+        <img
+          src="/lenqredzo-logo.png"
+          alt="LenQredzo"
+          style={{width:'110px',height:'auto',objectFit:'contain',display:'block'}}
+        />
+        
       </div>
 
+      {/* Nav */}
       <nav style={{padding:'12px 8px',flex:1,overflowY:'auto'}}>
-        {menuItems.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <a key={item.name} href={item.href} style={{display:'flex',alignItems:'center',gap:'10px',padding:'10px 12px',borderRadius:'8px',marginBottom:'2px',textDecoration:'none',fontSize:'14px',fontWeight:isActive?'600':'400',background:isActive?'#eff6ff':'transparent',color:isActive?'#1e40af':'#374151'}}>
-              <span>{item.icon}</span>
-              <span>{item.name}</span>
-            </a>
-          );
-        })}
-      </nav>
+  {menuItems.map((item) => {
+    const isActive = pathname === item.href;
+    return (
+      <a key={item.name} href={item.href} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'10px',padding:'10px 8px',borderRadius:'8px',marginBottom:'2px',textDecoration:'none',fontSize:'14px',fontWeight:isActive?'600':'400',background:isActive?'#eff6ff':'transparent',color:isActive?'#1e40af':'#374151'}}>
+        <span>{item.icon}</span>
+        <span style={{flex:1}}>{item.name}</span>
+      </a>
+    );
+  })}
+</nav>
 
+      {/* User + Logout */}
       <div style={{padding:'16px',borderTop:'1px solid #e5e7eb'}}>
         <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'10px'}}>
           <div style={{width:'32px',height:'32px',background:'#1e40af',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'12px',fontWeight:'bold'}}>
@@ -101,6 +104,7 @@ export default function Sidebar() {
           Logout
         </button>
       </div>
+
     </div>
   );
 }

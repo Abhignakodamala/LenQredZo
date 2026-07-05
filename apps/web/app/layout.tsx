@@ -16,7 +16,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "FinSmart",
+  title: "LenQredZo",
   description: "Finance Management Platform",
 };
 

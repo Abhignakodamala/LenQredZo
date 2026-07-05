@@ -32,7 +32,7 @@ export default function BulkImportPage() {
     const ws = XLSX.utils.aoa_to_sheet([...headers, ...example]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Customers');
-    XLSX.writeFile(wb, 'FinSmart_Customer_Import_Template.xlsx');
+    XLSX.writeFile(wb, 'LenQredZo_Customer_Import_Template.xlsx');
   };
 
   const onFile = (e: ChangeEvent<HTMLInputElement>) => {

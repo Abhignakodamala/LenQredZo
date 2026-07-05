@@ -37,7 +37,7 @@ export default function LoginPage() {
       <div style={{background:'white',padding:'40px',borderRadius:'16px',boxShadow:'0 4px 24px rgba(0,0,0,0.08)',width:'100%',maxWidth:'400px'}}>
         <div style={{textAlign:'center',marginBottom:'32px'}}>
           <div style={{width:'48px',height:'48px',background:'#1e40af',borderRadius:'12px',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 12px',color:'white',fontWeight:'bold',fontSize:'20px'}}>F</div>
-          <h1 style={{fontSize:'24px',fontWeight:'bold',color:'#111827',margin:'0 0 4px'}}>FinSmart</h1>
+          <h1 style={{fontSize:'24px',fontWeight:'bold',color:'#111827',margin:'0 0 4px'}}>LenQredZo</h1>
           <p style={{color:'#6b7280',fontSize:'14px',margin:0}}>Sign in to your account</p>
         </div>
 
@@ -53,7 +53,7 @@ export default function LoginPage() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="ramesh@finsmart.com"
+            placeholder="ramesh@LenQredZo.com"
             style={{width:'100%',padding:'10px 12px',border:'1px solid #d1d5db',borderRadius:'8px',fontSize:'14px',outline:'none',boxSizing:'border-box'}}
           />
         </div>
@@ -89,7 +89,7 @@ export default function LoginPage() {
         </button>
 
         <p style={{textAlign:'center',fontSize:'13px',color:'#6b7280',marginTop:'16px'}}>
-          Demo: ramesh@finsmart.com / admin123
+          Demo: ramesh@LenQredZo.com / admin123
         </p>
       </div>
     </div>
