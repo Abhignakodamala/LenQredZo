@@ -5,7 +5,8 @@ import { API_URL } from '@/lib/api';
 import ActivityLog from '@/components/ActivityLog';
 
 export default function SettingsPage() {
-  const [company, setCompany] = useState<any>({ name: '', primaryColor: '#1e40af', plan: 'starter' });
+  const [showPwd, setShowPwd] = useState({ current: false, new: false, confirm: false });
+  const [company, setCompany] = useState<any>({ name: '', plan: 'starter' });
   const [user, setUser] = useState<any>({ name: '', email: '', role: '' });
   const [loading, setLoading] = useState(true);
   const [savingCompany, setSavingCompany] = useState(false);
@@ -38,7 +39,7 @@ export default function SettingsPage() {
       const res = await fetch(`${API_URL}/api/settings/company`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
-        body: JSON.stringify({ name: company.name, primaryColor: company.primaryColor, plan: company.plan })
+        body: JSON.stringify({ name: company.name, plan: company.plan })
       });
       if (res.ok) showMsg('✅ Company details saved');
     } catch (err) { console.error(err); }
@@ -68,6 +69,7 @@ export default function SettingsPage() {
     } catch (err) { console.error(err); }
     setSavingProfile(false);
   };
+  
   const changePassword = async () => {
     setPwdError('');
     if (!pwd.currentPassword || !pwd.newPassword) { setPwdError('Fill all password fields'); return; }
@@ -161,13 +163,7 @@ export default function SettingsPage() {
                 <option value="enterprise">Enterprise</option>
               </select>
             </div>
-            <div>
-              <label style={lbl}>Brand Color</label>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <input type="color" value={company.primaryColor || '#1e40af'} onChange={e => setCompany({ ...company, primaryColor: e.target.value })} style={{ width: '48px', height: '38px', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', padding: '2px' }} />
-                <input value={company.primaryColor || '#1e40af'} onChange={e => setCompany({ ...company, primaryColor: e.target.value })} style={{ ...inp, flex: 1 }} />
-              </div>
-            </div>
+    
           </div>
           <button onClick={saveCompany} disabled={savingCompany} style={{ ...btn, marginTop: '16px', opacity: savingCompany ? 0.7 : 1 }}>
             {savingCompany ? 'Saving...' : 'Save Company'}
@@ -206,34 +202,46 @@ export default function SettingsPage() {
         </div>
 
         {/* Change Password */}
-        <div style={card}>
-          <h3 style={{ fontWeight: '700', fontSize: '16px', margin: '0 0 16px' }}>🔒 Change Password</h3>
-          {pwdError && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '10px 14px', borderRadius: '8px', fontSize: '13px', marginBottom: '16px' }}>
-              {pwdError}
-            </div>
-          )}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-            <div>
-              <label style={lbl}>Current Password</label>
-              <input type="password" value={pwd.currentPassword} onChange={e => setPwd({ ...pwd, currentPassword: e.target.value })} placeholder="••••••" style={inp} />
-            </div>
-            <div>
-              <label style={lbl}>New Password</label>
-              <input type="password" value={pwd.newPassword} onChange={e => setPwd({ ...pwd, newPassword: e.target.value })} placeholder="min 6 characters" style={inp} />
-            </div>
-            <div>
-              <label style={lbl}>Confirm New Password</label>
-              <input type="password" value={pwd.confirmPassword} onChange={e => setPwd({ ...pwd, confirmPassword: e.target.value })} placeholder="re-type new password" style={inp} />
-            </div>
-          </div>
-          <button onClick={changePassword} disabled={savingPwd} style={{ ...btn, marginTop: '16px', opacity: savingPwd ? 0.7 : 1 }}>
-            {savingPwd ? 'Changing...' : 'Change Password'}
+       <div style={card}>
+  <h3 style={{ fontWeight: '700', fontSize: '16px', margin: '0 0 16px' }}>🔒 Change Password</h3>
+  {pwdError && (
+    <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '10px 14px', borderRadius: '8px', fontSize: '13px', marginBottom: '16px' }}>
+      {pwdError}
+    </div>
+  )}
+  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+    {[
+      { label: 'Current Password', key: 'currentPassword', show: 'current', placeholder: '••••••' },
+      { label: 'New Password', key: 'newPassword', show: 'new', placeholder: 'min 6 characters' },
+      { label: 'Confirm New Password', key: 'confirmPassword', show: 'confirm', placeholder: 're-type new password' },
+    ].map(f => (
+      <div key={f.key}>
+        <label style={lbl}>{f.label}</label>
+        <div style={{ position: 'relative' }}>
+          <input
+            type={showPwd[f.show as keyof typeof showPwd] ? 'text' : 'password'}
+            value={pwd[f.key as keyof typeof pwd]}
+            onChange={e => setPwd({ ...pwd, [f.key]: e.target.value })}
+            placeholder={f.placeholder}
+            style={{ ...inp, paddingRight: '40px' }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPwd({ ...showPwd, [f.show]: !showPwd[f.show as keyof typeof showPwd] })}
+            style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#6b7280', padding: 0 }}
+          >
+            {showPwd[f.show as keyof typeof showPwd] ? '🙈' : '👁'}
           </button>
         </div>
-        
-        <ActivityLog />
+      </div>
+    ))}
+  </div>
+  <button onClick={changePassword} disabled={savingPwd} style={{ ...btn, marginTop: '16px', opacity: savingPwd ? 0.7 : 1 }}>
+    {savingPwd ? 'Changing...' : 'Change Password'}
+  </button>
+</div>
 
+<ActivityLog />
           {/* Data Export */}
         <div style={card}>
           <h3 style={{ fontWeight: '700', fontSize: '16px', margin: '0 0 8px' }}>📊 Export My Data</h3>

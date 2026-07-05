@@ -24,10 +24,6 @@ export default function Navbar() {
         <input placeholder="Search customers, loans, invoices..." style={{ width: '100%', padding: '8px 12px 8px 36px', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', background: '#f9fafb', boxSizing: 'border-box', outline: 'none' }} />
       </div>
       <div style={{ flex: 1 }} />
-      <button style={{ position: 'relative', background: '#f9fafb', border: '1px solid #e5e7eb', cursor: 'pointer', padding: '8px 12px', borderRadius: '8px', fontSize: '16px' }}>
-        🔔
-        <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', color: 'white', borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>3</span>
-      </button>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 14px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '10px', cursor: 'pointer' }}>
         <div style={{ width: '32px', height: '32px', background: '#1e40af', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '13px', fontWeight: 'bold' }}>
           {user?.name?.charAt(0) || 'U'}
