@@ -1,13 +1,19 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type CSSProperties } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { API_URL } from '@/lib/api';
 import ActivityLog from '@/components/ActivityLog';
 
+type CompanyState = { name: string; plan: string };
+type UserState = { name: string; email: string; role: string };
+type PasswordState = { currentPassword: string; newPassword: string; confirmPassword: string };
+
+type ShowPasswordState = { current: boolean; new: boolean; confirm: boolean };
+
 export default function SettingsPage() {
-  const [showPwd, setShowPwd] = useState({ current: false, new: false, confirm: false });
-  const [company, setCompany] = useState<any>({ name: '', plan: 'starter' });
-  const [user, setUser] = useState<any>({ name: '', email: '', role: '' });
+  const [showPwd, setShowPwd] = useState<ShowPasswordState>({ current: false, new: false, confirm: false });
+  const [company, setCompany] = useState<CompanyState>({ name: '', plan: 'starter' });
+  const [user, setUser] = useState<UserState>({ name: '', email: '', role: '' });
   const [loading, setLoading] = useState(true);
   const [savingCompany, setSavingCompany] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -27,7 +33,7 @@ export default function SettingsPage() {
       const data = await res.json();
       if (data.company) setCompany(data.company);
       if (data.user) setUser(data.user);
-    } catch (err) { console.error(err); }
+    } catch (error) { console.error('Failed to fetch settings', error); }
     setLoading(false);
   };
 
@@ -42,7 +48,7 @@ export default function SettingsPage() {
         body: JSON.stringify({ name: company.name, plan: company.plan })
       });
       if (res.ok) showMsg('✅ Company details saved');
-    } catch (err) { console.error(err); }
+    } catch (error) { console.error('Failed to save company settings', error); }
     setSavingCompany(false);
   };
 
@@ -66,7 +72,7 @@ export default function SettingsPage() {
         }
         showMsg('✅ Profile saved');
       }
-    } catch (err) { console.error(err); }
+    } catch (error) { console.error('Failed to save profile', error); }
     setSavingProfile(false);
   };
   
@@ -89,7 +95,7 @@ export default function SettingsPage() {
       } else {
         setPwdError(data.message || 'Failed to change password');
       }
-    } catch (err) { setPwdError('Server error'); }
+    } catch (error) { console.error('Failed to change password', error); setPwdError('Server error'); }
     setSavingPwd(false);
   };
 
@@ -112,17 +118,17 @@ export default function SettingsPage() {
     a.remove();
     window.URL.revokeObjectURL(url);
     showMsg('✅ Data exported successfully');
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error('Failed to export data', error);
     showMsg('❌ Export failed');
   }
   setExporting(false);
 };
 
-  const inp = { width: '100%', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' as any };
-  const lbl = { display: 'block' as any, fontSize: '13px', fontWeight: '500' as any, marginBottom: '6px', color: '#374151' };
-  const card = { background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e5e7eb', marginBottom: '20px' };
-  const btn = { background: '#1e40af', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', fontSize: '14px', fontWeight: '600' as any, cursor: 'pointer' };
+  const inp: CSSProperties = { width: '100%', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' };
+  const lbl: CSSProperties = { display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '6px', color: '#374151' };
+  const card: CSSProperties = { background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e5e7eb', marginBottom: '20px' };
+  const btn: CSSProperties = { background: '#1e40af', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' };
 
   if (loading) return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f9fafb' }}>
@@ -246,7 +252,7 @@ export default function SettingsPage() {
         <div style={card}>
           <h3 style={{ fontWeight: '700', fontSize: '16px', margin: '0 0 8px' }}>📊 Export My Data</h3>
           <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px' }}>
-            Download all your company's data (customers, loans, EMIs, payments, guarantors) as an Excel file.
+            Download all your company&apos;s data (customers, loans, EMIs, payments, guarantors) as an Excel file.
             The file contains sensitive information including full Aadhaar and PAN numbers — store it securely.
           </p>
           <button onClick={exportData} disabled={exporting} style={{ ...btn, opacity: exporting ? 0.7 : 1 }}>
