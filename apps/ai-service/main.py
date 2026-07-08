@@ -51,6 +51,7 @@ DISCLAIMER = (
 )
 
 
+
 app = FastAPI(title="LenQredZo AI Analysis Service", version="1.0.0")
 
 # No browser origins are allowed — all calls must come server-to-server from the Node API.
