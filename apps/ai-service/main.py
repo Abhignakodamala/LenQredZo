@@ -17,6 +17,7 @@ from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
+from whatsapp_router import router as whatsapp_router
 
 load_dotenv()
 
@@ -61,6 +62,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(whatsapp_router)
 
 
 # ---- Internal auth: only callers that know the shared secret may use /analyze ----

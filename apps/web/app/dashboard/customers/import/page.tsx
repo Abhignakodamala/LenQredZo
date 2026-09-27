@@ -132,7 +132,7 @@ export default function BulkImportPage() {
     return (
       <div style={{ display: 'flex', minHeight: '100vh', background: '#f9fafb' }}>
         <Sidebar />
-        <div style={{ marginLeft: '240px', flex: 1, padding: '40px', textAlign: 'center', color: '#6b7280' }}>
+        <div style={{ marginLeft: '220px', flex: 1, padding: '40px', textAlign: 'center', color: '#6b7280' }}>
           <p style={{ fontSize: '40px', margin: '0 0 8px' }}>🔒</p>
           <p style={{ fontWeight: 600, color: '#111827' }}>Bulk import is for owners and managers only.</p>
         </div>
@@ -143,7 +143,7 @@ export default function BulkImportPage() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Sidebar />
-      <div style={{ marginLeft: '240px', flex: 1, padding: '24px', maxWidth: '920px' }}>
+      <div style={{ marginLeft: '220px', flex: 1, padding: '24px', maxWidth: '920px' }}>
         <div style={{ marginBottom: '24px' }}>
           <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>📥 Bulk Import Customers</h2>
           <p style={{ color: '#6b7280', margin: 0 }}>Upload your existing customers from an Excel sheet</p>
@@ -159,7 +159,7 @@ export default function BulkImportPage() {
         </div>
 
         <div style={card}>
-          <h3 style={{ fontWeight: 700, fontSize: '16px', margin: '0 0 8px' }}>Step 2 — Upload your filled file</h3>
+          <h3 style={{ fontWeight: 700, fontSize: '16px', margin: '0 0 8px' }}>Step 1 — Upload your filled file</h3>
           <input type="file" accept=".xlsx,.xls" onChange={onFile} style={{ fontSize: '14px' }} />
           {fileName && (
             <p style={{ fontSize: '13px', color: '#374151', margin: '12px 0 0' }}>
@@ -173,6 +173,16 @@ export default function BulkImportPage() {
             <p style={{ fontSize: '13px', color: '#b91c1c', marginTop: '8px' }}>This file has more than 2000 rows; split it before importing.</p>
           )}
         </div>
+        
+ <div style={card}>
+          <h3 style={{ fontWeight: 700, fontSize: '16px', margin: '0 0 8px' }}>Step 2 — Download the template</h3>
+          <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px' }}>
+            Fill your customers into this Excel file. Keep the column names as they are. Name and Phone are required;
+            Email, Address, Aadhaar, PAN and Branch are optional. The Branch name must match a branch you&apos;ve already created.
+          </p>
+          <button onClick={downloadTemplate} style={{ ...btn, background: '#059669' }}>⬇ Download Excel Template</button>
+        </div>
+
 
         {rows.length > 0 && (
           <div style={card}>

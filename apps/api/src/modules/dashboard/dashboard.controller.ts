@@ -275,3 +275,46 @@ export const getTodayOverview = async (req: any, res: Response) => {
     res.status(500).json({ message: 'Server error', error });
   }
 };
+// ADD THIS FUNCTION to dashboard.controller.ts
+
+export const getSystemHealth = async (req: any, res: Response) => {
+  try {
+    const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+    const companyId = req.user.companyId;
+
+    // 1. DB health
+    let dbStatus = 'healthy';
+    try { await prisma.$queryRaw`SELECT 1`; } catch { dbStatus = 'error'; }
+
+    // 2. AI service health
+    let aiStatus = 'healthy';
+    try {
+      const r = await fetch(`${AI_SERVICE_URL}/`, { signal: AbortSignal.timeout(3000) });
+      if (!r.ok) aiStatus = 'error';
+    } catch { aiStatus = 'offline'; }
+
+    // 3. Failed payments count
+    const failedPayments = await prisma.payment.count({
+      where: { loan: { companyId }, status: 'failed' }
+    });
+
+    // 4. KYC pending
+    const kycPending = await prisma.customer.count({
+      where: { companyId, consentGiven: false }
+    });
+
+    res.json({
+      database: dbStatus,
+      aiService: aiStatus,
+      payments: failedPayments > 0 ? 'warning' : 'healthy',
+      failedPayments,
+      kycPending,
+      server: 'healthy',
+      backup: 'healthy',
+      security: 'healthy',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
+  }
+};

@@ -16,6 +16,7 @@ export default function CustomerDetailPage() {
   const fetchCustomer = async () => {
     try {
       const res = await fetch(`${API_URL}/api/customers/${id}`, {
+        cache: 'no-store',
         headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
       });
       const data = await res.json();
@@ -30,7 +31,7 @@ export default function CustomerDetailPage() {
   if (loading) return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Sidebar />
-      <div style={{ marginLeft: '240px', flex: 1, padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }}>
+      <div style={{ marginLeft: '220px', flex: 1, padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }}>
         Loading customer...
       </div>
     </div>
@@ -39,7 +40,7 @@ export default function CustomerDetailPage() {
   if (!customer) return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Sidebar />
-      <div style={{ marginLeft: '240px', flex: 1, padding: '24px' }}>
+      <div style={{ marginLeft: '220px', flex: 1, padding: '24px' }}>
         <button onClick={() => router.push('/dashboard/customers')} style={{ background: 'none', border: 'none', color: '#1e40af', cursor: 'pointer', fontSize: '14px', marginBottom: '16px' }}>← Back</button>
         <p style={{ color: '#6b7280' }}>Customer not found.</p>
       </div>
@@ -59,7 +60,7 @@ export default function CustomerDetailPage() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Sidebar />
-      <div style={{ marginLeft: '240px', flex: 1, padding: '24px' }}>
+      <div style={{ marginLeft: '220px', flex: 1, padding: '24px' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>

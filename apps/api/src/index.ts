@@ -6,6 +6,8 @@ dotenv.config(); // also load any platform-provided env (Railway)
 import express from 'express';
 import cors from 'cors';
 import authRoutes from './modules/auth/auth.routes';
+import webauthnRoutes from './modules/auth/webauthn.routes';
+import googleRoutes from './modules/auth/google.routes';
 import customerRoutes from './modules/customers/customers.routes';
 import loanRoutes from './modules/loans/loans.routes';
 import dashboardRoutes from './modules/dashboard/dashboard.routes';
@@ -16,6 +18,7 @@ import auditRoutes from './modules/audit/audit.routes';
 import staffRoutes from './modules/staff/staff.routes';
 
 import aiRoutes from './modules/ai/ai.routes';
+import whatsappRoutes from './modules/whatsapp/whatsapp.routes';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -29,6 +32,8 @@ app.set('trust proxy', 1);
 app.use(express.json({ limit: '1mb' }));
 
 app.use('/api/auth', authRoutes);
+app.use('/api/auth/webauthn', webauthnRoutes);
+app.use('/api/auth/google', googleRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/loans', loanRoutes);
 app.use('/api/dashboard', dashboardRoutes);
@@ -38,6 +43,7 @@ app.use('/api/export', exportRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/whatsapp', whatsappRoutes);
 app.get('/', (req, res) => {
   res.json({ message: 'LenQredZo AI API is running!' });
 });

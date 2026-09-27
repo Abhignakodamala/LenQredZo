@@ -109,7 +109,7 @@ export default function LoanDetailPage() {
   if (loading) return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Sidebar />
-      <div style={{ marginLeft: '240px', flex: 1, padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ marginLeft: '220px', flex: 1, padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p style={{ color: '#6b7280' }}>Loading loan details...</p>
       </div>
     </div>
@@ -118,7 +118,7 @@ export default function LoanDetailPage() {
   if (!loan) return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Sidebar />
-      <div style={{ marginLeft: '240px', flex: 1, padding: '24px' }}>
+      <div style={{ marginLeft: '220px', flex: 1, padding: '24px' }}>
         <button onClick={() => router.push('/dashboard/loans')} style={{ background: 'none', border: 'none', color: '#1e40af', cursor: 'pointer', fontSize: '14px', marginBottom: '16px' }}>← Back</button>
         <p style={{ color: '#6b7280' }}>Loan not found.</p>
       </div>
@@ -130,7 +130,7 @@ export default function LoanDetailPage() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Sidebar />
-      <div style={{ marginLeft: '240px', flex: 1, padding: '24px' }}>
+      <div style={{ marginLeft: '220px', flex: 1, padding: '24px' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>

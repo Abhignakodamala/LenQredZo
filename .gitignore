@@ -1,40 +1,71 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# Dependencies
+# ── Dependencies ─────────────────────────────────────────────────────────────
 node_modules
 .pnp
 .pnp.js
 
-# Local env files
+# ── Environment variables (NEVER commit these) ────────────────────────────────
 .env
 .env.local
+.env.development
 .env.development.local
 .env.test.local
+.env.production
 .env.production.local
 
-# Testing
-coverage
-
-# Turbo
-.turbo
-
-# Vercel
-.vercel
-
-# Build Outputs
+# ── Next.js ───────────────────────────────────────────────────────────────────
 .next/
 out/
-build
-dist
+build/
 
+# ── Prisma ────────────────────────────────────────────────────────────────────
+prisma/migrations/dev.db
+prisma/migrations/dev.db-journal
 
-# Debug
+# ── Python / AI Service ───────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+venv/
+.venv/
+env/
+.Python
+apps/ai-service/venv/
+
+# ── Turbo ─────────────────────────────────────────────────────────────────────
+.turbo
+
+# ── Build outputs ─────────────────────────────────────────────────────────────
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
+logs/
 
-# Misc
+# ── OS files ──────────────────────────────────────────────────────────────────
 .DS_Store
-*.pem
+Thumbs.db
+desktop.ini
 
-/generated/prisma
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+coverage/
+.nyc_output/
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+*.pem
+.vercel
+.cache/
+tmp/
+temp/

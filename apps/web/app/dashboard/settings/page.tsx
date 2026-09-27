@@ -3,12 +3,14 @@ import { useState, useEffect, type CSSProperties } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { API_URL } from '@/lib/api';
 import ActivityLog from '@/components/ActivityLog';
+import { deletePasskey, listPasskeys, registerPasskey } from '@/lib/webauthn';
 
 type CompanyState = { name: string; plan: string };
 type UserState = { name: string; email: string; role: string };
 type PasswordState = { currentPassword: string; newPassword: string; confirmPassword: string };
 
 type ShowPasswordState = { current: boolean; new: boolean; confirm: boolean };
+type Passkey = { id: string; nickname: string | null; deviceType: string | null; createdAt: string; lastUsedAt: string | null };
 
 export default function SettingsPage() {
   const [showPwd, setShowPwd] = useState<ShowPasswordState>({ current: false, new: false, confirm: false });
@@ -22,7 +24,10 @@ export default function SettingsPage() {
   const [savingPwd, setSavingPwd] = useState(false);
   const [pwdError, setPwdError] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [passkeys, setPasskeys] = useState<Passkey[]>([]);
+  const [biometricLoading, setBiometricLoading] = useState(false);
   useEffect(() => { fetchSettings(); }, []);
+  useEffect(() => { fetchPasskeys(); }, []);
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -38,6 +43,58 @@ export default function SettingsPage() {
   };
 
   const showMsg = (m: string) => { setMsg(m); setTimeout(() => setMsg(''), 3000); };
+
+  const fetchPasskeys = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      setPasskeys(await listPasskeys(token));
+    } catch (error) { console.error('Failed to fetch passkeys', error); }
+  };
+
+  const handleEnableBiometric = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      showMsg('❌ Your session has expired. Please log in again.');
+      return;
+    }
+    if (!window.isSecureContext) {
+      showMsg('❌ Biometric login requires localhost or a secure HTTPS connection.');
+      return;
+    }
+    if (!window.PublicKeyCredential) {
+      showMsg('❌ This browser does not support biometric login.');
+      return;
+    }
+    setBiometricLoading(true);
+    try {
+      const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+      if (!available) {
+        showMsg('❌ No Windows Hello, fingerprint, or Face ID authenticator is available on this device.');
+        setBiometricLoading(false);
+        return;
+      }
+      await registerPasskey(token, navigator.platform || 'This device');
+      await fetchPasskeys();
+      showMsg('✅ Biometric login enabled on this device');
+    } catch (error: any) {
+      showMsg(`❌ ${error.message || 'Failed to enable biometric login'}`);
+    }
+    setBiometricLoading(false);
+  };
+
+  const handleRemovePasskey = async (id: string) => {
+    if (!window.confirm('Remove biometric login from this device?')) return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      await deletePasskey(token, id);
+      setPasskeys(current => current.filter(passkey => passkey.id !== id));
+      showMsg('✅ Biometric login removed');
+    } catch (error: any) {
+      showMsg(`❌ ${error.message || 'Failed to remove biometric login'}`);
+    }
+  };
 
   const saveCompany = async () => {
     setSavingCompany(true);
@@ -133,14 +190,14 @@ export default function SettingsPage() {
   if (loading) return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f9fafb' }}>
       <Sidebar />
-      <div style={{ marginLeft: '240px', flex: 1, padding: '40px', textAlign: 'center', color: '#6b7280' }}>Loading settings...</div>
+      <div style={{ marginLeft: '220px', flex: 1, padding: '40px', textAlign: 'center', color: '#6b7280' }}>Loading settings...</div>
     </div>
   );
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Sidebar />
-      <div style={{ marginLeft: '240px', flex: 1, padding: '24px', maxWidth: '800px' }}>
+      <div style={{ marginLeft: '220px', flex: 1, padding: '24px', maxWidth: '800px' }}>
 
         <div style={{ marginBottom: '24px' }}>
           <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Settings</h2>
@@ -246,6 +303,36 @@ export default function SettingsPage() {
     {savingPwd ? 'Changing...' : 'Change Password'}
   </button>
 </div>
+
+        {/* Biometric Login */}
+        <div style={card}>
+          <h3 style={{ fontWeight: '700', fontSize: '16px', margin: '0 0 8px' }}>👤 Biometric Login</h3>
+          <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px' }}>
+            Register a device passkey to sign in with Face ID, fingerprint, Windows Hello, or a device PIN.
+          </p>
+          <button onClick={handleEnableBiometric} disabled={biometricLoading} style={{ ...btn, opacity: biometricLoading ? 0.7 : 1 }}>
+            {biometricLoading ? 'Waiting for device...' : 'Enable Device Passkey Login'}
+          </button>
+          {passkeys.length > 0 && (
+            <div style={{ marginTop: '18px', borderTop: '1px solid #e5e7eb', paddingTop: '14px' }}>
+              <p style={{ fontSize: '13px', fontWeight: 600, margin: '0 0 10px', color: '#374151' }}>Registered devices</p>
+              {passkeys.map(passkey => (
+                <div key={passkey.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 0', borderBottom: '1px solid #f3f4f6' }}>
+                  <div>
+                    <p style={{ fontSize: '13px', fontWeight: 600, margin: 0 }}>{passkey.nickname || 'This device'}</p>
+                    <p style={{ fontSize: '11px', color: '#6b7280', margin: '3px 0 0' }}>
+                      Added {new Date(passkey.createdAt).toLocaleDateString('en-IN')}
+                      {passkey.lastUsedAt ? ` · Last used ${new Date(passkey.lastUsedAt).toLocaleDateString('en-IN')}` : ''}
+                    </p>
+                  </div>
+                  <button onClick={() => handleRemovePasskey(passkey.id)} style={{ background: '#fff', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '6px 10px', fontSize: '12px', cursor: 'pointer' }}>
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
 <ActivityLog />
           {/* Data Export */}

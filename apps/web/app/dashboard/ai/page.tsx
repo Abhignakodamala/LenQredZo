@@ -56,7 +56,7 @@ export default function AIAnalysisPage() {
     return (
       <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
         <Sidebar />
-        <div style={{ marginLeft: '240px', flex: 1, padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ marginLeft: '220px', flex: 1, padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ textAlign: 'center', color: '#6b7280' }}>
             <p style={{ fontSize: '40px', margin: '0 0 8px' }}>🔒</p>
             <p style={{ fontWeight: 600, color: '#111827' }}>AI Analysis is for owners, managers and accountants.</p>
@@ -72,7 +72,7 @@ export default function AIAnalysisPage() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Sidebar />
-      <div style={{ marginLeft: '240px', flex: 1, padding: '24px' }}>
+      <div style={{ marginLeft: '220px', flex: 1, padding: '24px' }}>
 
         <div style={{ marginBottom: '24px' }}>
           <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>🤖 AI Analysis</h2>

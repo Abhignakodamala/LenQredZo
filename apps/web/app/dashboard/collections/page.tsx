@@ -138,7 +138,7 @@ export default function CollectionsPage() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Sidebar />
-      <div style={{ marginLeft: '240px', flex: 1, padding: '24px' }}>
+      <div style={{ marginLeft: '220px', flex: 1, padding: '24px' }}>
         <div style={{ marginBottom: '24px' }}>
           <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Collections</h2>
           <p style={{ color: '#6b7280', margin: 0 }}>Track EMIs, penalties and collections</p>

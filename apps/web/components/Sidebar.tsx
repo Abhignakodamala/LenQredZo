@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 
 type User = { name?: string; role?: string };
 
@@ -12,6 +13,7 @@ const baseMenuItems = [
   { name: 'Payments', icon: '💳', href: '/dashboard/payments' },
   { name: 'Analytics', icon: '📈', href: '/dashboard/analytics' },
   { name: 'AI Analysis', icon: '🤖', href: '/dashboard/ai' },
+  { name: 'WhatsApp', icon: '💬', href: '/dashboard/whatsapp' },
   { name: 'Branches', icon: '🏢', href: '/dashboard/branches' },
   { name: 'Settings', icon: '⚙️', href: '/dashboard/settings' },
 ];
@@ -57,16 +59,23 @@ export default function Sidebar() {
   const roleLabel = ROLE_LABELS[user?.role || ''] || user?.role || 'User';
 
   return (
-    <div style={{width:'240px',background:'white',height:'100vh',position:'fixed',left:0,top:0,borderRight:'1px solid #e5e7eb',display:'flex',flexDirection:'column'}}>
+    <div style={{width:'220px',background:'#0f172a',height:'100vh',position:'fixed',left:0,top:0,borderRight:'1px solid #1e293b',display:'flex',flexDirection:'column'}}>
       
       {/* Logo */}
-      <div style={{padding:'10px 12px',borderBottom:'1px solid #e5e7eb'}}>
-        <img
-          src="/lenqredzo-logo.png"
-          alt="LenQredzo"
-          style={{width:'110px',height:'auto',objectFit:'contain',display:'block'}}
-        />
-        
+      <div style={{padding:'16px 20px', borderBottom:'1px solid #1e293b'}}>
+  <Image
+    src="/lenqredzo-logo-transparent.png"
+    alt="LenQredzo"
+    width={150}
+    height={99}
+    style={{
+      width:'150px',
+      height:'auto',
+      objectFit:'contain',
+      display:'block',
+      filter: 'none',
+    }}
+  />
       </div>
 
       {/* Nav */}
@@ -74,7 +83,7 @@ export default function Sidebar() {
   {menuItems.map((item) => {
     const isActive = pathname === item.href;
     return (
-      <a key={item.name} href={item.href} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'10px',padding:'10px 8px',borderRadius:'8px',marginBottom:'2px',textDecoration:'none',fontSize:'14px',fontWeight:isActive?'600':'400',background:isActive?'#eff6ff':'transparent',color:isActive?'#1e40af':'#374151'}}>
+      <a key={item.name} href={item.href} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'10px',padding:'10px 8px',borderRadius:'8px',marginBottom:'2px',textDecoration:'none',fontSize:'14px',fontWeight:isActive?'600':'400',background:isActive?'#1e40af':'transparent',color:isActive?'white':'#cbd5e1'}}>
         <span>{item.icon}</span>
         <span style={{flex:1}}>{item.name}</span>
       </a>
@@ -83,14 +92,14 @@ export default function Sidebar() {
 </nav>
 
       {/* User + Logout */}
-      <div style={{padding:'16px',borderTop:'1px solid #e5e7eb'}}>
+      <div style={{padding:'16px',borderTop:'1px solid #1e293b'}}>
         <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'10px'}}>
           <div style={{width:'32px',height:'32px',background:'#1e40af',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'12px',fontWeight:'bold'}}>
             {user?.name?.charAt(0) || 'U'}
           </div>
           <div>
-            <p style={{fontSize:'13px',fontWeight:'600',margin:0}}>{user?.name || 'User'}</p>
-            <p style={{fontSize:'11px',color:'#6b7280',margin:0}}>{roleLabel}</p>
+            <p style={{fontSize:'13px',fontWeight:'600',margin:0,color:'white'}}>{user?.name || 'User'}</p>
+            <p style={{fontSize:'11px',color:'#94a3b8',margin:0}}>{roleLabel}</p>
           </div>
         </div>
         <button

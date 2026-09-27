@@ -14,6 +14,8 @@ model Company {
   primaryColor String?  @default("#1e40af")
   subdomain    String?  @unique
   plan         String   @default("starter")
+  whatsappToken          String?
+  whatsappPhoneNumberId  String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   users        User[]
@@ -41,22 +43,41 @@ model User {
   email     String   @unique
   password  String
   role      String
+  phone     String?  // ← add this line
   companyId Int?
   company   Company? @relation(fields: [companyId], references: [id])
   branchId  Int?
   branch    Branch?  @relation(fields: [branchId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  passkeys  Passkey[]
+}
+
+model Passkey {
+  id           String   @id @default(cuid())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId String   @unique
+  publicKey    String
+  counter      BigInt   @default(0)
+  deviceType   String?
+  backedUp     Boolean  @default(false)
+  transports   String?
+  nickname     String?
+  createdAt    DateTime @default(now())
+  lastUsedAt   DateTime?
 }
 
 model Customer {
   id        Int      @id @default(autoincrement())
-  name      String
+
+  // ── Core (existing) ──────────────────────────────────────────────
+  name      String                         // kept for backward compat (full name fallback)
   email     String?
   phone     String
-  address   String?
-  aadhar    String?
-  pan       String?
+  address   String?                        // kept for backward compat
+  aadhar    String?                        // AES-256 encrypted
+  pan       String?                        // AES-256 encrypted
   companyId Int?
   company   Company? @relation(fields: [companyId], references: [id])
   branchId  Int?
@@ -64,6 +85,49 @@ model Customer {
   loans     Loan[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // ── Section 1: Personal Information ──────────────────────────────
+  firstName       String?
+  middleName      String?
+  lastName        String?
+  dateOfBirth     DateTime?
+  gender          String?    // Male | Female | Other
+  maritalStatus   String?    // Single | Married | Divorced | Widowed
+  nationality     String?    @default("Indian")
+
+  // ── Section 2: Identity & Regulatory ─────────────────────────────
+  // pan + aadhar already above (encrypted)
+  altIdType       String?    // Passport | Driver's License | Voter ID
+  altIdNumber     String?    // encrypted at application layer
+
+  // ── Section 3: Contact & Residential ─────────────────────────────
+  alternateMobile String?
+  street          String?
+  city            String?
+  state           String?
+  pinCode         String?
+  residenceType   String?    // Self-Owned | Rented | Parental/Family | Company Provided
+  permanentAddress String?   // null means same as current
+
+  // ── Section 4: Employment & Financial ────────────────────────────
+  employmentType  String?    // Salaried | Self-Employed Professional | Business Owner | Unemployed
+  employerName    String?
+  designation     String?
+  workEmail       String?
+  monthlyIncome   Float?
+  bankName        String?
+  bankAccountNumber String?  // store encrypted at application layer
+
+  // ── Section 5: Declarations ───────────────────────────────────────
+  isPEP                Boolean  @default(false)   // Politically Exposed Person
+  isForeignTaxResident Boolean  @default(false)
+  nomineeName          String?
+  nomineeRelation      String?
+
+  // ── Section 6: Legal Consent ──────────────────────────────────────
+  consentGiven    Boolean   @default(false)
+  consentDate     DateTime?
+  consentPlace    String?
 }
 
 model Loan {
@@ -120,19 +184,7 @@ model Payment {
   verified  Boolean @default(false)
 }
 
-model Guarantor {
-  id           Int      @id @default(autoincrement())
-  loanId       Int
-  loan         Loan     @relation(fields: [loanId], references: [id])
-  name         String
-  phone        String
-  address      String?
-  aadhar       String?
-  pan          String?
-  relationship String?
-  type         String   @default("guarantor")
-  createdAt    DateTime @default(now())
-}
+
 
 model AuditLog {
   id         Int      @id @default(autoincrement())
@@ -147,4 +199,52 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   @@index([companyId, createdAt])
+}
+model OTP {
+  id        Int      @id @default(autoincrement())
+  email     String?
+  phone     String?
+  code      String
+  type      String   // email_verify | login_otp | forgot_password
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email, type])
+  @@index([phone, type])
+}
+
+model Guarantor {
+  id                Int      @id @default(autoincrement())
+  loanId            Int
+  loan              Loan     @relation(fields: [loanId], references: [id])
+
+  // A. Personal & Identity
+  name              String
+  relationship      String?  // Parent | Spouse | Sibling | Business Partner | Other
+  dateOfBirth       DateTime?
+  aadhar            String?  // AES-256 encrypted
+  pan               String?  // AES-256 encrypted
+
+  // B. Contact & Residential
+  phone             String
+  email             String?
+  address           String?
+  city              String?
+  pinCode           String?
+
+  // C. Employment & Financial
+  employmentType    String?  // Salaried | Self-Employed Professional | Business Owner
+  employerName      String?
+  grossAnnualIncome Float?
+  bankName          String?
+  bankAccountNumber String?  // AES-256 encrypted
+
+  // Legal Consent
+  consentGiven      Boolean  @default(false)
+  consentDate       DateTime?
+
+  type              String   @default("guarantor")
+  details           String?
+  createdAt         DateTime @default(now())
 }

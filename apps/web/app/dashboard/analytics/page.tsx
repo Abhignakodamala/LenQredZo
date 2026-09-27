@@ -24,7 +24,7 @@ export default function AnalyticsPage() {
   if (loading) return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f9fafb' }}>
       <Sidebar />
-      <div style={{ marginLeft: '240px', flex: 1, padding: '40px', textAlign: 'center', color: '#6b7280' }}>Loading analytics...</div>
+      <div style={{ marginLeft: '220px', flex: 1, padding: '40px', textAlign: 'center', color: '#6b7280' }}>Loading analytics...</div>
     </div>
   );
 
@@ -33,7 +33,7 @@ export default function AnalyticsPage() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Sidebar />
-      <div style={{ marginLeft: '240px', flex: 1, padding: '24px' }}>
+      <div style={{ marginLeft: '220px', flex: 1, padding: '24px' }}>
 
         <div style={{ marginBottom: '24px' }}>
           <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Analytics</h2>
