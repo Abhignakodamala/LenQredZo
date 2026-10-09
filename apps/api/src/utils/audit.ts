@@ -9,9 +9,10 @@ interface AuditParams {
   entityType: string;       // e.g. "EMI", "Customer", "Loan"
   entityId?: number | null;
   details?: string;         // human-readable summary — never raw Aadhaar/PAN
+  photoData?: string;
 }
 
-export async function logAudit({ req, action, entityType, entityId = null, details }: AuditParams) {
+export async function logAudit({ req, action, entityType, entityId = null, details, photoData }: AuditParams) {
   try {
     const userId: number | null = req?.user?.userId ?? null;
 
@@ -37,6 +38,7 @@ export async function logAudit({ req, action, entityType, entityId = null, detai
         entityType,
         entityId: entityId ?? null,
         details: details ?? null,
+        photoData: photoData ?? null,
         ipAddress: ip
       }
     });

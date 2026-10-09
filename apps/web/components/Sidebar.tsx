@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import Image from 'next/image';
 
 type User = { name?: string; role?: string };
@@ -53,7 +54,12 @@ export default function Sidebar() {
   const menuItems = [...baseMenuItems];
   if (isOwner) {
     const settingsIdx = menuItems.findIndex(m => m.name === 'Settings');
-    menuItems.splice(settingsIdx, 0, { name: 'Staff', icon: '🧑‍💼', href: '/dashboard/staff' });
+    menuItems.splice(
+      settingsIdx,
+      0,
+      { name: 'Staff', icon: '🧑‍💼', href: '/dashboard/staff' },
+      { name: 'Audit Photos', icon: '📸', href: '/dashboard/audit-photos' }
+    );
   }
 
   const roleLabel = ROLE_LABELS[user?.role || ''] || user?.role || 'User';
@@ -83,10 +89,10 @@ export default function Sidebar() {
   {menuItems.map((item) => {
     const isActive = pathname === item.href;
     return (
-      <a key={item.name} href={item.href} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'10px',padding:'10px 8px',borderRadius:'8px',marginBottom:'2px',textDecoration:'none',fontSize:'14px',fontWeight:isActive?'600':'400',background:isActive?'#1e40af':'transparent',color:isActive?'white':'#cbd5e1'}}>
+      <Link key={item.name} href={item.href} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'10px',padding:'10px 8px',borderRadius:'8px',marginBottom:'2px',textDecoration:'none',fontSize:'14px',fontWeight:isActive?'600':'400',background:isActive?'#1e40af':'transparent',color:isActive?'white':'#cbd5e1'}}>
         <span>{item.icon}</span>
         <span style={{flex:1}}>{item.name}</span>
-      </a>
+      </Link>
     );
   })}
 </nav>

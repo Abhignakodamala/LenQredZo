@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
+import FaceCaptureModal from '@/components/FaceCaptureModal';
 import { getAuthUser, can } from '@/lib/authUser';
 import { API_URL } from '@/lib/api';
 
@@ -21,6 +22,8 @@ export default function CollectionsPage() {
   const [waivePenalty, setWaivePenalty] = useState(false);
   const [waiveReason, setWaiveReason] = useState('');
   const [me, setMe] = useState<any>(null);
+  const [showPaymentCapture, setShowPaymentCapture] = useState(false);
+  const [pendingPaymentData, setPendingPaymentData] = useState<any>(null);
 
  useEffect(() => { fetchCollections(); setMe(getAuthUser()); }, []);
 
@@ -46,7 +49,13 @@ export default function CollectionsPage() {
     setWaiveReason('');
   };
 
-  const closeDialog = () => { setDialog(null); setSubmitting(false); setDialogError(''); };
+  const closeDialog = () => {
+    setDialog(null);
+    setSubmitting(false);
+    setDialogError('');
+    setShowPaymentCapture(false);
+    setPendingPaymentData(null);
+  };
 
   const canWaive = can(me, 'penalty:waive');
 
@@ -67,17 +76,34 @@ export default function CollectionsPage() {
     const clearsEmi = amt >= remaining;
     setSubmitting(true);
     setDialogError('');
+    setPendingPaymentData({
+      emiId: dialog.emi.id,
+      payload: {
+        amount: amt,
+        collectPenalty: dialog.collectPenalty && clearsEmi,
+        method,
+        reference: ref,
+        waivePenalty: waivePenalty && clearsEmi,
+        waiveReason: waiveReason.trim()
+      }
+    });
+    setShowPaymentCapture(true);
+  };
+
+  const submitCollectionWithPhoto = async (photoBase64: string) => {
+    if (!pendingPaymentData) return;
+    setShowPaymentCapture(false);
     try {
-      const res = await fetch(`${API_URL}/api/loans/emi/${dialog.emi.id}/pay`, {
+      const res = await fetch(`${API_URL}/api/loans/emi/${pendingPaymentData.emiId}/pay`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
-        // Penalty only when this payment fully clears the EMI.
-        body: JSON.stringify({ amount: amt, collectPenalty: dialog.collectPenalty && clearsEmi, method, reference: ref, waivePenalty: waivePenalty && clearsEmi, waiveReason: waiveReason.trim() })
+        body: JSON.stringify({ ...pendingPaymentData.payload, verificationPhoto: photoBase64 })
       });
       const data = await res.json();
       if (!res.ok) {
         setDialogError(data.message || 'Failed to record payment');
         setSubmitting(false);
+        setPendingPaymentData(null);
         return;
       }
       closeDialog();
@@ -86,6 +112,7 @@ export default function CollectionsPage() {
       console.error(err);
       setDialogError('Server error. Please try again.');
       setSubmitting(false);
+      setPendingPaymentData(null);
     }
   };
 
@@ -360,6 +387,18 @@ export default function CollectionsPage() {
             </div>
           </div>
         </div>
+      )}
+      {showPaymentCapture && (
+        <FaceCaptureModal
+          title="Verify before collecting payment"
+          message="A quick photo is logged with every payment collection."
+          onCapture={submitCollectionWithPhoto}
+          onCancel={() => {
+            setShowPaymentCapture(false);
+            setPendingPaymentData(null);
+            setSubmitting(false);
+          }}
+        />
       )}
     </div>
   );

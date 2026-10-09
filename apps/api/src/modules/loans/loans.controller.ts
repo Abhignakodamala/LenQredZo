@@ -332,12 +332,14 @@ export const markEmiPaid = async (req: any, res: Response) => {
     if (isWaiving && waivedAmount > 0) {
       await logAudit({
         req, action: 'WAIVE_PENALTY', entityType: 'EMI', entityId: emiId,
-        details: `Waived ₹${waivedAmount.toLocaleString('en-IN')} penalty on loan LN${1000 + emi.loanId} — reason: ${waiveReason.trim()}`
+        details: `Waived ₹${waivedAmount.toLocaleString('en-IN')} penalty on loan LN${1000 + emi.loanId} — reason: ${waiveReason.trim()}`,
+        photoData: req.body.verificationPhoto
       });
     }
     await logAudit({
       req, action: 'MARK_EMI_PAID', entityType: 'EMI', entityId: emiId,
-      details: `Collected ₹${paymentTotal.toLocaleString('en-IN')} via ${method}${reference ? ' (ref: ' + reference + ')' : ''}${method === 'cash' ? ' [unverified cash]' : ''} on loan LN${1000 + emi.loanId}${partialNote}${result.loanCompleted ? ' — loan completed' : ''}`
+      details: `Collected ₹${paymentTotal.toLocaleString('en-IN')} via ${method}${reference ? ' (ref: ' + reference + ')' : ''}${method === 'cash' ? ' [unverified cash]' : ''} on loan LN${1000 + emi.loanId}${partialNote}${result.loanCompleted ? ' — loan completed' : ''}`,
+      photoData: req.body.verificationPhoto
     });
 
     res.json({

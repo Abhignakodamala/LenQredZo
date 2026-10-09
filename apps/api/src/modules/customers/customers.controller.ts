@@ -10,12 +10,57 @@ function toSafeCustomer(c: any) {
   return {
     ...c,
     aadhar: c.aadhar ? maskAadhaar(decrypt(c.aadhar)) : '',
-    pan: c.pan ? maskPan(decrypt(c.pan)) : ''
+    pan: c.pan ? maskPan(decrypt(c.pan)) : '',
+    altIdNumber: c.altIdNumber ? maskSensitiveValue(decrypt(c.altIdNumber)) : '',
+    bankAccountNumber: c.bankAccountNumber ? maskSensitiveValue(decrypt(c.bankAccountNumber)) : ''
   };
 }
 
 function isMasked(v: string): boolean {
   return typeof v === 'string' && v.includes('XXX');
+}
+
+function maskSensitiveValue(value: string): string {
+  if (!value) return '';
+  return value.length <= 4 ? 'X'.repeat(value.length) : `${'X'.repeat(value.length - 4)}${value.slice(-4)}`;
+}
+
+function buildCustomerDetailData(body: any) {
+  const data: Record<string, any> = {};
+  const textFields = [
+    'firstName', 'middleName', 'lastName', 'gender', 'maritalStatus', 'nationality',
+    'altIdType', 'alternateMobile', 'street', 'city', 'state', 'pinCode', 'residenceType',
+    'permanentAddress', 'employmentType', 'employerName', 'designation', 'workEmail',
+    'bankName', 'nomineeName', 'nomineeRelation', 'consentPlace'
+  ];
+
+  for (const field of textFields) {
+    if (body[field] !== undefined) data[field] = String(body[field] ?? '').trim() || null;
+  }
+
+  for (const field of ['altIdNumber', 'bankAccountNumber']) {
+    if (body[field] === undefined) continue;
+    const value = String(body[field] ?? '').trim();
+    if (!value) data[field] = null;
+    else if (!isMasked(value)) data[field] = encrypt(value);
+  }
+
+  for (const field of ['dateOfBirth', 'consentDate']) {
+    if (body[field] === undefined) continue;
+    const date = body[field] ? new Date(body[field]) : null;
+    data[field] = date && !Number.isNaN(date.getTime()) ? date : null;
+  }
+
+  if (body.monthlyIncome !== undefined) {
+    data.monthlyIncome = body.monthlyIncome === '' || body.monthlyIncome === null
+      ? null
+      : Number(body.monthlyIncome);
+  }
+  for (const field of ['isPEP', 'isForeignTaxResident', 'consentGiven']) {
+    if (body[field] !== undefined) data[field] = Boolean(body[field]);
+  }
+
+  return data;
 }
 
 export const getAllCustomers = async (req: any, res: Response) => {
@@ -61,7 +106,8 @@ export const createCustomer = async (req: any, res: Response) => {
       data: {
         name, email, phone, address, branchId, companyId,
         aadhar: aadhar ? encrypt(aadhar) : null,
-        pan: pan ? encrypt(pan) : null
+        pan: pan ? encrypt(pan) : null,
+        ...buildCustomerDetailData(req.body)
       }
     });
 
@@ -101,6 +147,21 @@ export const updateCustomer = async (req: any, res: Response) => {
     if (pan && !isMasked(pan)) {
       const currentPan = existing.pan ? decrypt(existing.pan) : '';
       if (pan !== currentPan) { data.pan = encrypt(pan); changed.push('pan'); }
+    }
+
+    const detailData = buildCustomerDetailData(req.body);
+    if (req.body.consentGiven !== undefined && req.body.consentDate === undefined && Boolean(req.body.consentGiven) !== existing.consentGiven) {
+      detailData.consentDate = req.body.consentGiven ? new Date() : null;
+    }
+    const encryptedFields = new Set(['altIdNumber', 'bankAccountNumber']);
+    for (const [field, value] of Object.entries(detailData)) {
+      const currentValue = existing[field];
+      const currentComparable = encryptedFields.has(field) && currentValue ? decrypt(currentValue) : currentValue;
+      const nextComparable = encryptedFields.has(field) && value ? decrypt(value) : value;
+      const same = currentComparable instanceof Date && nextComparable instanceof Date
+        ? currentComparable.getTime() === nextComparable.getTime()
+        : currentComparable === nextComparable;
+      if (!same) { data[field] = value; changed.push(field); }
     }
 
     const customer = await prisma.customer.update({ where: { id }, data });

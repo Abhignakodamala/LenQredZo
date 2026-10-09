@@ -1,5 +1,6 @@
 'use client';
 import { API_URL } from '@/lib/api';
+import FaceCaptureModal from '@/components/FaceCaptureModal';
 import Script from 'next/script';
 import { useState, useRef, useEffect, useCallback } from 'react';
 
@@ -33,8 +34,34 @@ export default function LoginPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showLoginCapture, setShowLoginCapture] = useState(false);
+  const [pendingToken, setPendingToken] = useState('');
 
   const clearMessages = () => { setError(''); setSuccess(''); };
+
+  const completeLogin = useCallback((token: string, user: any) => {
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+    setPendingToken(token);
+    setShowLoginCapture(true);
+  }, []);
+
+  const handleLoginPhotoCapture = async (photoBase64: string) => {
+    try {
+      await fetch(`${API_URL}/api/auth/login-photo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pendingToken}` },
+        body: JSON.stringify({ photoData: photoBase64 }),
+      });
+    } catch {
+      // Photo evidence is optional; a failed upload must not block login.
+    }
+    window.location.href = '/dashboard';
+  };
+
+  const handleLoginPhotoSkip = () => {
+    window.location.href = '/dashboard';
+  };
 
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const [gsiLoaded, setGsiLoaded] = useState(false);
@@ -49,9 +76,7 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        window.location.href = '/dashboard';
+        completeLogin(data.token, data.user);
       } else {
         setError(data.message || 'Login failed');
       }
@@ -72,9 +97,7 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        window.location.href = '/dashboard';
+        completeLogin(data.token, data.user);
       } else {
         setError(data.message || 'Google sign-in failed');
       }
@@ -82,7 +105,7 @@ export default function LoginPage() {
       setError('Server not reachable.');
     }
     setGoogleLoading(false);
-  }, []);
+  }, [completeLogin]);
 
   useEffect(() => {
     if (!gsiLoaded || !googleBtnRef.current) return;
@@ -132,9 +155,7 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        window.location.href = '/dashboard';
+        completeLogin(data.token, data.user);
       } else {
         setError(data.message || 'Invalid OTP');
       }
@@ -522,6 +543,14 @@ export default function LoginPage() {
         </div>
         <FeatureStrip />
       </div>
+      {showLoginCapture && (
+        <FaceCaptureModal
+          title="Quick photo for the login record"
+          message="This is logged for accountability — not required to proceed."
+          onCapture={handleLoginPhotoCapture}
+          onCancel={handleLoginPhotoSkip}
+        />
+      )}
     </>
   );
 }

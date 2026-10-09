@@ -22,6 +22,7 @@ model Company {
   customers    Customer[]
   loans        Loan[]
   branches     Branch[]
+  whatsAppSettings WhatsAppSettings?
 }
 
 model Branch {
@@ -83,6 +84,7 @@ model Customer {
   branchId  Int?
   branch    Branch?  @relation(fields: [branchId], references: [id])
   loans     Loan[]
+  whatsAppMessages WhatsAppMessage[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -195,6 +197,7 @@ model AuditLog {
   entityType String   // e.g. "EMI", "Customer", "Loan", "Payment"
   entityId   Int?
   details    String?  // human-readable summary — never raw Aadhaar/PAN
+  photoData  String?  @db.Text
   ipAddress  String?
   createdAt  DateTime @default(now())
 
@@ -247,4 +250,31 @@ model Guarantor {
   type              String   @default("guarantor")
   details           String?
   createdAt         DateTime @default(now())
+}
+
+model WhatsAppSettings {
+  id            Int      @id @default(autoincrement())
+  companyId     Int      @unique
+  company       Company  @relation(fields: [companyId], references: [id])
+  accessToken   String
+  phoneNumberId String
+  businessName  String
+  isEnabled     Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model WhatsAppMessage {
+  id          Int      @id @default(autoincrement())
+  companyId   Int
+  customerId  Int
+  customer    Customer @relation(fields: [customerId], references: [id])
+  direction   String   // sent | received
+  message     String
+  messageType String   @default("text")
+  status      String   @default("sent") // sent | delivered | read | failed
+  sentAt      DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([companyId, customerId])
 }

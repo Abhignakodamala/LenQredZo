@@ -47,6 +47,8 @@ const emptyForm = {
 
 type FormState = typeof emptyForm;
 
+const isMaskedValue = (value: string) => value.includes('XXX');
+
 // ── Collapsible section wrapper ─────────────────────────────────────────────
 function Section({ title, icon, children, defaultOpen = false }: {
   title: string; icon: string; children: React.ReactNode; defaultOpen?: boolean;
@@ -173,6 +175,7 @@ export default function CustomersPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [me, setMe] = useState<AuthUser | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => { setMe(getAuthUser()); }, []);
   const canCreate = can(me, 'customer:create');
@@ -227,9 +230,9 @@ export default function CustomersPage() {
     if (!form.phone) e.phone = 'Phone is required';
     else if (!/^[6-9]\d{9}$/.test(form.phone.replace(/\s/g, ''))) e.phone = 'Must be 10 digits starting with 6-9';
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Invalid email';
-    if (form.aadhar && !/^\d{12}$/.test(form.aadhar.replace(/\s/g, ''))) e.aadhar = 'Must be 12 digits';
-    if (form.pan && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(form.pan.toUpperCase())) e.pan = 'Format: ABCDE1234F';
-    if (!form.consentGiven) e.consentGiven = 'Customer consent is required';
+    if (form.aadhar && !isMaskedValue(form.aadhar) && !/^\d{12}$/.test(form.aadhar.replace(/\s/g, ''))) e.aadhar = 'Must be 12 digits';
+    if (form.pan && !isMaskedValue(form.pan) && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(form.pan.toUpperCase())) e.pan = 'Format: ABCDE1234F';
+    if (!editingCustomer && !form.consentGiven) e.consentGiven = 'Customer consent is required';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -238,10 +241,12 @@ export default function CustomersPage() {
     setEditingCustomer(null);
     setForm(emptyForm);
     setErrors({});
+    setSaveError('');
     setShowForm(true);
   };
 
   const openEditForm = (customer: Customer) => {
+    const nameParts = (customer.name || '').trim().split(/\s+/).filter(Boolean);
     setEditingCustomer(customer);
     setForm({
       name: customer.name || '',
@@ -251,9 +256,9 @@ export default function CustomersPage() {
       aadhar: customer.aadhar || '',
       pan: customer.pan || '',
       branchId: customer.branchId != null ? String(customer.branchId) : '',
-      firstName: customer.firstName || '',
-      middleName: customer.middleName || '',
-      lastName: customer.lastName || '',
+      firstName: customer.firstName || nameParts[0] || '',
+      middleName: customer.middleName || nameParts.slice(1, -1).join(' '),
+      lastName: customer.lastName || (nameParts.length > 1 ? nameParts[nameParts.length - 1] : ''),
       dateOfBirth: customer.dateOfBirth ? customer.dateOfBirth.slice(0, 10) : '',
       gender: customer.gender || '',
       maritalStatus: customer.maritalStatus || '',
@@ -282,12 +287,17 @@ export default function CustomersPage() {
       consentPlace: customer.consentPlace || '',
     });
     setErrors({});
+    setSaveError('');
     setShowForm(true);
   };
 
   const saveCustomer = async () => {
-    if (!validate()) return;
+    if (!validate()) {
+      setSaveError('Please fix the highlighted fields before saving.');
+      return;
+    }
     setSaving(true);
+    setSaveError('');
     try {
       const fullName = [form.firstName, form.middleName, form.lastName].filter(Boolean).join(' ');
       const payload = {
@@ -305,15 +315,21 @@ export default function CustomersPage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
         body: JSON.stringify(payload)
       });
-      if (res.ok) {
-        setShowForm(false);
-        setEditingCustomer(null);
-        setForm(emptyForm);
-        setErrors({});
-        fetchCustomers();
+      if (!res.ok) {
+        const result = await res.json().catch(() => null);
+        throw new Error(result?.message || 'Could not save customer. Please try again.');
       }
-    } catch (err) { console.error(err); }
-    setSaving(false);
+      setShowForm(false);
+      setEditingCustomer(null);
+      setForm(emptyForm);
+      setErrors({});
+      fetchCustomers();
+    } catch (err) {
+      console.error(err);
+      setSaveError(err instanceof Error ? err.message : 'Could not save customer. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ── Styles ──────────────────────────────────────────────────────────────────
@@ -417,7 +433,7 @@ export default function CustomersPage() {
             </Section>
 
             {/*  Section 3 — Contact & Address  */}
-            <Section title="Contact & Residential Details" icon="🏠">
+            <Section title="Contact & Residential Details" icon="🏠" defaultOpen={Boolean(editingCustomer)}>
               <FormField {...fieldProps('alternateMobile')} label="Alternate Mobile" placeholder="9876543210" maxLength={10} />
               <FormField {...fieldProps('street')} label="Street / House No." placeholder="Flat 402, Green Apartments" />
               <FormField {...fieldProps('city')} label="City / Town" placeholder="Mumbai" required />
@@ -436,7 +452,7 @@ export default function CustomersPage() {
             </Section>
 
             {/*  Section 4 — Employment & Financial  */}
-            <Section title="Employment & Financial Profile" icon="💼">
+            <Section title="Employment & Financial Profile" icon="💼" defaultOpen={Boolean(editingCustomer)}>
               <SelectField {...fieldProps('employmentType')} label="Employment Type" required options={[
                 { value: 'Salaried', label: 'Salaried' },
                 { value: 'Self-Employed Professional', label: 'Self-Employed Professional' },
@@ -452,7 +468,7 @@ export default function CustomersPage() {
             </Section>
 
             {/*  Section 5 — Declarations & Nominee  */}
-            <Section title="Declarations & Nominee" icon="📋">
+            <Section title="Declarations & Nominee" icon="📋" defaultOpen={Boolean(editingCustomer)}>
               <CheckboxField
                 {...checkboxProps('isPEP')}
                 label="Politically Exposed Person (PEP)"
@@ -503,6 +519,7 @@ export default function CustomersPage() {
               </div>
             </div>
 
+            {saveError && <p role="alert" style={{ ...fieldErrorStyle, marginTop: '12px' }}>{saveError}</p>}
             <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
               <button onClick={saveCustomer} disabled={saving}
                 style={{ background: '#1e40af', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>

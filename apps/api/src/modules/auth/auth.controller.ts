@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { generateOTP, saveOTP, verifyOTP, sendEmailOTP, sendSMSOTP } from './otp.service';
+import { logAudit } from '../../utils/audit';
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 if (!JWT_SECRET) {
@@ -211,5 +212,25 @@ export const verifyEmailOTP = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('VERIFY EMAIL OTP ERROR:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const logLoginPhoto = async (req: any, res: Response) => {
+  try {
+    const { photoData } = req.body;
+    if (!photoData) return res.status(400).json({ message: 'No photo provided' });
+
+    await logAudit({
+      req,
+      action: 'login_photo',
+      entityType: 'User',
+      entityId: req.user.userId,
+      photoData,
+    });
+
+    res.json({ saved: true });
+  } catch (err) {
+    console.error('LOGIN PHOTO LOG ERROR:', err);
+    res.status(500).json({ message: 'Could not save login photo' });
   }
 };
