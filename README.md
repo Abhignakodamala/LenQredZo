@@ -1,159 +1,374 @@
-# Turborepo starter
+# LenQredZo
 
-This Turborepo starter is maintained by the Turborepo core team.
+**Lending. Credit. Zero Friction.**
 
-## Using this example
+LenQredZo is a multi-tenant SaaS platform for loan and collection management, designed for India's informal lending sector, including finance companies, chit funds, and microfinance operators.
 
-Run the following command:
+The platform brings customer management, loan servicing, EMI tracking, collections, branch operations, analytics, and AI-assisted portfolio insights into one application.
 
-```sh
-npx create-turbo@latest
+> **Development status:** Under active development and not deployed to production. Features listed as working have been manually tested locally by the maintainer. Some integrations are not yet verified, and automated test coverage is minimal.
+
+---
+
+## Table of Contents
+
+- [Feature Status](#feature-status)
+- [Technology Stack](#technology-stack)
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [Prerequisites](#prerequisites)
+- [Getting Started](#getting-started)
+- [WhatsApp Integration](#whatsapp-integration)
+- [Security](#security)
+- [Known Limitations](#known-limitations)
+- [Roadmap](#roadmap)
+- [Development Guidelines](#development-guidelines)
+- [Reporting Security Issues](#reporting-security-issues)
+- [License](#license)
+
+---
+
+## Feature Status
+
+| Status | Meaning |
+| --- | --- |
+| ✅ Working locally | Built and manually tested in local development |
+| 🧪 Built, not fully verified | Code exists, but it needs external credentials or end-to-end testing |
+| 🗺️ Planned | Not built yet |
+
+There is currently only a minimal automated test suite (AI service text sanitizing). Loan and EMI calculations, API routes, encryption, and tenant isolation are not covered by automated tests. "Working locally" means manually tested, not production-ready.
+
+### ✅ Working in Local Development
+
+**Organization and access**
+- Company-level tenant separation
+- Role-based access for owners, administrators, branch managers, loan officers, accountants, collection agents, and recovery officers
+- Branch-level data scoping
+- Staff and branch management
+
+**Customers**
+- Extended KYC customer profiles
+- Bulk Excel import with preview and validation
+
+**Loans and EMIs**
+- Configurable interest types, tenure, and processing fees
+- EMI schedule generation and penalty calculation
+- Payment recording and history
+- Guarantor management
+
+**Collections and analytics**
+- Overdue EMI tracking and NPA monitoring
+- Dashboard statistics and analytics charts
+
+**AI insights**
+- Portfolio analysis using Google Gemini. AI output should be reviewed before it is used for financial decisions.
+
+**Authentication and security**
+- Password login, forgot-password flow, and email verification
+- Email OTP login (Brevo)
+- Bcrypt password hashing and JWT sessions
+- Rate limiting and audit logging
+- AES-256 encryption of Aadhaar, PAN, alternate ID, and bank account numbers
+
+**Data export and messaging interface**
+- Excel export
+- WhatsApp-style chat interface with 18 message types, running in test mode (no real messages sent)
+
+### 🧪 Built, Not Fully Verified
+
+| Feature | Current limitation |
+| --- | --- |
+| Live WhatsApp messaging | Needs Meta Business and WhatsApp Cloud API credentials; live sending has not been tested |
+| SMS OTP login | Needs Twilio credentials |
+| Email OTP to any recipient | The Brevo free plan only delivers to the registered sender; a custom sending domain is needed |
+| Passkey (WebAuthn) login | Routes exist; the full flow has not been tested end to end |
+| Google OAuth login | Route exists; the full flow has not been tested end to end |
+| Railway deployment | Configured earlier, currently paused |
+
+### 🗺️ Planned
+
+- Custom email domain for OTP delivery
+- TOTP two-factor authentication with QR-code enrollment
+- Razorpay payment gateway
+- Customer self-service portal
+- Offline mobile app with sync
+- Maker-checker approvals
+- KYC document uploads
+- Super Admin console
+- Court and defaulter PDF reports
+- Automated EMI reminder scheduling
+- Comprehensive automated test suite
+
+---
+
+## Technology Stack
+
+| Layer | Technology |
+| --- | --- |
+| Frontend | Next.js 16, TypeScript |
+| Backend API | Node.js, Express, JWT |
+| Database | PostgreSQL 16 |
+| ORM and migrations | Prisma |
+| AI service | Python 3.11, FastAPI, Google Gemini |
+| Email | Brevo SMTP via Nodemailer |
+| SMS | Twilio |
+| Messaging | Meta WhatsApp Cloud API |
+| Monorepo | Turborepo |
+
+---
+
+## Architecture
+
+```text
+Browser
+   |
+   v
+Next.js frontend (port 3000)
+   |
+   v
+Express REST API (port 5000) ---> PostgreSQL (via Prisma)
+   |            |
+   |            +---> Brevo SMTP / Twilio
+   |
+   v
+FastAPI AI service (port 8000)
+   |
+   +---> Google Gemini
+   +---> WhatsApp Cloud API
 ```
 
-## What's inside?
+- **Frontend:** dashboards, forms, and user interactions
+- **API:** authentication, authorization, and business logic
+- **AI service:** portfolio analysis and WhatsApp message sending
 
-This Turborepo includes the following packages/apps:
+---
 
-### Apps and Packages
+## Project Structure
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+```text
+LenQredZo/
+├── apps/
+│   ├── web/            # Next.js frontend
+│   ├── api/            # Express REST API
+│   └── ai-service/     # FastAPI AI and WhatsApp service
+├── packages/           # Shared configuration packages
+├── prisma/             # Prisma schema and migrations
+├── turbo.json
+└── package.json
 ```
 
-Without global `turbo`, use your package manager:
+---
 
-```sh
-cd my-turborepo
-npx turbo build
-npm dlx turbo build
-npm exec turbo build
+## Prerequisites
+
+- Node.js 20.9 or newer (required by Next.js 16)
+- npm
+- PostgreSQL 16
+- Python 3.11
+- Git
+
+---
+
+## Getting Started
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/Abhignakodamala/LenQredZo.git
+cd LenQredZo
+npm install
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+### 2. Configure environment variables
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+Create a `.env` file in the repository root. These are placeholders, so use your own values and never commit this file.
 
-```sh
-turbo build --filter=docs
+```dotenv
+DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/lenqredzo"
+JWT_SECRET="REPLACE_WITH_A_SECURE_RANDOM_SECRET"
+SIGNUP_ACCESS_CODE="REPLACE_WITH_YOUR_SIGNUP_CODE"
+
+BREVO_SMTP_HOST="smtp-relay.brevo.com"
+BREVO_SMTP_PORT="587"
+BREVO_SMTP_USER="YOUR_BREVO_LOGIN"
+BREVO_SMTP_PASS="YOUR_BREVO_SMTP_KEY"
+
+TWILIO_ACCOUNT_SID=""
+TWILIO_AUTH_TOKEN=""
+TWILIO_PHONE_NUMBER=""
+
+AI_SERVICE_URL="http://localhost:8000"
+AI_SERVICE_KEY="REPLACE_WITH_AN_INTERNAL_SERVICE_KEY"
+
+WHATSAPP_TEST_MODE="true"
 ```
 
-Without global `turbo`:
+For the AI service, copy `apps/ai-service/.env.example` to `apps/ai-service/.env` and add your Google Gemini API key.
 
-```sh
-npx turbo build --filter=docs
-npm exec turbo build --filter=docs
-npm exec turbo build --filter=docs
+### 3. Set up the database
+
+Create a PostgreSQL database named `lenqredzo`, then run:
+
+```bash
+npx prisma migrate dev
 ```
 
-### Develop
+Use a development database only. If you change the schema later, stop the API before running `npx prisma generate`, otherwise Windows may show an EPERM error.
 
-To develop all apps and packages, run the following command:
+### 4. Run the services
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+Use a separate terminal for each service.
 
-```sh
-cd my-turborepo
-turbo dev
+API:
+
+```bash
+cd apps/api
+npm run dev
 ```
 
-Without global `turbo`, use your package manager:
+Web:
 
-```sh
-cd my-turborepo
-npx turbo dev
-npm exec turbo dev
-npm exec turbo dev
+```bash
+cd apps/web
+npm run dev
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+AI service:
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
+```bash
+cd apps/ai-service
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
 ```
 
-Without global `turbo`:
+On macOS or Linux, activate the virtual environment with `source venv/bin/activate` instead.
 
-```sh
-npx turbo dev --filter=web
-npm exec turbo dev --filter=web
-npm exec turbo dev --filter=web
+Open http://localhost:3000.
+
+---
+
+## WhatsApp Integration
+
+Each client company brings its own Meta Business account and dedicated phone number.
+
+**Test mode (default for development)**
+
+```dotenv
+WHATSAPP_TEST_MODE="true"
 ```
 
-### Remote Caching
+No real messages are sent in test mode.
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+**Live messaging** is not yet verified. To try it:
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+1. Create a Meta Business account and a WhatsApp Cloud API app.
+2. Copy the Phone Number ID and Access Token.
+3. Enter them in **Settings → WhatsApp** inside the app.
+4. Set `WHATSAPP_TEST_MODE="false"`.
+5. Test with authorized recipients only, and check Meta's template and policy requirements.
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
+---
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+## Security
 
-```sh
-cd my-turborepo
-turbo login
+Mechanisms currently in place:
+
+- Company-level tenant separation, role-based access, and branch-level data scoping
+- Bcrypt password hashing and JWT sessions
+- AES-256 encryption of specified sensitive customer fields
+- Rate limiting and audit logging
+
+These have not been independently audited as a complete system.
+
+Practices to follow:
+
+- Never commit `.env` files, keys, or tokens.
+- Use strong, unique secrets for each environment, and rotate any secret that has been exposed.
+- Enforce authorization on the server for every sensitive operation.
+- Avoid logging passwords, OTPs, tokens, or KYC data.
+- Use HTTPS and back up the database before any production use.
+
+This software has not been assessed against Indian financial, lending, or data-protection regulations. Anyone deploying it should get appropriate legal and compliance review.
+
+---
+
+## Known Limitations
+
+- Not deployed to production; the Railway deployment is paused.
+- Automated test coverage is minimal (AI service text sanitizing only).
+- Live WhatsApp, SMS OTP, passkey login, and Google OAuth are not verified end to end.
+- Email OTP to arbitrary recipients needs a custom sending domain.
+- Bulk Excel import uses an older `xlsx` package version with known file-parsing vulnerabilities; it should be replaced before handling untrusted uploads in production.
+- Not independently security-audited.
+
+---
+
+## Roadmap
+
+**Testing and reliability**
+- [ ] Unit tests for financial calculations
+- [ ] Integration tests for API routes and database operations
+- [ ] Tests for tenant and branch isolation
+- [ ] End-to-end tests for critical workflows
+- [ ] Continuous integration checks
+
+**Authentication and security**
+- [ ] End-to-end passkey and Google OAuth testing
+- [ ] TOTP two-factor authentication with QR-code enrollment
+- [ ] Replace the `xlsx` package
+- [ ] Review session management, secret handling, and authorization boundaries
+
+**Communications and payments**
+- [ ] Custom email-sending domain
+- [ ] Verify SMS OTP and live WhatsApp messaging
+- [ ] Razorpay integration
+- [ ] Automated EMI reminders
+
+**Product**
+- [ ] Customer self-service portal
+- [ ] Offline mobile app with sync
+- [ ] Maker-checker approvals
+- [ ] KYC document uploads
+- [ ] Super Admin console
+- [ ] Court and defaulter PDF reports
+
+**Deployment**
+- [ ] Resume Railway deployment
+- [ ] Production secrets, database backups, and recovery procedures
+- [ ] Health checks and monitoring
+- [ ] Security and production-readiness review
+
+---
+
+## Development Guidelines
+
+1. Review the existing code before changing it.
+2. Make the smallest change that solves the problem.
+3. Test affected features manually, and add automated tests where possible.
+4. Review `git diff` for unintended changes and exposed secrets.
+5. Update this README when setup or behavior changes.
+
+Commit message examples:
+
+```text
+feat: add EMI reminder scheduling
+fix: handle missing payment records
+test: add loan calculation unit tests
+docs: update local setup instructions
 ```
 
-Without global `turbo`, use your package manager:
+---
 
-```sh
-cd my-turborepo
-npx turbo login
-npm exec turbo login
-npm exec turbo login
-```
+## Reporting Security Issues
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+Please do not post credentials, customer data, or exploit details in public issues. Use GitHub's private vulnerability reporting (the repository's Security tab) to report a suspected vulnerability.
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
+---
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+## License
 
-```sh
-turbo link
-```
+**Proprietary software. All rights reserved.**
 
-Without global `turbo`:
-
-```sh
-npx turbo link
-npm exec turbo link
-npm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+No permission to use, copy, modify, distribute, or sublicense this software is granted unless explicitly authorized by the copyright holder.
