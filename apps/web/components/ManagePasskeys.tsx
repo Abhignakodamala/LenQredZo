@@ -90,7 +90,7 @@ export default function ManagePasskeys() {
                   Added {new Date(passkey.createdAt).toLocaleDateString('en-IN')}
                   {' · '}
                   {passkey.lastUsedAt
-                    ? `Last used ${new Date(passkey.lastUsedAt).toLocaleDateString('en-IN')}`
+                    ? `Last passkey login ${new Date(passkey.lastUsedAt).toLocaleString('en-IN')}`
                     : 'Never used yet'}
                 </p>
               </div>

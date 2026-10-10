@@ -3,6 +3,7 @@ import { OAuth2Client } from 'google-auth-library';
 import jwt from 'jsonwebtoken';
 import prisma from '../../lib/prisma';
 import { logAudit } from '../../utils/audit'; // adjust path to match your existing convention
+import { recordSuccessfulLogin } from './login-events';
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -27,16 +28,17 @@ export const googleLogin = async (req: Request, res: Response) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, companyId: user.companyId },
+      { userId: user.id, role: user.role, companyId: user.companyId, branchId: user.branchId },
       process.env.JWT_SECRET as string,
       { expiresIn: '7d' }
     );
 
     await logAudit({ req, action: 'login_google', entityType: 'User', entityId: user.id,  details: 'User logged in with Google'  });
+    await recordSuccessfulLogin(req, user.id, 'google');
 
     res.json({
       token,
-      user: { id: user.id, email: user.email, role: user.role, companyId: user.companyId },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId },
     });
   } catch (err: any) {
     console.error('GOOGLE LOGIN ERROR:', err);

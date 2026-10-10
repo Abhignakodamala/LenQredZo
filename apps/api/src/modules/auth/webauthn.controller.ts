@@ -11,6 +11,7 @@ import type {
   AuthenticationResponseJSON,
   RegistrationResponseJSON,
 } from '@simplewebauthn/server';
+import { recordSuccessfulLogin } from './login-events';
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 if (!JWT_SECRET) throw new Error('JWT_SECRET is not set in the environment.');
@@ -203,6 +204,7 @@ export const completeAuthentication = async (req: Request, res: Response) => {
       where: { id: passkey.id },
       data: { counter: BigInt(verification.authenticationInfo.newCounter), lastUsedAt: new Date() },
     });
+    await recordSuccessfulLogin(req, user.id, 'passkey');
     res.json({ token: makeToken(user), user: safeUser(user) });
   } catch (error: any) {
     console.error('WEBAUTHN AUTH VERIFY ERROR:', error);

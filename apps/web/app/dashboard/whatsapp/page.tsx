@@ -89,7 +89,7 @@ export default function WhatsAppPage() {
     if (!selected) return;
     setSending(true); setNotice('');
     try {
-      const payload: Record<string, string> = { customer_phone: selected.phone, customer_name: selected.name, message_type: type };
+      const payload: Record<string, string> = { customer_id: String(selected.id), customer_phone: selected.phone, customer_name: selected.name, message_type: type };
       if (type === 'alert') payload.custom_message = customMessage;
       const response = await fetch(`${API_URL}/api/whatsapp/send`, { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) });
       if (!response.ok) throw new Error((await response.json()).message || 'Failed to send message');

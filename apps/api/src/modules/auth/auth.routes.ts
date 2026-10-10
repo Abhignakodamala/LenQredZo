@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { register, login, sendOTP, loginWithOTP, resetPassword, verifyEmailOTP, logLoginPhoto } from './auth.controller';
+import { register, login, sendOTP, loginWithOTP, resetPassword, verifyEmailOTP, logLoginPhoto, getLoginHistory } from './auth.controller';
 import { protect } from '../../middleware/auth';
 
 const router = Router();
@@ -24,6 +24,7 @@ const otpLimiter = rateLimit({
 router.post('/register', register);
 router.post('/login', loginLimiter, login);
 router.post('/login-photo', protect, logLoginPhoto);
+router.get('/login-history', protect, getLoginHistory);
 router.post('/send-otp', otpLimiter, sendOTP);
 router.post('/login-otp', loginLimiter, loginWithOTP);
 router.post('/reset-password', otpLimiter, resetPassword);

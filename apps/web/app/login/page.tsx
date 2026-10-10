@@ -3,6 +3,7 @@ import { API_URL } from '@/lib/api';
 import FaceCaptureModal from '@/components/FaceCaptureModal';
 import Script from 'next/script';
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { loginWithPasskey } from '@/lib/webauthn';
 
 type Tab = 'password' | 'otp';
 type OTPChannel = 'email' | 'sms';
@@ -31,6 +32,7 @@ export default function LoginPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -39,12 +41,29 @@ export default function LoginPage() {
 
   const clearMessages = () => { setError(''); setSuccess(''); };
 
-  const completeLogin = useCallback((token: string, user: any) => {
+  const completeLogin = useCallback((token: string, user: any, capturePhoto = true) => {
+    if (rememberMe && typeof user?.email === 'string') {
+      localStorage.setItem('rememberedLoginEmail', user.email);
+    }
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(user));
+    if (!capturePhoto) {
+      window.location.href = '/dashboard';
+      return;
+    }
     setPendingToken(token);
     setShowLoginCapture(true);
+  }, [rememberMe]);
+
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem('rememberedLoginEmail');
+    if (rememberedEmail) setEmail(rememberedEmail);
   }, []);
+
+  const handleRememberMeChange = (checked: boolean) => {
+    setRememberMe(checked);
+    if (!checked) localStorage.removeItem('rememberedLoginEmail');
+  };
 
   const handleLoginPhotoCapture = async (photoBase64: string) => {
     try {
@@ -84,6 +103,29 @@ export default function LoginPage() {
       setError('Server not reachable. Make sure backend is running.');
     }
     setLoading(false);
+  };
+
+  const handlePasskeyLogin = async () => {
+    const accountEmail = email.trim().toLowerCase();
+    if (!accountEmail) {
+      setError('Enter your account email first to use device biometrics.');
+      return;
+    }
+    if (!window.isSecureContext || !window.PublicKeyCredential) {
+      setError('Passkey login requires a supported browser on localhost or a secure HTTPS connection.');
+      return;
+    }
+
+    setPasskeyLoading(true);
+    clearMessages();
+    try {
+      const data = await loginWithPasskey(accountEmail);
+      completeLogin(data.token, data.user, false);
+    } catch (loginError) {
+      setError(loginError instanceof Error ? loginError.message : 'Passkey login failed.');
+    } finally {
+      setPasskeyLoading(false);
+    }
   };
 
   // ── Google Sign-In ─────────────────────────────────────────────────────
@@ -475,7 +517,7 @@ export default function LoginPage() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '10px 0 20px' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'rgba(255,255,255,0.8)', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} />
+                      <input type="checkbox" checked={rememberMe} onChange={e => handleRememberMeChange(e.target.checked)} />
                       Remember me
                     </label>
                     <button onClick={() => { setForgotStep('send'); clearMessages(); }} style={{ background: 'none', border: 'none', color: '#bfdbfe', fontSize: '13px', cursor: 'pointer', fontWeight: 500 }}>
@@ -483,6 +525,26 @@ export default function LoginPage() {
                     </button>
                   </div>
                   <button onClick={handleLogin} disabled={loading} style={btn()}>{loading ? 'Signing in...' : '🔒 Login Securely'}</button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '18px 0 14px' }}>
+                    <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.25)' }} />
+                    <span style={{ fontSize: '11.5px', color: 'rgba(255,255,255,0.65)' }}>OR USE YOUR DEVICE</span>
+                    <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.25)' }} />
+                  </div>
+                  <div style={{ border: '1px solid rgba(255,255,255,0.25)', borderRadius: '12px', padding: '14px', background: 'rgba(255,255,255,0.08)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                      <span aria-hidden="true" style={{ fontSize: '22px' }}>◉</span>
+                      <div>
+                        <p style={{ color: 'white', fontWeight: 600, fontSize: '14px', margin: 0 }}>Face / fingerprint login</p>
+                        <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '11.5px', margin: '3px 0 0' }}>Secure · Passwordless · Device verified</p>
+                      </div>
+                    </div>
+                    <button onClick={handlePasskeyLogin} disabled={passkeyLoading} style={{ ...btn(), marginTop: 0, opacity: passkeyLoading ? 0.7 : 1 }}>
+                      {passkeyLoading ? 'Confirm on your device...' : 'Continue with Face ID / fingerprint'}
+                    </button>
+                    <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '11px', lineHeight: 1.5, textAlign: 'center', margin: '9px 0 0' }}>
+                      First sign in, then enable a device passkey in Settings once. Your device will request Face ID, Windows Hello, fingerprint, or its screen lock; this app does not use the camera to identify your face.
+                    </p>
+                  </div>
                 </>
               )}
 

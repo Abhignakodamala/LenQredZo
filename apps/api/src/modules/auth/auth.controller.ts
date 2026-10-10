@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { generateOTP, saveOTP, verifyOTP, sendEmailOTP, sendSMSOTP } from './otp.service';
 import { logAudit } from '../../utils/audit';
+import { recordSuccessfulLogin } from './login-events';
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 if (!JWT_SECRET) {
@@ -71,6 +72,7 @@ export const login = async (req: Request, res: Response) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
+    await recordSuccessfulLogin(req, user.id, 'password');
     const token = makeToken(user);
     res.json({ token, user: safeUser(user) });
   } catch (error) {
@@ -149,6 +151,7 @@ export const loginWithOTP = async (req: Request, res: Response) => {
 
     if (!user) return res.status(400).json({ message: 'User not found' });
 
+    await recordSuccessfulLogin(req, user.id, 'otp');
     const token = makeToken(user);
     res.json({ token, user: safeUser(user) });
   } catch (error) {
@@ -232,5 +235,26 @@ export const logLoginPhoto = async (req: any, res: Response) => {
   } catch (err) {
     console.error('LOGIN PHOTO LOG ERROR:', err);
     res.status(500).json({ message: 'Could not save login photo' });
+  }
+};
+
+export const getLoginHistory = async (req: any, res: Response) => {
+  try {
+    const events = await prisma.loginEvent.findMany({
+      where: { userId: req.user.userId },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: {
+        id: true,
+        method: true,
+        ipAddress: true,
+        userAgent: true,
+        createdAt: true,
+      },
+    });
+    res.json(events);
+  } catch (error) {
+    console.error('LOGIN HISTORY ERROR:', error);
+    res.status(500).json({ message: 'Could not load login history' });
   }
 };

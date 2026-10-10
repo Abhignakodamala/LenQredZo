@@ -4,6 +4,7 @@ import Sidebar from '@/components/Sidebar';
 import { API_URL } from '@/lib/api';
 import ActivityLog from '@/components/ActivityLog';
 import ManagePasskeys from '@/components/ManagePasskeys';
+import SecurityDeviceInfo from '@/components/SecurityDeviceInfo';
 import { registerPasskey } from '@/lib/webauthn';
 
 type CompanyState = { name: string; plan: string };
@@ -292,6 +293,8 @@ export default function SettingsPage() {
           </button>
           <ManagePasskeys />
         </div>
+
+        <SecurityDeviceInfo />
 
 <ActivityLog />
           {/* Data Export */}

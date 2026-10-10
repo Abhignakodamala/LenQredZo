@@ -52,6 +52,7 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   passkeys  Passkey[]
+  loginEvents LoginEvent[]
 }
 
 model Passkey {
@@ -67,6 +68,18 @@ model Passkey {
   nickname     String?
   createdAt    DateTime @default(now())
   lastUsedAt   DateTime?
+}
+
+model LoginEvent {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  method     String
+  ipAddress  String?
+  userAgent  String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
 
 model Customer {
