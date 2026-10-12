@@ -454,5 +454,160 @@ export const deleteLoan = async (req: any, res: Response) => {
   }
 };
 
+export const addGuarantorToLoan = async (req: any, res: Response) => {
+  try {
+    const loanId = Number(req.params.id);
+    const loan = await prisma.loan.findUnique({ where: { id: loanId } });
+    if (!loan || loan.companyId !== req.user.companyId) {
+      return res.status(404).json({ message: 'Loan not found' });
+    }
+
+    const {
+      name, relationship, dateOfBirth, aadhar, pan, phone, email,
+      address, city, pinCode, employmentType, employerName,
+      grossAnnualIncome, bankName, bankAccountNumber, consentGiven, type = 'guarantor'
+    } = req.body;
+
+    if (!name || !phone) {
+      return res.status(400).json({ message: 'Guarantor name and phone number are required' });
+    }
+
+    const guarantor = await prisma.guarantor.create({
+      data: {
+        loanId,
+        name: name.trim(),
+        relationship: relationship ? relationship.trim() : null,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+        aadhar: aadhar ? encrypt(aadhar) : null,
+        pan: pan ? encrypt(pan) : null,
+        phone: phone.trim(),
+        email: email ? email.trim() : null,
+        address: address ? address.trim() : null,
+        city: city ? city.trim() : null,
+        pinCode: pinCode ? pinCode.trim() : null,
+        employmentType: employmentType || null,
+        employerName: employerName ? employerName.trim() : null,
+        grossAnnualIncome: grossAnnualIncome ? Number(grossAnnualIncome) : null,
+        bankName: bankName ? bankName.trim() : null,
+        bankAccountNumber: bankAccountNumber ? encrypt(bankAccountNumber) : null,
+        consentGiven: Boolean(consentGiven),
+        consentDate: consentGiven ? new Date() : null,
+        type: type || 'guarantor'
+      }
+    });
+
+    await logAudit({
+      req,
+      action: 'ADD_GUARANTOR',
+      entityType: 'Guarantor',
+      entityId: guarantor.id,
+      details: `Added guarantor ${guarantor.name} (${guarantor.relationship || 'Surety'}) to loan LN${1000 + loanId}`
+    });
+
+    res.status(201).json({ message: 'Guarantor attached successfully', guarantor: maskGuarantor(guarantor) });
+  } catch (error: any) {
+    console.error('Add guarantor error:', error);
+    res.status(500).json({ message: error.message || 'Server error' });
+  }
+};
+
+export const updateGuarantor = async (req: any, res: Response) => {
+  try {
+    const loanId = Number(req.params.id);
+    const guarantorId = Number(req.params.guarantorId);
+
+    const loan = await prisma.loan.findUnique({ where: { id: loanId } });
+    if (!loan || loan.companyId !== req.user.companyId) {
+      return res.status(404).json({ message: 'Loan not found' });
+    }
+
+    const existing = await prisma.guarantor.findUnique({ where: { id: guarantorId } });
+    if (!existing || existing.loanId !== loanId) {
+      return res.status(404).json({ message: 'Guarantor not found on this loan' });
+    }
+
+    const {
+      name, relationship, dateOfBirth, aadhar, pan, phone, email,
+      address, city, pinCode, employmentType, employerName,
+      grossAnnualIncome, bankName, bankAccountNumber, consentGiven, type
+    } = req.body;
+
+    const data: any = {};
+    if (name !== undefined) data.name = name.trim();
+    if (relationship !== undefined) data.relationship = relationship ? relationship.trim() : null;
+    if (dateOfBirth !== undefined) data.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null;
+    if (phone !== undefined) data.phone = phone.trim();
+    if (email !== undefined) data.email = email ? email.trim() : null;
+    if (address !== undefined) data.address = address ? address.trim() : null;
+    if (city !== undefined) data.city = city ? city.trim() : null;
+    if (pinCode !== undefined) data.pinCode = pinCode ? pinCode.trim() : null;
+    if (employmentType !== undefined) data.employmentType = employmentType || null;
+    if (employerName !== undefined) data.employerName = employerName ? employerName.trim() : null;
+    if (grossAnnualIncome !== undefined) data.grossAnnualIncome = grossAnnualIncome ? Number(grossAnnualIncome) : null;
+    if (bankName !== undefined) data.bankName = bankName ? bankName.trim() : null;
+    if (type !== undefined) data.type = type;
+
+    // Encrypt updated PII if not masked
+    if (aadhar && !aadhar.includes('****')) data.aadhar = encrypt(aadhar);
+    if (pan && !pan.includes('****')) data.pan = encrypt(pan);
+    if (bankAccountNumber && !bankAccountNumber.includes('****')) data.bankAccountNumber = encrypt(bankAccountNumber);
+
+    if (consentGiven !== undefined) {
+      data.consentGiven = Boolean(consentGiven);
+      if (consentGiven && !existing.consentGiven) data.consentDate = new Date();
+    }
+
+    const updated = await prisma.guarantor.update({
+      where: { id: guarantorId },
+      data
+    });
+
+    await logAudit({
+      req,
+      action: 'UPDATE_GUARANTOR',
+      entityType: 'Guarantor',
+      entityId: guarantorId,
+      details: `Updated guarantor ${updated.name} on loan LN${1000 + loanId}`
+    });
+
+    res.json({ message: 'Guarantor updated', guarantor: maskGuarantor(updated) });
+  } catch (error: any) {
+    console.error('Update guarantor error:', error);
+    res.status(500).json({ message: error.message || 'Server error' });
+  }
+};
+
+export const deleteGuarantor = async (req: any, res: Response) => {
+  try {
+    const loanId = Number(req.params.id);
+    const guarantorId = Number(req.params.guarantorId);
+
+    const loan = await prisma.loan.findUnique({ where: { id: loanId } });
+    if (!loan || loan.companyId !== req.user.companyId) {
+      return res.status(404).json({ message: 'Loan not found' });
+    }
+
+    const existing = await prisma.guarantor.findUnique({ where: { id: guarantorId } });
+    if (!existing || existing.loanId !== loanId) {
+      return res.status(404).json({ message: 'Guarantor not found' });
+    }
+
+    await prisma.guarantor.delete({ where: { id: guarantorId } });
+
+    await logAudit({
+      req,
+      action: 'DELETE_GUARANTOR',
+      entityType: 'Guarantor',
+      entityId: guarantorId,
+      details: `Removed guarantor ${existing.name} from loan LN${1000 + loanId}`
+    });
+
+    res.json({ message: 'Guarantor removed successfully' });
+  } catch (error: any) {
+    console.error('Delete guarantor error:', error);
+    res.status(500).json({ message: error.message || 'Server error' });
+  }
+};
+
 
 

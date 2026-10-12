@@ -334,8 +334,8 @@ export default function SanctionLetterModal({ loan, onClose }: SanctionLetterPro
             {/* Signature Blocks */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: '16px',
+              gridTemplateColumns: guarantors.length > 0 ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)',
+              gap: '24px',
               paddingTop: '20px',
               borderTop: '1px dashed #cbd5e1'
             }}>
@@ -346,12 +346,14 @@ export default function SanctionLetterModal({ loan, onClose }: SanctionLetterPro
                 <p style={{ margin: 0, fontSize: '10px', color: '#64748b' }}>Borrower's Signature & LTI</p>
               </div>
 
-              {/* Guarantor Signature */}
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ height: '50px', borderBottom: '1px solid #334155', marginBottom: '6px' }}></div>
-                <p style={{ margin: 0, fontWeight: 700, fontSize: '12px' }}>{guarantors[0]?.name || 'Co-Signer / Guarantor'}</p>
-                <p style={{ margin: 0, fontSize: '10px', color: '#64748b' }}>Guarantor's Signature</p>
-              </div>
+              {/* Guarantor Signature (only if loan has guarantor) */}
+              {guarantors.length > 0 && (
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ height: '50px', borderBottom: '1px solid #334155', marginBottom: '6px' }}></div>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: '12px' }}>{guarantors[0]?.name}</p>
+                  <p style={{ margin: 0, fontSize: '10px', color: '#64748b' }}>Guarantor's Signature ({guarantors[0]?.relationship || 'Surety'})</p>
+                </div>
+              )}
 
               {/* Lender Signature & Stamp */}
               <div style={{ textAlign: 'center' }}>

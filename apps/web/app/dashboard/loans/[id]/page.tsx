@@ -42,6 +42,20 @@ export default function LoanDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [sendingLinkFor, setSendingLinkFor] = useState<number | null>(null);
   const [showSanctionLetter, setShowSanctionLetter] = useState(false);
+  const [guarantorModalOpen, setGuarantorModalOpen] = useState(false);
+  const [savingGuarantor, setSavingGuarantor] = useState(false);
+  const [guarantorForm, setGuarantorForm] = useState({
+    name: '',
+    relationship: 'Family / Relative',
+    phone: '',
+    aadhar: '',
+    pan: '',
+    address: '',
+    city: '',
+    employmentType: 'Salaried',
+    grossAnnualIncome: '',
+    consentGiven: true
+  });
   useEffect(() => { setMe(getAuthUser()); }, []);
   const canDelete = me && ['owner', 'admin', 'Super Admin', 'branch_manager'].includes(me.role);
 
@@ -158,6 +172,74 @@ export default function LoanDetailPage() {
       alert('Network error while generating payment link.');
     } finally {
       setSendingLinkFor(null);
+    }
+  };
+
+  const handleSaveGuarantor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!guarantorForm.name.trim() || !guarantorForm.phone.trim()) {
+      alert('Guarantor full name and phone number are required.');
+      return;
+    }
+    setSavingGuarantor(true);
+    try {
+      const res = await fetch(`${API_URL}/api/loans/${id}/guarantors`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+        },
+        body: JSON.stringify(guarantorForm)
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setGuarantorModalOpen(false);
+        setGuarantorForm({
+          name: '',
+          relationship: 'Family / Relative',
+          phone: '',
+          aadhar: '',
+          pan: '',
+          address: '',
+          city: '',
+          employmentType: 'Salaried',
+          grossAnnualIncome: '',
+          consentGiven: true
+        });
+        // Reload loan data
+        const fresh = await fetch(`${API_URL}/api/loans/${id}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+        });
+        const freshData = await fresh.json();
+        setLoan(freshData);
+      } else {
+        alert(data.message || 'Failed to attach guarantor');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error saving guarantor');
+    } finally {
+      setSavingGuarantor(false);
+    }
+  };
+
+  const handleDeleteGuarantor = async (guarantorId: number) => {
+    if (!confirm('Are you sure you want to remove this guarantor from the loan?')) return;
+    try {
+      const res = await fetch(`${API_URL}/api/loans/${id}/guarantors/${guarantorId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+      });
+      if (res.ok) {
+        const fresh = await fetch(`${API_URL}/api/loans/${id}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+        });
+        const freshData = await fresh.json();
+        setLoan(freshData);
+      } else {
+        alert('Failed to delete guarantor');
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -287,25 +369,85 @@ export default function LoanDetailPage() {
 
           {/* Guarantors */}
           <div style={{ background: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: '700', margin: '0 0 16px', color: '#111827' }}>👥 Guarantors / Co-signers</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: '700', margin: 0, color: '#111827' }}>👥 Guarantors / Co-signers</h3>
+                <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#6b7280' }}>
+                  Jointly liable under Section 128 of Indian Contract Act
+                </p>
+              </div>
+              <button
+                onClick={() => setGuarantorModalOpen(true)}
+                style={{
+                  background: '#eff6ff',
+                  color: '#1e40af',
+                  border: '1px solid #bfdbfe',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                + Add Guarantor
+              </button>
+            </div>
+
             {!loan.guarantors || loan.guarantors.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '32px 0', color: '#9ca3af' }}>
-                <p style={{ fontSize: '28px', margin: '0 0 8px' }}>🤝</p>
-                <p style={{ margin: 0, fontSize: '13px' }}>No guarantors recorded for this loan</p>
+              <div style={{ textAlign: 'center', padding: '32px 16px', background: '#fafafa', borderRadius: '8px', border: '1px dashed #d1d5db' }}>
+                <p style={{ fontSize: '28px', margin: '0 0 6px' }}>🤝</p>
+                <p style={{ margin: '0 0 4px', fontSize: '13px', fontWeight: 600, color: '#374151' }}>No Guarantor Recorded</p>
+                <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#6b7280' }}>
+                  Attach a guarantor or surety to secure this loan and generate official co-signed agreements.
+                </p>
+                <button
+                  onClick={() => setGuarantorModalOpen(true)}
+                  style={{
+                    background: '#1e40af',
+                    color: 'white',
+                    border: 'none',
+                    padding: '6px 14px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  + Add Guarantor / Co-Signer
+                </button>
               </div>
             ) : (
-              loan.guarantors?.map((g, idx: number) => (
+              loan.guarantors?.map((g: any, idx: number) => (
                 <div key={g.id} style={{ background: '#f9fafb', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '14px', marginBottom: idx < (loan.guarantors?.length ?? 0) - 1 ? '12px' : 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <span style={{ fontWeight: '700', fontSize: '14px', color: '#111827' }}>{g.name}</span>
-                    <span style={guarantorTypeBadgeStyle(g.type ?? 'guarantor')}>{guarantorTypeLabel(g.type ?? 'guarantor')}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontWeight: '700', fontSize: '14px', color: '#111827' }}>{g.name}</span>
+                      <span style={guarantorTypeBadgeStyle(g.type ?? 'guarantor')}>{guarantorTypeLabel(g.type ?? 'guarantor')}</span>
+                      {g.relationship && (
+                        <span style={{ fontSize: '11px', color: '#6b7280', background: '#e2e8f0', padding: '1px 6px', borderRadius: '4px' }}>
+                          {g.relationship}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleDeleteGuarantor(g.id)}
+                      title="Remove Guarantor"
+                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '13px', padding: '2px 6px' }}
+                    >
+                      🗑️
+                    </button>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px' }}>
                     {[
                       ['📞 Phone', g.phone || '—'],
-                      ['🤝 Relationship', g.relationship || '—'],
                       ['🪪 Aadhaar', g.aadhar ? maskAadhaar(g.aadhar) : '—'],
                       ['📄 PAN', g.pan || '—'],
+                      ['🏠 Address', g.address || g.city || '—'],
+                      ['💼 Work', g.employmentType ? `${g.employmentType} ${g.grossAnnualIncome ? '(₹' + Number(g.grossAnnualIncome).toLocaleString('en-IN') + '/yr)' : ''}` : '—'],
+                      ['✍️ Legal Consent', g.consentGiven ? '✓ Co-Signed on Record' : 'Pending Consent']
                     ].map(([k, v]) => (
                       <div key={k} style={{ fontSize: '12px' }}>
                         <span style={{ color: '#6b7280' }}>{k}: </span>
@@ -440,6 +582,352 @@ export default function LoanDetailPage() {
     </div>
     {showSanctionLetter && (
       <SanctionLetterModal loan={loan} onClose={() => setShowSanctionLetter(false)} />
+    )}
+
+    {/* Guarantor / Surety Attachment Modal */}
+    {guarantorModalOpen && (
+      <div style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(15, 23, 42, 0.65)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: '16px'
+      }}>
+        <div style={{
+          background: 'white',
+          borderRadius: '16px',
+          width: '100%',
+          maxWidth: '560px',
+          maxHeight: '90vh',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+          overflow: 'hidden'
+        }}>
+          {/* Modal Header */}
+          <div style={{
+            padding: '18px 24px',
+            borderBottom: '1px solid #e5e7eb',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            background: '#f8fafc'
+          }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#0f172a' }}>
+                🤝 Attach Guarantor / Co-Signer
+              </h3>
+              <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
+                Loan A/C: LN{1000 + loan.id} · {loan.customer?.name}
+              </p>
+            </div>
+            <button
+              onClick={() => setGuarantorModalOpen(false)}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '18px',
+                color: '#94a3b8',
+                cursor: 'pointer',
+                padding: '4px 8px',
+                borderRadius: '6px'
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Modal Body Form */}
+          <form onSubmit={handleSaveGuarantor} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflowY: 'auto' }}>
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+              {/* Legal Notice Callout */}
+              <div style={{
+                background: '#eff6ff',
+                border: '1px solid #bfdbfe',
+                borderRadius: '8px',
+                padding: '10px 14px',
+                fontSize: '11px',
+                color: '#1e40af',
+                lineHeight: 1.4
+              }}>
+                ⚖️ <strong>Legal Protection:</strong> Under Section 128 of the Indian Contract Act, 1872, the guarantor's liability is co-extensive with the borrower. All Aadhaar & PAN details are encrypted with AES-256.
+              </div>
+
+              {/* Full Name & Relationship */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
+                    Full Legal Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Ramesh Kumar"
+                    value={guarantorForm.name}
+                    onChange={(e) => setGuarantorForm({ ...guarantorForm, name: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid #d1d5db',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
+                    Relationship with Borrower
+                  </label>
+                  <select
+                    value={guarantorForm.relationship}
+                    onChange={(e) => setGuarantorForm({ ...guarantorForm, relationship: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid #d1d5db',
+                      fontSize: '13px',
+                      background: 'white'
+                    }}
+                  >
+                    <option value="Father / Mother">Father / Mother</option>
+                    <option value="Spouse">Spouse</option>
+                    <option value="Brother / Sister">Brother / Sister</option>
+                    <option value="Family / Relative">Family / Relative</option>
+                    <option value="Friend / Colleague">Friend / Colleague</option>
+                    <option value="Business Partner">Business Partner</option>
+                    <option value="Neighbor">Neighbor</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Phone & City */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
+                    Mobile Number *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    maxLength={10}
+                    placeholder="10-digit mobile"
+                    value={guarantorForm.phone}
+                    onChange={(e) => setGuarantorForm({ ...guarantorForm, phone: e.target.value.replace(/\D/g, '') })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid #d1d5db',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
+                    City / Town
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Hyderabad"
+                    value={guarantorForm.city}
+                    onChange={(e) => setGuarantorForm({ ...guarantorForm, city: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid #d1d5db',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Aadhaar & PAN */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
+                    Aadhaar Number (12 Digits)
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={12}
+                    placeholder="1234 5678 9012"
+                    value={guarantorForm.aadhar}
+                    onChange={(e) => setGuarantorForm({ ...guarantorForm, aadhar: e.target.value.replace(/\D/g, '') })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid #d1d5db',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
+                    PAN Number
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={10}
+                    placeholder="ABCDE1234F"
+                    value={guarantorForm.pan}
+                    onChange={(e) => setGuarantorForm({ ...guarantorForm, pan: e.target.value.toUpperCase() })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid #d1d5db',
+                      fontSize: '13px',
+                      textTransform: 'uppercase'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Full Address */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
+                  Residential Address / Landmarks
+                </label>
+                <input
+                  type="text"
+                  placeholder="Plot/Door No, Street, Colony, Village/Town"
+                  value={guarantorForm.address}
+                  onChange={(e) => setGuarantorForm({ ...guarantorForm, address: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #d1d5db',
+                    fontSize: '13px'
+                  }}
+                />
+              </div>
+
+              {/* Employment & Annual Income */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
+                    Employment Type
+                  </label>
+                  <select
+                    value={guarantorForm.employmentType}
+                    onChange={(e) => setGuarantorForm({ ...guarantorForm, employmentType: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid #d1d5db',
+                      fontSize: '13px',
+                      background: 'white'
+                    }}
+                  >
+                    <option value="Salaried">Salaried</option>
+                    <option value="Self-Employed">Self-Employed</option>
+                    <option value="Business Owner">Business Owner</option>
+                    <option value="Agriculture / Farmer">Agriculture / Farmer</option>
+                    <option value="Daily Wage / Labor">Daily Wage / Labor</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
+                    Annual Income (₹)
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 350000"
+                    value={guarantorForm.grossAnnualIncome}
+                    onChange={(e) => setGuarantorForm({ ...guarantorForm, grossAnnualIncome: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid #d1d5db',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Consent confirmation checkbox */}
+              <label style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '8px',
+                marginTop: '4px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                color: '#374151',
+                lineHeight: 1.4
+              }}>
+                <input
+                  type="checkbox"
+                  checked={guarantorForm.consentGiven}
+                  onChange={(e) => setGuarantorForm({ ...guarantorForm, consentGiven: e.target.checked })}
+                  style={{ marginTop: '2px' }}
+                />
+                <span>
+                  Confirm that guarantor has submitted identity proof and consents to joint co-obligation for this loan.
+                </span>
+              </label>
+
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{
+              padding: '16px 24px',
+              borderTop: '1px solid #e5e7eb',
+              background: '#f8fafc',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '12px'
+            }}>
+              <button
+                type="button"
+                onClick={() => setGuarantorModalOpen(false)}
+                disabled={savingGuarantor}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  border: '1px solid #d1d5db',
+                  background: 'white',
+                  color: '#374151',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={savingGuarantor}
+                style={{
+                  padding: '8px 20px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: '#1e40af',
+                  color: 'white',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: savingGuarantor ? 'not-allowed' : 'pointer',
+                  opacity: savingGuarantor ? 0.7 : 1
+                }}
+              >
+                {savingGuarantor ? 'Attaching...' : '✓ Attach Guarantor'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     )}
     </>
   );
