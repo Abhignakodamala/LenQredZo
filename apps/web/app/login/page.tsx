@@ -41,7 +41,7 @@ export default function LoginPage() {
 
   const clearMessages = () => { setError(''); setSuccess(''); };
 
-  const completeLogin = useCallback((token: string, user: any, capturePhoto = true) => {
+  const completeLogin = useCallback((token: string, user: any, capturePhoto = false) => {
     if (rememberMe && typeof user?.email === 'string') {
       localStorage.setItem('rememberedLoginEmail', user.email);
     }
