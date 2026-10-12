@@ -6,6 +6,8 @@ import { getAuthUser } from '@/lib/authUser';
 import { API_URL } from '@/lib/api';
 import Script from 'next/script';
 import SanctionLetterModal from '@/components/SanctionLetterModal';
+import NocModal from '@/components/NocModal';
+import ForeclosureModal from '@/components/ForeclosureModal';
 
 type LoanDetail = {
   id: number;
@@ -14,8 +16,10 @@ type LoanDetail = {
   disbursedAmount?: number;
   emiAmount: number;
   outstandingAmount?: number;
-  customer?: { id: number; name: string; phone?: string };
+  customer?: { id: number; name: string; phone?: string; aadhar?: string; pan?: string; address?: string; city?: string; street?: string };
+  company?: { id: number; name: string; phone?: string; email?: string };
   createdAt: string;
+  updatedAt?: string;
   status: string;
   interestType?: string;
   interestRate?: number;
@@ -25,9 +29,9 @@ type LoanDetail = {
   penaltyType?: string;
   penaltyValue?: number;
   deductUpfront?: boolean;
-  emis?: Array<{ id: number; dueDate: string; amount: number; status: string; paidAmount?: number; paidAt?: string }>;
+  emis?: Array<{ id: number; dueDate: string; amount: number; status: string; paidAmount?: number; paidAt?: string; penalty?: number; penaltyPaid?: boolean }>;
   payments?: Array<{ id: number; amount: number; method?: string; reference?: string; verified?: boolean; paidAt?: string }>;
-  guarantors?: Array<{ id: number; name: string; phone?: string; relationship?: string; aadhar?: string; pan?: string; type?: string }>;
+  guarantors?: Array<{ id: number; name: string; phone?: string; relationship?: string; aadhar?: string; pan?: string; type?: string; address?: string }>;
 };
 
 type AuthUser = { userId: number; role: string; companyId: number | null; branchId: number | null } | null;
@@ -42,6 +46,8 @@ export default function LoanDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [sendingLinkFor, setSendingLinkFor] = useState<number | null>(null);
   const [showSanctionLetter, setShowSanctionLetter] = useState(false);
+  const [showNocModal, setShowNocModal] = useState(false);
+  const [showForeclosureModal, setShowForeclosureModal] = useState(false);
   const [guarantorModalOpen, setGuarantorModalOpen] = useState(false);
   const [savingGuarantor, setSavingGuarantor] = useState(false);
   const [guarantorForm, setGuarantorForm] = useState({
@@ -284,12 +290,59 @@ export default function LoanDetailPage() {
           </div>
           <span style={{
             marginLeft: 'auto',
-            background: loan.status === 'completed' ? '#dbeafe' : loan.status === 'active' ? '#dcfce7' : '#f3f4f6',
-            color: loan.status === 'completed' ? '#1e40af' : loan.status === 'active' ? '#16a34a' : '#6b7280',
+            background: loan.status === 'completed' ? '#dcfce7' : loan.status === 'active' ? '#e0f2fe' : '#f3f4f6',
+            color: loan.status === 'completed' ? '#15803d' : loan.status === 'active' ? '#0369a1' : '#6b7280',
             padding: '4px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '700'
           }}>
-            {loan.status === 'completed' ? '✅ Completed' : loan.status === 'active' ? '🟢 Active' : loan.status}
+            {loan.status === 'completed' ? '✅ Completed / Settled' : loan.status === 'active' ? '🟢 Active' : loan.status}
           </span>
+
+          {/* Foreclose button: available when loan has pending dues */}
+          {loan.status !== 'completed' && (
+            <button
+              onClick={() => setShowForeclosureModal(true)}
+              style={{
+                background: '#f59e0b',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: '700',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+              }}
+            >
+              ⚡ Foreclose Loan
+            </button>
+          )}
+
+          {/* Official NOC button: available when loan is settled / completed */}
+          {loan.status === 'completed' && (
+            <button
+              onClick={() => setShowNocModal(true)}
+              style={{
+                background: '#059669',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: '700',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+              }}
+            >
+              📜 Official NOC Certificate
+            </button>
+          )}
+
           <button
             onClick={() => setShowSanctionLetter(true)}
             style={{
@@ -307,7 +360,7 @@ export default function LoanDetailPage() {
               boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
             }}
           >
-            📄 Sanction Letter & Agreement
+            📄 Sanction Letter
           </button>
           {canDelete && (
             <button onClick={deleteLoan} disabled={deleting}
@@ -928,6 +981,24 @@ export default function LoanDetailPage() {
           </form>
         </div>
       </div>
+    )}
+
+    {/* Official No-Objection Certificate (NOC) Modal */}
+    {showNocModal && (
+      <NocModal loan={loan} onClose={() => setShowNocModal(false)} />
+    )}
+
+    {/* Foreclosure / Early Settlement Modal */}
+    {showForeclosureModal && (
+      <ForeclosureModal
+        loan={loan}
+        onClose={() => setShowForeclosureModal(false)}
+        onSuccess={(updatedLoan) => {
+          setLoan(updatedLoan);
+          setShowForeclosureModal(false);
+          setShowNocModal(true);
+        }}
+      />
     )}
     </>
   );

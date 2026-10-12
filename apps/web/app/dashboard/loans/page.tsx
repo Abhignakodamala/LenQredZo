@@ -691,11 +691,11 @@ const [guarantors, setGuarantors] = useState<Guarantor[]>([{ ...emptyGuarantor }
                     <td style={{ padding: '12px 16px', fontSize: '13px' }}>{l.tenure} {l.frequency === 'daily' ? 'days' : l.frequency === 'weekly' ? 'wks' : 'mo'}</td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{
-                        background: l.status === 'completed' ? '#eff6ff' : l.status === 'active' ? '#dcfce7' : '#f3f4f6',
-                        color: l.status === 'completed' ? '#1e40af' : l.status === 'active' ? '#16a34a' : '#6b7280',
+                        background: l.status === 'completed' ? '#dcfce7' : l.status === 'active' ? '#e0f2fe' : '#f3f4f6',
+                        color: l.status === 'completed' ? '#15803d' : l.status === 'active' ? '#0369a1' : '#6b7280',
                         padding: '2px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600'
                       }}>
-                        {l.status === 'completed' ? 'Completed' : l.status}
+                        {l.status === 'completed' ? '✅ Settled' : l.status === 'active' ? '🟢 Active' : l.status}
                       </span>
                     </td>
                   </tr>

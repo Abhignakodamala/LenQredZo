@@ -609,5 +609,118 @@ export const deleteGuarantor = async (req: any, res: Response) => {
   }
 };
 
+export const forecloseLoan = async (req: any, res: Response) => {
+  try {
+    const loanId = Number(req.params.id);
+    const {
+      settlementAmount,
+      discount = 0,
+      charges = 0,
+      method = 'cash',
+      reference = '',
+      remarks = ''
+    } = req.body;
+
+    const loan = await prisma.loan.findUnique({
+      where: { id: loanId },
+      include: {
+        emis: true,
+        customer: true,
+        company: true
+      }
+    });
+
+    if (!loan || loan.companyId !== req.user.companyId) {
+      return res.status(404).json({ message: 'Loan not found' });
+    }
+
+    if (loan.status === 'completed' || loan.status === 'closed' || loan.status === 'foreclosed') {
+      return res.status(400).json({ message: 'Loan is already closed or completed' });
+    }
+
+    const unpaidEmis = loan.emis.filter(e => e.status !== 'paid');
+    if (unpaidEmis.length === 0) {
+      await prisma.loan.update({
+        where: { id: loanId },
+        data: { status: 'completed' }
+      });
+      return res.json({ message: 'Loan has zero pending balance and is already settled.', loan });
+    }
+
+    const totalUnpaidEmiAmount = unpaidEmis.reduce((s, e) => s + (e.amount - (e.paidAmount || 0)), 0);
+    const totalUnpaidPenalty = unpaidEmis.reduce((s, e) => s + (e.penaltyPaid ? 0 : e.penalty || 0), 0);
+
+    const calculatedTotal = Math.max(0, Math.round(totalUnpaidEmiAmount + totalUnpaidPenalty + Number(charges || 0) - Number(discount || 0)));
+    const finalAmount = Number(settlementAmount) > 0 ? Math.round(Number(settlementAmount)) : calculatedTotal;
+
+    const verified = method !== 'cash' && Boolean(reference);
+
+    // Atomically clear all EMIs, record closure payment, and mark loan completed
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Mark every unpaid EMI as paid
+      for (const emi of unpaidEmis) {
+        await tx.eMI.update({
+          where: { id: emi.id },
+          data: {
+            paidAmount: Math.round(emi.amount),
+            status: 'paid',
+            penaltyPaid: true
+          }
+        });
+      }
+
+      // 2. Record closure payment
+      const payment = await tx.payment.create({
+        data: {
+          loanId,
+          amount: finalAmount,
+          method: method.toLowerCase(),
+          reference: reference ? reference.trim() : `FORECLOSURE-LN${1000 + loanId}`,
+          verified,
+          status: 'completed',
+          paidAt: new Date()
+        }
+      });
+
+      // 3. Update loan status to 'completed'
+      const updatedLoan = await tx.loan.update({
+        where: { id: loanId },
+        data: { status: 'completed' },
+        include: {
+          customer: true,
+          guarantors: true,
+          emis: true,
+          payments: true,
+          company: true
+        }
+      });
+
+      return { updatedLoan, payment };
+    });
+
+    await logAudit({
+      req,
+      action: 'FORECLOSE_LOAN',
+      entityType: 'Loan',
+      entityId: loanId,
+      details: `Foreclosed loan LN${1000 + loanId} (${loan.customer?.name}). Settlement collected: ₹${finalAmount.toLocaleString('en-IN')} via ${method} (discount: ₹${Number(discount).toLocaleString('en-IN')}, charges: ₹${Number(charges).toLocaleString('en-IN')}). Remarks: ${remarks || 'Early closure'}`
+    });
+
+    res.json({
+      message: 'Loan successfully foreclosed and marked settled',
+      settlementAmount: finalAmount,
+      loan: {
+        ...result.updatedLoan,
+        customer: maskCustomer(result.updatedLoan.customer),
+        guarantors: (result.updatedLoan.guarantors || []).map(maskGuarantor)
+      }
+    });
+  } catch (error: any) {
+    console.error('Foreclose loan error:', error);
+    res.status(500).json({ message: error.message || 'Server error while foreclosing loan' });
+  }
+};
+
+
 
 

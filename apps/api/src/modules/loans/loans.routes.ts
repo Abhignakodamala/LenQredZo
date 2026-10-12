@@ -10,7 +10,8 @@ import {
   deleteLoan,
   addGuarantorToLoan,
   updateGuarantor,
-  deleteGuarantor
+  deleteGuarantor,
+  forecloseLoan
 } from './loans.controller';
 import { protect } from '../../middleware/auth';
 import { requirePermission } from '../../utils/permissions';
@@ -26,6 +27,7 @@ router.get('/:id', protect, getLoanById);
 // Actions are gated by permission.
 router.post('/', protect, requirePermission('loan:create'), createLoan);
 router.put('/:id', protect, requirePermission('loan:approve'), updateLoanStatus);
+router.post('/:id/foreclose', protect, requirePermission('loan:approve'), forecloseLoan);
 router.put('/emi/:emiId/pay', protect, requirePermission('collection:collect'), markEmiPaid);
 
 // Guarantor management
