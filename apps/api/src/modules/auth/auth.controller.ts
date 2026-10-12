@@ -21,7 +21,7 @@ function makeToken(user: any) {
 }
 
 function safeUser(user: any) {
-  return { id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId };
+  return { id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId, companyName: user.company?.name };
 }
 
 // ── 1. REGISTER ───────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { email }, include: { company: true } });
     if (!user) return res.status(400).json({ message: 'Invalid credentials' });
 
     const isMatch = await bcrypt.compare(password, user.password);

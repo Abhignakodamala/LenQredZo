@@ -69,3 +69,7 @@ coverage/
 .cache/
 tmp/
 temp/
+
+# ── Uploads & Storage ─────────────────────────────────────────────────────────
+apps/api/uploads/
+!apps/api/uploads/.gitkeep

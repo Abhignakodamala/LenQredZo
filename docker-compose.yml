@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: lenqredzo_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: lenqredzo_db_secure_pass!
+      POSTGRES_DB: lenqredzo
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Express Backend API
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: lenqredzo_api
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 5000
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:lenqredzo_db_secure_pass!@postgres:5432/lenqredzo
+      JWT_SECRET: ${JWT_SECRET:-694ace5232e8316c61fc0186b7b51c23c7f0c8be86277eb7092d47e0be8199a8e19174a8dd9563a3b4eb4a171ee60274}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-410355c9abcb5b96e3b35eac831b968c8a8564650726911873cc91f90a164f3f}
+      SIGNUP_ACCESS_CODE: ${SIGNUP_ACCESS_CODE:-FINSMART@789}
+      AI_SERVICE_URL: http://ai-service:8000
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      GMAIL_USER: ${GMAIL_USER:-}
+      GMAIL_PASS: ${GMAIL_PASS:-}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+    volumes:
+      - kyc_uploads:/app/apps/api/uploads
+
+  # 3. Next.js Web Frontend
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: lenqredzo_web
+    restart: always
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: "" # Calls relative /api handled by Nginx
+
+  # 4. FastAPI Python AI Microservice
+  ai-service:
+    build:
+      context: apps/ai-service
+      dockerfile: Dockerfile
+    container_name: lenqredzo_ai
+    restart: always
+    environment:
+      PORT: 8000
+
+  # 5. Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: lenqredzo_nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - web
+      - api
+
+volumes:
+  pgdata:
+  kyc_uploads:

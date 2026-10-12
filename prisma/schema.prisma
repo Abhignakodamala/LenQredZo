@@ -23,6 +23,7 @@ model Company {
   loans        Loan[]
   branches     Branch[]
   whatsAppSettings WhatsAppSettings?
+  razorpaySettings RazorpaySettings?
 }
 
 model Branch {
@@ -98,6 +99,8 @@ model Customer {
   branch    Branch?  @relation(fields: [branchId], references: [id])
   loans     Loan[]
   whatsAppMessages WhatsAppMessage[]
+  kycStatus String   @default("pending") // pending | submitted | verified | rejected
+  documents CustomerDocument[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -132,6 +135,12 @@ model Customer {
   monthlyIncome   Float?
   bankName        String?
   bankAccountNumber String?  // store encrypted at application layer
+  bankIfsc          String?
+  bankBranch        String?
+  bankAccountStatus String?   @default("unverified") // unverified | verified | mismatch | failed
+  bankBeneficiaryName String?
+  bankNameMatchScore  Float?
+  bankVerifiedAt      DateTime?
 
   // ── Section 5: Declarations ───────────────────────────────────────
   isPEP                Boolean  @default(false)   // Politically Exposed Person
@@ -197,6 +206,9 @@ model Payment {
   createdAt DateTime @default(now())
   reference String?
   verified  Boolean @default(false)
+  razorpayOrderId   String?  @unique
+  razorpayPaymentId String?  @unique
+  razorpaySignature String?
 }
 
 
@@ -290,4 +302,36 @@ model WhatsAppMessage {
   createdAt   DateTime @default(now())
 
   @@index([companyId, customerId])
+}
+
+model RazorpaySettings {
+  id          Int      @id @default(autoincrement())
+  companyId   Int      @unique
+  company     Company  @relation(fields: [companyId], references: [id])
+  keyId       String
+  keySecret   String
+  isEnabled   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CustomerDocument {
+  id              Int       @id @default(autoincrement())
+  customerId      Int
+  customer        Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  companyId       Int?
+  docType         String    // aadhar_front | aadhar_back | pan_card | photo | bank_statement | salary_slip | address_proof | other
+  fileName        String
+  fileUrl         String
+  fileSize        Int?
+  mimeType        String?
+  status          String    @default("pending") // pending | verified | rejected
+  rejectionReason String?
+  verifiedBy      String?
+  verifiedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([customerId])
+  @@index([companyId])
 }

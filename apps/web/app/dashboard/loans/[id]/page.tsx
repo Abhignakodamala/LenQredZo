@@ -4,6 +4,8 @@ import { useParams, useRouter} from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { getAuthUser } from '@/lib/authUser';
 import { API_URL } from '@/lib/api';
+import Script from 'next/script';
+import SanctionLetterModal from '@/components/SanctionLetterModal';
 
 type LoanDetail = {
   id: number;
@@ -38,6 +40,8 @@ export default function LoanDetailPage() {
   const [loading, setLoading] = useState(true);
   const [me, setMe] = useState<AuthUser>(null);
   const [deleting, setDeleting] = useState(false);
+  const [sendingLinkFor, setSendingLinkFor] = useState<number | null>(null);
+  const [showSanctionLetter, setShowSanctionLetter] = useState(false);
   useEffect(() => { setMe(getAuthUser()); }, []);
   const canDelete = me && ['owner', 'admin', 'Super Admin', 'branch_manager'].includes(me.role);
 
@@ -106,6 +110,57 @@ export default function LoanDetailPage() {
 
   const maskAadhaar = (a: string) => a ? '****-****-' + a.slice(-4) : '—';
 
+  const handleSendPaymentLink = async (emi: any) => {
+    if (!loan) return;
+    setSendingLinkFor(emi.id);
+
+    try {
+      const res = await fetch(`${API_URL}/api/payments/send-payment-link`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+        },
+        body: JSON.stringify({
+          loanId: loan.id,
+          emiId: emi.id
+        })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || 'Failed to generate payment link.');
+        setSendingLinkFor(null);
+        return;
+      }
+
+      // 1. Copy link to clipboard as an instant fallback
+      if (typeof navigator !== 'undefined' && navigator.clipboard && data.paymentLink) {
+        await navigator.clipboard.writeText(data.paymentLink);
+      }
+
+      // 2. If automated Meta API is configured
+      if (data.whatsappSent) {
+        alert(
+          `✅ WhatsApp message delivered automatically to ${data.customerName} (${data.phone})!\n\nPayment Link:\n${data.paymentLink}\n\n(Link is also copied to your clipboard as backup)`
+        );
+      } else {
+        // 3. In-built WhatsApp launch (Free 1-click WhatsApp Web / App)
+        const waUrl = `https://web.whatsapp.com/send?phone=${data.phone}&text=${encodeURIComponent(data.formattedMessage)}`;
+        window.open(waUrl, '_blank');
+
+        alert(
+          `✅ Payment Link Generated!\n\n• Opening WhatsApp with the pre-filled message and UPI link.\n• The payment link has also been copied to your clipboard as a backup:\n${data.paymentLink}`
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error while generating payment link.');
+    } finally {
+      setSendingLinkFor(null);
+    }
+  };
+
   if (loading) return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Sidebar />
@@ -128,7 +183,9 @@ export default function LoanDetailPage() {
   const outstanding = loan.emis?.filter((e) => e.status !== 'paid').reduce((s, e) => s + (e.amount - (e.paidAmount || 0)), 0) || 0;
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+    <>
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
+      <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Sidebar />
       <div style={{ marginLeft: '220px', flex: 1, padding: '24px' }}>
 
@@ -151,6 +208,25 @@ export default function LoanDetailPage() {
           }}>
             {loan.status === 'completed' ? '✅ Completed' : loan.status === 'active' ? '🟢 Active' : loan.status}
           </span>
+          <button
+            onClick={() => setShowSanctionLetter(true)}
+            style={{
+              background: '#1e40af',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '8px 16px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: '600',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+            }}
+          >
+            📄 Sanction Letter & Agreement
+          </button>
           {canDelete && (
             <button onClick={deleteLoan} disabled={deleting}
               style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', opacity: deleting ? 0.6 : 1 }}>
@@ -252,7 +328,7 @@ export default function LoanDetailPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                  {['#', 'Due Date', 'Amount', 'Paid', 'Remaining', 'Status', 'Paid On'].map(h => (
+                  {['#', 'Due Date', 'Amount', 'Paid', 'Remaining', 'Status', 'Paid On', 'Actions'].map(h => (
                     <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>{h}</th>
                   ))}
                 </tr>
@@ -290,6 +366,30 @@ export default function LoanDetailPage() {
                       </td>
                       <td style={{ padding: '10px 16px', fontSize: '12px', color: '#6b7280' }}>
                         {e.status === 'paid' && e.paidAt ? fmtDate(e.paidAt) : '—'}
+                      </td>
+                      <td style={{ padding: '10px 16px' }}>
+                        {e.status !== 'paid' && (
+                          <button
+                            onClick={() => handleSendPaymentLink(e)}
+                            disabled={sendingLinkFor === e.id}
+                            style={{
+                              background: '#16a34a',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '6px 12px',
+                              fontSize: '12px',
+                              cursor: sendingLinkFor === e.id ? 'not-allowed' : 'pointer',
+                              fontWeight: '600',
+                              opacity: sendingLinkFor === e.id ? 0.7 : 1,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            {sendingLinkFor === e.id ? '⏳ Sending...' : '📲 Send Payment Link'}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -338,5 +438,9 @@ export default function LoanDetailPage() {
 
       </div>
     </div>
+    {showSanctionLetter && (
+      <SanctionLetterModal loan={loan} onClose={() => setShowSanctionLetter(false)} />
+    )}
+    </>
   );
 }

@@ -74,6 +74,7 @@ export default function Sidebar() {
     alt="LenQredzo"
     width={150}
     height={99}
+    priority
     style={{
       width:'150px',
       height:'auto',

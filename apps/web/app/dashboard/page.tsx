@@ -84,7 +84,7 @@ function Sidebar({ user }: { user: User | null }) {
           alt="LenQredZo"
           width={150}
           height={100}
-          style={{ objectFit: 'contain' }}
+          style={{ width: '150px', height: 'auto', objectFit: 'contain' }}
           priority
         />
       </div>
@@ -311,16 +311,6 @@ export default function Dashboard() {
           </button>
 
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 16 }}>
-            {/* Notification bell */}
-            <button style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, padding: 4 }}>
-              🔔
-              {overdueCount > 0 && (
-                <span style={{ position: 'absolute', top: 0, right: 0, width: 16, height: 16, background: '#dc2626', borderRadius: '50%', fontSize: 9, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
-                  {overdueCount > 9 ? '9+' : overdueCount}
-                </span>
-              )}
-            </button>
-
             {/* Calendar */}
             <button style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 13, color: '#374151', display: 'flex', alignItems: 'center', gap: 6 }}>
               📅 <span suppressHydrationWarning>{todayLabel || 'Loading...'}</span>

@@ -10,6 +10,10 @@ type Customer = {
   id: number;
   name: string; email?: string; phone: string; address?: string;
   aadhar?: string; pan?: string; branchId?: number | null;
+  kycStatus?: string;
+  bankAccountStatus?: string;
+  bankIfsc?: string;
+  bankBranch?: string;
   loans?: Array<{ id: number; amount: number; status: string }>;
   firstName?: string; middleName?: string; lastName?: string;
   dateOfBirth?: string; gender?: string; maritalStatus?: string; nationality?: string;
@@ -552,7 +556,7 @@ export default function CustomersPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                  {['Name', 'Phone', 'City', 'Employment', 'Aadhaar', 'PAN', 'Consent', 'Loans', 'Action'].map(h => (
+                  {['Name', 'Phone', 'City', 'Employment', 'Aadhaar', 'PAN', 'KYC Status', 'Consent', 'Loans', 'Action'].map(h => (
                     <th key={h} style={{ textAlign: 'left', padding: '12px 16px', fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>{h}</th>
                   ))}
                 </tr>
@@ -586,6 +590,26 @@ export default function CustomersPage() {
                       {c.aadhar ? `XXXX XXXX ${c.aadhar.slice(-4)}` : '—'}
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: '13px', color: '#6b7280' }}>{c.pan || '—'}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <span style={{
+                          background: c.kycStatus === 'verified' ? '#dcfce7' : c.kycStatus === 'rejected' ? '#fee2e2' : c.kycStatus === 'submitted' ? '#fef3c7' : '#f3f4f6',
+                          color: c.kycStatus === 'verified' ? '#15803d' : c.kycStatus === 'rejected' ? '#b91c1c' : c.kycStatus === 'submitted' ? '#b45309' : '#4b5563',
+                          padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '600', width: 'fit-content'
+                        }}>
+                          {c.kycStatus === 'verified' ? '✓ KYC Done' : c.kycStatus === 'rejected' ? '✕ KYC Rejected' : c.kycStatus === 'submitted' ? '● KYC Review' : 'KYC Pending'}
+                        </span>
+                        {c.bankAccountStatus === 'verified' ? (
+                          <span style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '1px 6px', borderRadius: '12px', fontSize: '10px', fontWeight: 600, width: 'fit-content' }}>
+                            ✓ Bank Verified
+                          </span>
+                        ) : c.bankAccountStatus === 'mismatch' ? (
+                          <span style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca', padding: '1px 6px', borderRadius: '12px', fontSize: '10px', fontWeight: 600, width: 'fit-content' }}>
+                            🚨 Bank Mismatch
+                          </span>
+                        ) : null}
+                      </div>
+                    </td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{
                         background: c.consentGiven ? '#dcfce7' : '#fef2f2',

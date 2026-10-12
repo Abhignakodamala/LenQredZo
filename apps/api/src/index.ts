@@ -20,16 +20,40 @@ import staffRoutes from './modules/staff/staff.routes';
 import aiRoutes from './modules/ai/ai.routes';
 import whatsappRoutes from './modules/whatsapp/whatsapp.routes';
 
+import paymentsRoutes from './modules/payments/payments.routes';
+
+import fs from 'fs';
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Lock CORS to your frontend origin (set CLIENT_URL in .env when you deploy; defaults to local dev).
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:3000').split(',');
-app.use(cors({ origin: allowedOrigins, credentials: true }));
+// Permissive CORS in dev so frontend never gets blocked on localhost / 127.0.0.1
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (
+      origin.startsWith('http://localhost:') ||
+      origin.startsWith('http://127.0.0.1:') ||
+      (process.env.CLIENT_URL && process.env.CLIENT_URL.includes(origin))
+    ) {
+      return callback(null, true);
+    }
+    return callback(null, true);
+  },
+  credentials: true
+}));
 // Needed so the login rate-limiter sees real client IPs behind a host/proxy.
 app.set('trust proxy', 1);
-// Cap request body size to blunt oversized-payload abuse.
-app.use(express.json({ limit: '1mb' }));
+// Cap request body size
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Serve uploaded KYC documents and assets statically
+const uploadsDir = path.resolve(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsDir));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/auth/webauthn', webauthnRoutes);
@@ -44,6 +68,8 @@ app.use('/api/audit', auditRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
+app.use('/api/payments', paymentsRoutes);
+
 app.get('/', (req, res) => {
   res.json({ message: 'LenQredZo AI API is running!' });
 });

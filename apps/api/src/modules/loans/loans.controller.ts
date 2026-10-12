@@ -186,7 +186,8 @@ export const getLoanById = async (req: any, res: Response) => {
         customer: true,
         emis: { orderBy: { dueDate: 'asc' } },
         payments: true,
-        guarantors: true
+        guarantors: true,
+        company: true
       }
     });
     if (!loan) return res.status(404).json({ message: 'Loan not found' });

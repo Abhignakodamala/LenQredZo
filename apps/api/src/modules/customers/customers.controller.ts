@@ -31,7 +31,7 @@ function buildCustomerDetailData(body: any) {
     'firstName', 'middleName', 'lastName', 'gender', 'maritalStatus', 'nationality',
     'altIdType', 'alternateMobile', 'street', 'city', 'state', 'pinCode', 'residenceType',
     'permanentAddress', 'employmentType', 'employerName', 'designation', 'workEmail',
-    'bankName', 'nomineeName', 'nomineeRelation', 'consentPlace'
+    'bankName', 'bankIfsc', 'bankBranch', 'nomineeName', 'nomineeRelation', 'consentPlace'
   ];
 
   for (const field of textFields) {
@@ -82,6 +82,9 @@ export const getCustomerById = async (req: any, res: Response) => {
       include: {
         loans: {
           include: { payments: true, emis: true },
+          orderBy: { createdAt: 'desc' }
+        },
+        documents: {
           orderBy: { createdAt: 'desc' }
         }
       }

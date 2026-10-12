@@ -38,6 +38,7 @@ class MessageRequest(BaseModel):
     custom_message: Optional[str] = None
     plan_name: Optional[str] = None
     renewal_date: Optional[str] = None
+    payment_link: Optional[str] = None
 
 
 def verify_key(value: str = Header(default="")) -> None:
@@ -50,8 +51,9 @@ def build_message(req: MessageRequest) -> str:
     company = req.company_name or "LenQredzo Finance"
     loan = req.loan_id or "your loan"
     amount = req.overdue_amount or req.emi_amount or "0"
+    link_section = f"\n\n👉 Pay Online via UPI / Card:\n{req.payment_link}" if req.payment_link else ""
     messages = {
-        "pending_emi": f"Dear {name},\n\nYour EMI of ₹{req.emi_amount or '0'} for Loan {loan} is due on {req.due_date or 'the due date'}. Please pay on time to avoid late fees.\n\n{company}",
+        "pending_emi": f"Dear {name},\n\nYour EMI of ₹{req.emi_amount or '0'} for Loan {loan} is due on {req.due_date or 'the due date'}.{link_section}\n\nPlease pay on time to avoid late fees.\n\n— {company}",
         "receipt": f"Dear {name},\n\n✅ Payment received!\nAmount: ₹{req.paid_amount or '0'}\nLoan ID: {loan}\nPayment Mode: {req.payment_method or 'Cash'}\nDate: {datetime.now():%d %b %Y}\n\nThank you,\n{company}",
         "late_fee": f"Dear {name},\n\n⚠️ A late fee of ₹{req.penalty_amount or '0'} was applied to Loan {loan}. Total outstanding: ₹{amount}.\n\n{company}",
         "guarantor_alert": f"Dear {req.guarantor_name or name},\n\n{req.borrower_name or name}'s Loan {loan} has ₹{amount} overdue ({req.overdue_days or '0'} days). Please help us resolve this.\n\n{company}",
