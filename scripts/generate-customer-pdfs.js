@@ -149,7 +149,7 @@ const customers = [
           'Date of Birth': '14-Aug-1988 (Age: 38)',
           'Gender': 'Male',
           'Residential Address': 'Flat 402, Sai Residency, Ameerpet, Hyderabad - 500016',
-          'Aadhaar Number': 'XXXX-XXXX-8492',
+          'Aadhaar Number': '849210293847',
           'PAN Card': 'ABCDE1234F'
         }
       },
@@ -192,7 +192,7 @@ const customers = [
           'Date of Birth': '22-Mar-1991 (Age: 35)',
           'Gender': 'Female',
           'Residential Address': 'Plot 18, Road No. 4, Jubilee Hills, Hyderabad - 500033',
-          'Aadhaar Number': 'XXXX-XXXX-3341',
+          'Aadhaar Number': '334190284712',
           'PAN Card': 'BKWPS9912K'
         }
       },
@@ -235,7 +235,7 @@ const customers = [
           'Date of Birth': '05-Nov-1985 (Age: 41)',
           'Gender': 'Male',
           'Residential Address': 'House 12-2-417, Mehdipatnam, Hyderabad - 500028',
-          'Aadhaar Number': 'XXXX-XXXX-9120',
+          'Aadhaar Number': '912048192834',
           'PAN Card': 'CZMPM4821N'
         }
       },
@@ -278,7 +278,7 @@ const customers = [
           'Date of Birth': '19-Jan-1994 (Age: 32)',
           'Gender': 'Female',
           'Residential Address': 'Flat 201, Srinivasa Heights, Kukatpally, Hyderabad - 500072',
-          'Aadhaar Number': 'XXXX-XXXX-6712',
+          'Aadhaar Number': '671294820193',
           'PAN Card': 'AGVPR7729L'
         }
       },
@@ -321,7 +321,7 @@ const customers = [
           'Date of Birth': '30-Jun-1980 (Age: 46)',
           'Gender': 'Male',
           'Residential Address': '34 Green Park Society, Begumpet, Secunderabad - 500003',
-          'Aadhaar Number': 'XXXX-XXXX-1983',
+          'Aadhaar Number': '198302918475',
           'PAN Card': 'BHZPP6631Q'
         }
       },
@@ -372,17 +372,40 @@ customers.forEach((c) => {
 });
 
 // Create CSV Import Manifest
-const csvHeader = 'Name,Phone,Email,Aadhaar,PAN,Bank_Name,IFSC,Account_Number,Monthly_Income,Loan_Amount,Loan_Type\n';
+const csvHeader = 'name,phone,email,address,aadhar,pan,branch\n';
 const csvRows = [
-  'Rajesh Verma,9876543210,rajesh.verma@example.com,XXXX-XXXX-8492,ABCDE1234F,State Bank of India,SBIN0000847,384920194857,85000,200000,Personal',
-  'Priya Sharma,9823011223,priya.sharma91@example.com,XXXX-XXXX-3341,BKWPS9912K,HDFC Bank,HDFC0000542,50100482910394,120000,350000,Business',
-  'Mohammed Irfan,9700088991,irfan.generalstore@example.com,XXXX-XXXX-9120,CZMPM4821N,Canara Bank,CNRB0000412,0412101039281,45000,50000,Daily Collection',
-  'Sunita Reddy,9949055667,sunita.reddy@example.com,XXXX-XXXX-6712,AGVPR7729L,ICICI Bank,ICIC0000048,004801592834,62000,95000,Two-Wheeler',
-  'Amit Patel,9428033445,amit.patel@example.com,XXXX-XXXX-1983,BHZPP6631Q,Bank of Baroda,BARB0BEGUMP,28490100019284,145000,500000,Working Capital'
+  'Rajesh Verma,9876543210,rajesh.verma@example.com,"Flat 402, Sai Residency, Ameerpet, Hyderabad",849210293847,ABCDE1234F,Ameerpet Main Branch',
+  'Priya Sharma,9823011223,priya.sharma91@example.com,"Plot 18, Road No. 4, Jubilee Hills, Hyderabad",334190284712,BKWPS9912K,Jubilee Hills Branch',
+  'Mohammed Irfan,9700088991,irfan.generalstore@example.com,"House 12-2-417, Mehdipatnam, Hyderabad",912048192834,CZMPM4821N,Mehdipatnam Branch',
+  'Sunita Reddy,9949055667,sunita.reddy@example.com,"Flat 201, Srinivasa Heights, Kukatpally, Hyderabad",671294820193,AGVPR7729L,Kukatpally KPHB Branch',
+  'Amit Patel,9428033445,amit.patel@example.com,"34 Green Park Society, Begumpet, Secunderabad",198302918475,BHZPP6631Q,Begumpet Branch'
 ].join('\n');
 
 fs.writeFileSync(path.join(targetDir, 'customers_import_manifest.csv'), csvHeader + csvRows, 'utf8');
 console.log('Created: customers_import_manifest.csv');
+
+// Also create LenQredZo_Customer_Import_Template.xlsx in sample-customer-pdfs with these 5 customers!
+const XLSX = require('xlsx');
+const excelData = [
+  ['name', 'phone', 'email', 'address', 'aadhar', 'pan', 'branch'],
+  ['Rajesh Verma', '9876543210', 'rajesh.verma@example.com', 'Flat 402, Sai Residency, Ameerpet, Hyderabad', '849210293847', 'ABCDE1234F', 'Ameerpet Main Branch'],
+  ['Priya Sharma', '9823011223', 'priya.sharma91@example.com', 'Plot 18, Road No. 4, Jubilee Hills, Hyderabad', '334190284712', 'BKWPS9912K', 'Jubilee Hills Branch'],
+  ['Mohammed Irfan', '9700088991', 'irfan.generalstore@example.com', 'House 12-2-417, Mehdipatnam, Hyderabad', '912048192834', 'CZMPM4821N', 'Mehdipatnam Branch'],
+  ['Sunita Reddy', '9949055667', 'sunita.reddy@example.com', 'Flat 201, Srinivasa Heights, Kukatpally, Hyderabad', '671294820193', 'AGVPR7729L', 'Kukatpally KPHB Branch'],
+  ['Amit Patel', '9428033445', 'amit.patel@example.com', '34 Green Park Society, Begumpet, Secunderabad', '198302918475', 'BHZPP6631Q', 'Begumpet Branch']
+];
+const ws = XLSX.utils.aoa_to_sheet(excelData);
+const wb = XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(wb, ws, 'Customers');
+XLSX.writeFile(wb, path.join(targetDir, 'LenQredZo_Customer_Import_Filled.xlsx'));
+console.log('Created: LenQredZo_Customer_Import_Filled.xlsx');
+
+// Sync to Desktop
+const desktopDir = 'C:/Users/ABHIGNA KODAMALA/OneDrive/Desktop/sample-customer-pdfs';
+if (fs.existsSync(desktopDir)) {
+  fs.cpSync(targetDir, desktopDir, { recursive: true });
+  console.log(`Synced files to Desktop: ${desktopDir}`);
+}
 
 // Create JSON Manifest
 fs.writeFileSync(path.join(targetDir, 'customers_data.json'), JSON.stringify(customers, null, 2), 'utf8');

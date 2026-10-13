@@ -249,22 +249,51 @@ export const bulkImportCustomers = async (req: any, res: Response) => {
     const added: string[] = [];
     const skipped: { row: number; name: string; reason: string }[] = [];
 
+    // Helper to flexibly get a field by multiple common names
+    const getField = (obj: any, keys: string[]) => {
+      for (const k of keys) {
+        if (obj[k] !== undefined && obj[k] !== null && String(obj[k]).trim() !== '') {
+          return String(obj[k]).trim();
+        }
+      }
+      for (const k of keys) {
+        const lowerK = k.toLowerCase().replace(/[\s_-]/g, '');
+        for (const actualKey of Object.keys(obj)) {
+          if (actualKey.toLowerCase().replace(/[\s_-]/g, '') === lowerK) {
+            const val = String(obj[actualKey]).trim();
+            if (val !== '') return val;
+          }
+        }
+      }
+      return '';
+    };
+
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i] || {};
       const rowNum = i + 2; // +2 because row 1 is the header in the sheet
 
-      const name = String(r.name ?? r.Name ?? '').trim();
-      const phone = String(r.phone ?? r.Phone ?? '').trim();
-      const email = String(r.email ?? r.Email ?? '').trim();
-      const address = String(r.address ?? r.Address ?? '').trim();
-      const aadhar = String(r.aadhar ?? r.Aadhaar ?? r.aadhaar ?? '').replace(/\s/g, '').trim();
-      const pan = String(r.pan ?? r.PAN ?? r.Pan ?? '').trim();
-      const branchName = String(r.branch ?? r.Branch ?? '').trim();
+      const name = getField(r, ['name', 'Name', 'Customer Name', 'Full Name', 'Customer', 'Applicant Name']);
+      let phone = getField(r, ['phone', 'Phone', 'Mobile', 'Mobile Number', 'Phone Number', 'Contact', 'Contact Number']);
+      phone = phone.replace(/\D/g, '').slice(-10);
+      const email = getField(r, ['email', 'Email', 'Email Address', 'Email ID']);
+      const address = getField(r, ['address', 'Address', 'Residential Address', 'Location', 'City']);
+      let aadhar = getField(r, ['aadhar', 'Aadhaar', 'Aadhar', 'Aadhaar Number', 'Aadhar No', 'UID']);
+      aadhar = aadhar.replace(/[\s-]/g, '').trim();
+      const pan = getField(r, ['pan', 'PAN', 'Pan', 'PAN Card', 'PAN Number', 'Pan No']).toUpperCase();
+      const branchName = getField(r, ['branch', 'Branch', 'Branch Name', 'Assigned Branch']);
+
+      // Skip completely empty rows (trailing formatting lines in Excel sheets)
+      if (!name && !phone && !email && !address && !aadhar && !pan) {
+        continue;
+      }
 
       // --- validation ---
       if (!name) { skipped.push({ row: rowNum, name: '(blank)', reason: 'Name is required' }); continue; }
-      if (!phone) { skipped.push({ row: rowNum, name, reason: 'Phone is required' }); continue; }
-      if (aadhar && !/^\d{12}$/.test(aadhar)) { skipped.push({ row: rowNum, name, reason: 'Aadhaar must be 12 digits' }); continue; }
+      if (!phone || phone.length < 10) { skipped.push({ row: rowNum, name, reason: 'Valid 10-digit Phone is required' }); continue; }
+      if (aadhar && !/^\d{12}$/.test(aadhar) && !/^X{4}-?X{4}-?\d{4}$/i.test(aadhar)) {
+        skipped.push({ row: rowNum, name, reason: 'Aadhaar must be 12 digits' });
+        continue;
+      }
       if (pan && !/^[A-Za-z]{5}[0-9]{4}[A-Za-z]$/.test(pan)) { skipped.push({ row: rowNum, name, reason: 'PAN format looks invalid' }); continue; }
 
       // --- duplicate checks ---
@@ -272,9 +301,8 @@ export const bulkImportCustomers = async (req: any, res: Response) => {
         skipped.push({ row: rowNum, name, reason: 'Duplicate phone' });
         continue;
       }
-      if (aadhar) {
-        const cleaned = aadhar.replace(/\s/g, '').trim();
-        if (existingAadhaars.has(cleaned)) {
+      if (aadhar && /^\d{12}$/.test(aadhar)) {
+        if (existingAadhaars.has(aadhar)) {
           skipped.push({ row: rowNum, name, reason: 'Duplicate Aadhaar' });
           continue;
         }
@@ -284,8 +312,13 @@ export const bulkImportCustomers = async (req: any, res: Response) => {
       let branchId: number | null = null;
       if (branchName) {
         const found = branchByName[branchName.toLowerCase()];
-        if (!found) { skipped.push({ row: rowNum, name, reason: `Branch "${branchName}" not found` }); continue; }
-        branchId = found;
+        if (found) {
+          branchId = found;
+        } else if (branches.length > 0) {
+          branchId = branches[0].id; // Fallback to default branch
+        }
+      } else if (branches.length > 0) {
+        branchId = branches[0].id;
       }
 
       try {
