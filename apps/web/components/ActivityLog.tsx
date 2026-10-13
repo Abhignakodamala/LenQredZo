@@ -65,20 +65,43 @@ export default function ActivityLog() {
   const [activeTab, setActiveTab] = useState<'all' | 'payments' | 'bank_kyc' | 'customers' | 'system'>('all');
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
 
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     fetchLogs();
   }, []);
 
   const fetchLogs = async () => {
     setLoading(true);
+    setError(null);
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      if (!token) {
+        setLogs([]);
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch(`${API_URL}/api/audit`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          setLogs([]);
+          setLoading(false);
+          return;
+        }
+        setError('Activity service temporarily unavailable. Click refresh to retry.');
+        setLogs([]);
+        return;
+      }
+
       const data = await res.json();
       setLogs(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error('Failed to fetch activity logs:', err);
+    } catch (err: any) {
+      console.warn('ActivityLog: Could not reach API:', err?.message || err);
+      setError('Unable to connect to the backend service. Please check server connectivity.');
     } finally {
       setLoading(false);
     }
@@ -444,6 +467,45 @@ export default function ActivityLog() {
           )}
         </div>
       </div>
+
+      {error && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            color: '#991b1b',
+            borderRadius: '10px',
+            padding: '10px 14px',
+            marginBottom: '16px',
+            fontSize: '13px',
+            gap: '12px',
+            flexWrap: 'wrap'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>⚠️</span>
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={fetchLogs}
+            style={{
+              background: '#ffffff',
+              border: '1px solid #fca5a5',
+              borderRadius: '6px',
+              padding: '4px 10px',
+              fontSize: '12px',
+              fontWeight: '600',
+              color: '#991b1b',
+              cursor: 'pointer'
+            }}
+          >
+            Retry Connection
+          </button>
+        </div>
+      )}
 
       {/* Logs Feed */}
       {loading ? (
