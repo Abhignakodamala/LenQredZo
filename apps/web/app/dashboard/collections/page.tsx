@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import FaceCaptureModal from '@/components/FaceCaptureModal';
+import CollectionRunSheetModal from '@/components/CollectionRunSheetModal';
 import { getAuthUser, can } from '@/lib/authUser';
 import { API_URL } from '@/lib/api';
 
@@ -11,6 +12,7 @@ export default function CollectionsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [showRunSheet, setShowRunSheet] = useState(false);
 
   // Collect dialog state
   const [dialog, setDialog] = useState<any>(null); // { emi, collectPenalty }
@@ -166,9 +168,30 @@ export default function CollectionsPage() {
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Sidebar />
       <div style={{ marginLeft: '220px', flex: 1, padding: '24px' }}>
-        <div style={{ marginBottom: '24px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Collections</h2>
-          <p style={{ color: '#6b7280', margin: 0 }}>Track EMIs, penalties and collections</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+          <div>
+            <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Collections</h2>
+            <p style={{ color: '#6b7280', margin: 0 }}>Track EMIs, penalties and collections</p>
+          </div>
+          <button
+            onClick={() => setShowRunSheet(true)}
+            style={{
+              background: '#0f172a',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '10px 18px',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}
+          >
+            📋 Print Morning Collection Sheet (Vasool List)
+          </button>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
@@ -398,6 +421,13 @@ export default function CollectionsPage() {
             setPendingPaymentData(null);
             setSubmitting(false);
           }}
+        />
+      )}
+      {showRunSheet && (
+        <CollectionRunSheetModal
+          emis={emis}
+          companyName={me?.companyName || 'LenQredzo Capital Pvt Ltd'}
+          onClose={() => setShowRunSheet(false)}
         />
       )}
     </div>

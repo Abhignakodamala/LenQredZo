@@ -369,7 +369,14 @@ export const getCollections = async (req: any, res: Response) => {
   try {
     const emis = await prisma.eMI.findMany({
       where: emiScope(req.user),
-      include: { loan: { include: { customer: true } } },
+      include: {
+        loan: {
+          include: {
+            customer: { include: { branch: true } },
+            company: true
+          }
+        }
+      },
       orderBy: { dueDate: 'asc' }
     });
 
@@ -387,10 +394,22 @@ export const getCollections = async (req: any, res: Response) => {
         ? Math.floor((today.getTime() - new Date(emi.dueDate).getTime()) / 86400000)
         : 0;
       const penalty = emi.status === 'paid' ? 0 : calculatePenalty(emi, emi.loan, today);
+      const addressParts = [
+        emi.loan.customer?.street,
+        emi.loan.customer?.address,
+        emi.loan.customer?.city
+      ].filter(Boolean);
       return {
         id: emi.id,
-        customerName: emi.loan.customer?.name,
+        customerName: emi.loan.customer?.name || 'Unknown',
+        customerPhone: emi.loan.customer?.phone || '',
+        customerAddress: addressParts.length > 0 ? addressParts.join(', ') : '—',
+        branchName: emi.loan.customer?.branch?.name || 'Headquarters',
+        companyName: emi.loan.company?.name || 'LenQredzo Finance',
         loanId: emi.loan.id,
+        loanType: emi.loan.type || 'Personal Loan',
+        frequency: emi.loan.frequency || 'monthly',
+        tenure: emi.loan.tenure || 1,
         dueDate: emi.dueDate,
         amount: emi.amount,
         paidAmount,
