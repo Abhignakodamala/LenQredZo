@@ -5,16 +5,27 @@ import { API_URL } from '@/lib/api';
 type CashReconciliationModalProps = {
   companyName?: string;
   branchName?: string;
+  companyLogo?: string | null;
   onClose: () => void;
 };
 
 export default function CashReconciliationModal({
   companyName = 'LenQredzo Capital Pvt Ltd',
   branchName = 'Headquarters Branch',
+  companyLogo,
   onClose
 }: CashReconciliationModalProps) {
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const resolvedLogo = useMemo(() => {
+    if (companyLogo) return companyLogo;
+    try {
+      const stored = localStorage.getItem('company');
+      if (stored) return JSON.parse(stored).logo || null;
+    } catch (_) {}
+    return null;
+  }, [companyLogo]);
 
   // Default to today's date in local YYYY-MM-DD format
   const todayStr = useMemo(() => {
@@ -351,16 +362,25 @@ export default function CashReconciliationModal({
               marginBottom: '20px'
             }}>
               <div>
-                <h1 style={{
-                  margin: 0,
-                  fontSize: '22px',
-                  fontWeight: 800,
-                  color: '#0f172a',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>
-                  {companyName}
-                </h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {resolvedLogo && (
+                    <img
+                      src={resolvedLogo.startsWith('http') ? resolvedLogo : `${API_URL}${resolvedLogo}`}
+                      alt={companyName}
+                      style={{ height: '36px', maxWidth: '120px', objectFit: 'contain' }}
+                    />
+                  )}
+                  <h1 style={{
+                    margin: 0,
+                    fontSize: '22px',
+                    fontWeight: 800,
+                    color: '#0f172a',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    {companyName}
+                  </h1>
+                </div>
                 <p style={{ margin: '3px 0 0', fontSize: '13px', color: '#475569', fontWeight: 600 }}>
                   {branchName} · Daily Cash Drawer & Cashier Handover Register
                 </p>

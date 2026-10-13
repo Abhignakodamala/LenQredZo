@@ -3,8 +3,10 @@ import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { API_URL } from '@/lib/api';
 
 type User = { name?: string; role?: string };
+type Company = { name?: string; logo?: string | null };
 
 const baseMenuItems = [
   { name: 'Dashboard', icon: '📊', href: '/dashboard' },
@@ -36,6 +38,7 @@ const ROLE_LABELS: Record<string, string> = {
 export default function Sidebar() {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
+  const [company, setCompany] = useState<Company | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem('user');
@@ -46,6 +49,20 @@ export default function Sidebar() {
         setUser(null);
       }
     }
+
+    const loadCompany = () => {
+      const storedComp = localStorage.getItem('company');
+      if (storedComp) {
+        try {
+          setCompany(JSON.parse(storedComp));
+        } catch {
+          setCompany(null);
+        }
+      }
+    };
+    loadCompany();
+    window.addEventListener('company:updated', loadCompany);
+    return () => window.removeEventListener('company:updated', loadCompany);
   }, []);
 
   const isOwner = OWNER_ROLES.includes(user?.role || '');
@@ -69,20 +86,40 @@ export default function Sidebar() {
       
       {/* Logo */}
       <div style={{padding:'16px 20px', borderBottom:'1px solid #1e293b'}}>
-  <Image
-    src="/lenqredzo-logo-transparent.png"
-    alt="LenQredzo"
-    width={150}
-    height={99}
-    priority
-    style={{
-      width:'150px',
-      height:'auto',
-      objectFit:'contain',
-      display:'block',
-      filter: 'none',
-    }}
-  />
+        {company?.logo ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <img
+              src={company.logo.startsWith('http') ? company.logo : `${API_URL}${company.logo}`}
+              alt={company.name || 'Company Logo'}
+              style={{
+                maxHeight: '44px',
+                maxWidth: '170px',
+                objectFit: 'contain',
+                display: 'block'
+              }}
+            />
+            {company.name && (
+              <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {company.name}
+              </span>
+            )}
+          </div>
+        ) : (
+          <Image
+            src="/lenqredzo-logo-transparent.png"
+            alt="LenQredzo"
+            width={150}
+            height={99}
+            priority
+            style={{
+              width:'150px',
+              height:'auto',
+              objectFit:'contain',
+              display:'block',
+              filter: 'none',
+            }}
+          />
+        )}
       </div>
 
       {/* Nav */}

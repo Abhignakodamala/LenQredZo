@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, type CSSProperties } from 'react';
+import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { API_URL } from '@/lib/api';
 import ActivityLog from '@/components/ActivityLog';
@@ -7,7 +7,7 @@ import ManagePasskeys from '@/components/ManagePasskeys';
 import SecurityDeviceInfo from '@/components/SecurityDeviceInfo';
 import { registerPasskey } from '@/lib/webauthn';
 
-type CompanyState = { name: string; plan: string };
+type CompanyState = { name: string; plan: string; logo?: string | null; primaryColor?: string | null };
 type UserState = { name: string; email: string; role: string };
 type PasswordState = { currentPassword: string; newPassword: string; confirmPassword: string };
 
@@ -15,10 +15,11 @@ type ShowPasswordState = { current: boolean; new: boolean; confirm: boolean };
 
 export default function SettingsPage() {
   const [showPwd, setShowPwd] = useState<ShowPasswordState>({ current: false, new: false, confirm: false });
-  const [company, setCompany] = useState<CompanyState>({ name: '', plan: 'starter' });
+  const [company, setCompany] = useState<CompanyState>({ name: '', plan: 'starter', logo: null });
   const [user, setUser] = useState<UserState>({ name: '', email: '', role: '' });
   const [loading, setLoading] = useState(true);
   const [savingCompany, setSavingCompany] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [msg, setMsg] = useState('');
   const [pwd, setPwd] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -26,6 +27,9 @@ export default function SettingsPage() {
   const [pwdError, setPwdError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
+
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
+
   useEffect(() => { fetchSettings(); }, []);
 
   const fetchSettings = async () => {
@@ -35,13 +39,87 @@ export default function SettingsPage() {
         headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
       });
       const data = await res.json();
-      if (data.company) setCompany(data.company);
+      if (data.company) {
+        setCompany(data.company);
+        localStorage.setItem('company', JSON.stringify(data.company));
+        window.dispatchEvent(new Event('company:updated'));
+      }
       if (data.user) setUser(data.user);
     } catch (error) { console.error('Failed to fetch settings', error); }
     setLoading(false);
   };
 
   const showMsg = (m: string) => { setMsg(m); setTimeout(() => setMsg(''), 3000); };
+
+  const handleLogoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      showMsg('❌ Logo file size cannot exceed 5MB');
+      return;
+    }
+
+    setUploadingLogo(true);
+    try {
+      const formData = new FormData();
+      formData.append('logo', file);
+
+      const res = await fetch(`${API_URL}/api/settings/company/logo`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+        },
+        body: formData
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setCompany(prev => ({ ...prev, logo: data.logo }));
+        if (data.company) {
+          localStorage.setItem('company', JSON.stringify(data.company));
+          window.dispatchEvent(new Event('company:updated'));
+        }
+        showMsg('✅ Company logo uploaded successfully');
+      } else {
+        showMsg(`❌ ${data.message || 'Failed to upload logo'}`);
+      }
+    } catch (err: any) {
+      console.error('Logo upload error:', err);
+      showMsg('❌ Error uploading company logo');
+    } finally {
+      setUploadingLogo(false);
+      if (logoInputRef.current) logoInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveLogo = async () => {
+    if (!confirm('Are you sure you want to remove the custom company logo and revert to default?')) return;
+    setUploadingLogo(true);
+    try {
+      const res = await fetch(`${API_URL}/api/settings/company/logo`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCompany(prev => ({ ...prev, logo: null }));
+        if (data.company) {
+          localStorage.setItem('company', JSON.stringify(data.company));
+          window.dispatchEvent(new Event('company:updated'));
+        }
+        showMsg('✅ Company logo removed');
+      } else {
+        showMsg(`❌ ${data.message || 'Failed to remove logo'}`);
+      }
+    } catch (err) {
+      showMsg('❌ Error removing company logo');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
 
   const handleEnableBiometric = async () => {
     const token = localStorage.getItem('token');
@@ -190,7 +268,106 @@ export default function SettingsPage() {
 
         {/* Company Settings */}
         <div style={card}>
-          <h3 style={{ fontWeight: '700', fontSize: '16px', margin: '0 0 16px' }}>🏢 Company Details</h3>
+          <h3 style={{ fontWeight: '700', fontSize: '16px', margin: '0 0 16px' }}>🏢 Company Details & Branding</h3>
+
+          {/* Company Logo Section */}
+          <div style={{
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '10px',
+            padding: '16px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '20px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{
+                width: '76px',
+                height: '76px',
+                borderRadius: '8px',
+                border: '1.5px dashed #cbd5e1',
+                background: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                padding: '4px'
+              }}>
+                {company.logo ? (
+                  <img
+                    src={company.logo.startsWith('http') ? company.logo : `${API_URL}${company.logo}`}
+                    alt="Company Logo"
+                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                  />
+                ) : (
+                  <span style={{ fontSize: '32px', color: '#94a3b8' }}>🏢</span>
+                )}
+              </div>
+
+              <div>
+                <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#111827' }}>
+                  Official Company Logo
+                </h4>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>
+                  {company.logo ? 'Custom logo active. Visible on Sidebar, Passbooks, Sanction Letters & NOCs.' : 'No custom logo uploaded yet. Using standard branding.'}
+                </p>
+                <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#94a3b8' }}>
+                  Supported formats: PNG, JPG, SVG, WebP (Max 5MB)
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                style={{ display: 'none' }}
+                onChange={handleLogoFileChange}
+              />
+              <button
+                type="button"
+                onClick={() => logoInputRef.current?.click()}
+                disabled={uploadingLogo}
+                style={{
+                  background: '#1e40af',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  opacity: uploadingLogo ? 0.7 : 1
+                }}
+              >
+                {uploadingLogo ? 'Uploading...' : (company.logo ? 'Change Logo' : 'Upload Logo')}
+              </button>
+
+              {company.logo && (
+                <button
+                  type="button"
+                  onClick={handleRemoveLogo}
+                  disabled={uploadingLogo}
+                  style={{
+                    background: '#fef2f2',
+                    color: '#dc2626',
+                    border: '1px solid #fecaca',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div>
               <label style={lbl}>Company Name</label>
@@ -204,10 +381,9 @@ export default function SettingsPage() {
                 <option value="enterprise">Enterprise</option>
               </select>
             </div>
-    
           </div>
           <button onClick={saveCompany} disabled={savingCompany} style={{ ...btn, marginTop: '16px', opacity: savingCompany ? 0.7 : 1 }}>
-            {savingCompany ? 'Saving...' : 'Save Company'}
+            {savingCompany ? 'Saving...' : 'Save Company Details'}
           </button>
         </div>
 

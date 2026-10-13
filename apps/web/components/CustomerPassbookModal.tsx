@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useMemo } from 'react';
+import { API_URL } from '@/lib/api';
 
 type CustomerPassbookModalProps = {
   customer: any;
@@ -464,21 +465,29 @@ export default function CustomerPassbookModal({ customer, onClose }: CustomerPas
               marginBottom: '20px'
             }}>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{
-                    width: '34px',
-                    height: '34px',
-                    borderRadius: '8px',
-                    background: '#1e3a8a',
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 900,
-                    fontSize: '18px'
-                  }}>
-                    L
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {company.logo ? (
+                    <img
+                      src={company.logo.startsWith('http') ? company.logo : `${API_URL}${company.logo}`}
+                      alt={companyName}
+                      style={{ height: '36px', maxWidth: '120px', objectFit: 'contain' }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: '34px',
+                      height: '34px',
+                      borderRadius: '8px',
+                      background: '#1e3a8a',
+                      color: 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 900,
+                      fontSize: '18px'
+                    }}>
+                      L
+                    </div>
+                  )}
                   <h1 style={{
                     margin: 0,
                     fontSize: '22px',
