@@ -21,6 +21,7 @@ import aiRoutes from './modules/ai/ai.routes';
 import whatsappRoutes from './modules/whatsapp/whatsapp.routes';
 
 import paymentsRoutes from './modules/payments/payments.routes';
+import { startMidnightCronScheduler } from './services/penalty-cron.service';
 
 import fs from 'fs';
 

@@ -4,6 +4,7 @@ import { encrypt, decrypt, maskAadhaar, maskPan } from '../../utils/encryption';
 import { logAudit } from '../../utils/audit';
 import { loanScope, emiScope, paymentScope, isBranchScoped } from '../../utils/scoping';
 import { validateReference } from '../../utils/refcheck';
+import { runMidnightPenaltyAccrual } from '../../services/penalty-cron.service';
 
 
 // --- PII helpers: decrypt + mask before sending to the browser ---
@@ -737,6 +738,25 @@ export const forecloseLoan = async (req: any, res: Response) => {
   } catch (error: any) {
     console.error('Foreclose loan error:', error);
     res.status(500).json({ message: error.message || 'Server error while foreclosing loan' });
+  }
+};
+
+export const triggerMidnightPenaltyJob = async (req: any, res: Response) => {
+  try {
+    const companyId = req.user.companyId;
+    const userId = req.user.id;
+    const userName = req.user.name;
+
+    const result = await runMidnightPenaltyAccrual({
+      companyId,
+      userId,
+      userName
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('Manual penalty job error:', error);
+    res.status(500).json({ message: error.message || 'Failed to execute midnight penalty accrual', error });
   }
 };
 

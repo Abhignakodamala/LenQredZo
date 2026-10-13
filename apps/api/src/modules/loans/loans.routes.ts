@@ -11,7 +11,8 @@ import {
   addGuarantorToLoan,
   updateGuarantor,
   deleteGuarantor,
-  forecloseLoan
+  forecloseLoan,
+  triggerMidnightPenaltyJob
 } from './loans.controller';
 import { protect } from '../../middleware/auth';
 import { requirePermission } from '../../utils/permissions';
@@ -25,6 +26,7 @@ router.get('/payments/all', protect, getPayments);
 router.get('/:id', protect, getLoanById);
 
 // Actions are gated by permission.
+router.post('/cron/accrue-penalties', protect, requirePermission('loan:approve'), triggerMidnightPenaltyJob);
 router.post('/', protect, requirePermission('loan:create'), createLoan);
 router.put('/:id', protect, requirePermission('loan:approve'), updateLoanStatus);
 router.post('/:id/foreclose', protect, requirePermission('loan:approve'), forecloseLoan);

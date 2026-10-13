@@ -26,8 +26,37 @@ export default function CollectionsPage() {
   const [me, setMe] = useState<any>(null);
   const [showPaymentCapture, setShowPaymentCapture] = useState(false);
   const [pendingPaymentData, setPendingPaymentData] = useState<any>(null);
+  const [runningAccrual, setRunningAccrual] = useState(false);
+  const [accrualResult, setAccrualResult] = useState<any>(null);
 
- useEffect(() => { fetchCollections(); setMe(getAuthUser()); }, []);
+  useEffect(() => { fetchCollections(); setMe(getAuthUser()); }, []);
+
+  const handleRunAccrual = async () => {
+    if (!confirm('Run Automated Midnight Overdue & Late Fee Accrual now?\\n\\nThis will scan all active loans, mark past-due EMIs as "Overdue", calculate fixed/daily late penalty fees, and log an audit record.')) return;
+    setRunningAccrual(true);
+    try {
+      const res = await fetch(`${API_URL}/api/loans/cron/accrue-penalties`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.message || 'Failed to execute penalty accrual');
+      } else {
+        const data = await res.json();
+        setAccrualResult(data);
+        await fetchCollections();
+      }
+    } catch (err) {
+      console.error('Accrual error:', err);
+      alert('Network error while running accrual.');
+    } finally {
+      setRunningAccrual(false);
+    }
+  };
 
   const fetchCollections = async () => {
     setLoading(true);
@@ -173,25 +202,50 @@ export default function CollectionsPage() {
             <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Collections</h2>
             <p style={{ color: '#6b7280', margin: 0 }}>Track EMIs, penalties and collections</p>
           </div>
-          <button
-            onClick={() => setShowRunSheet(true)}
-            style={{
-              background: '#0f172a',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '10px 18px',
-              fontSize: '13px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-            }}
-          >
-            📋 Print Morning Collection Sheet (Vasool List)
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              onClick={handleRunAccrual}
+              disabled={runningAccrual}
+              style={{
+                background: '#dc2626',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '10px 18px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: runningAccrual ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 4px rgba(220, 38, 38, 0.2)',
+                opacity: runningAccrual ? 0.7 : 1
+              }}
+              title="Manually trigger midnight penalty calculation and overdue status updates"
+            >
+              {runningAccrual ? '⏳ Accruing Late Fees...' : '⚡ Run Midnight Penalty Job'}
+            </button>
+
+            <button
+              onClick={() => setShowRunSheet(true)}
+              style={{
+                background: '#0f172a',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '10px 18px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }}
+            >
+              📋 Print Morning Collection Sheet (Vasool List)
+            </button>
+          </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
@@ -429,6 +483,108 @@ export default function CollectionsPage() {
           companyName={me?.companyName || 'LenQredzo Capital Pvt Ltd'}
           onClose={() => setShowRunSheet(false)}
         />
+      )}
+
+      {/* Midnight Penalty Accrual Result Modal */}
+      {accrualResult && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15, 23, 42, 0.75)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            maxWidth: '640px',
+            width: '100%',
+            padding: '24px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#111827' }}>
+                  ⚡ Midnight Penalty & Overdue Accrual Summary
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#6b7280' }}>
+                  Automated core engine ran at {new Date(accrualResult.runAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </p>
+              </div>
+              <button
+                onClick={() => setAccrualResult(null)}
+                style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#6b7280' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
+              <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <p style={{ margin: 0, fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Loans Scanned</p>
+                <p style={{ margin: '4px 0 0', fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>{accrualResult.totalLoansChecked}</p>
+              </div>
+              <div style={{ background: '#fef2f2', padding: '12px', borderRadius: '8px', border: '1px solid #fecaca' }}>
+                <p style={{ margin: 0, fontSize: '11px', color: '#991b1b', fontWeight: 600 }}>Overdue EMIs Updated</p>
+                <p style={{ margin: '4px 0 0', fontSize: '18px', fontWeight: 800, color: '#dc2626' }}>{accrualResult.overdueEmisCount}</p>
+              </div>
+              <div style={{ background: '#eff6ff', padding: '12px', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+                <p style={{ margin: 0, fontSize: '11px', color: '#1e40af', fontWeight: 600 }}>Penalties Accrued</p>
+                <p style={{ margin: '4px 0 0', fontSize: '18px', fontWeight: 800, color: '#2563eb' }}>₹{accrualResult.totalPenaltyAccrued.toLocaleString('en-IN')}</p>
+              </div>
+            </div>
+
+            {accrualResult.updatedRecords && accrualResult.updatedRecords.length > 0 ? (
+              <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px', marginBottom: '20px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                  <thead style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                    <tr>
+                      <th style={{ padding: '8px 10px', textAlign: 'left' }}>Borrower</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left' }}>Loan</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'center' }}>Overdue Days</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'right' }}>Late Fee Added</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {accrualResult.updatedRecords.map((r: any, idx: number) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                        <td style={{ padding: '8px 10px', fontWeight: 600 }}>{r.customerName}</td>
+                        <td style={{ padding: '8px 10px', color: '#1e40af' }}>{r.loanRef}</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'center', color: '#dc2626' }}>{r.daysOverdue} days</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, color: '#dc2626' }}>+₹{r.penaltyAccruedThisRun}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div style={{ padding: '16px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0', color: '#15803d', fontSize: '13px', fontWeight: 500, marginBottom: '20px' }}>
+                ✓ All installments are currently in good standing or already accrued. No new overdue penalties required at this time.
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setAccrualResult(null)}
+                style={{
+                  background: '#0f172a',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '8px 18px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
