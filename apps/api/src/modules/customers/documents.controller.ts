@@ -33,6 +33,20 @@ const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterC
   }
 };
 
+const formatDocTypeName = (t: string) => {
+  const map: Record<string, string> = {
+    aadhar_front: 'Aadhaar Card (Front)',
+    aadhar_back: 'Aadhaar Card (Back)',
+    pan_card: 'PAN Card',
+    photo: 'Borrower Photo',
+    bank_passbook: 'Bank Passbook / Statement',
+    salary_slip: 'Salary Slip',
+    cheque: 'Cancelled Cheque',
+    other: 'Supporting Document'
+  };
+  return map[t] || (t ? t.replace(/_/g, ' ').toUpperCase() : 'Document');
+};
+
 export const uploadMiddleware = multer({
   storage,
   fileFilter,
@@ -122,12 +136,13 @@ export const uploadDocument = async (req: any, res: Response) => {
       });
     }
 
+    const friendlyDoc = formatDocTypeName(docType);
     await logAudit({
       req,
       action: 'UPLOAD_CUSTOMER_DOCUMENT',
       entityType: 'CustomerDocument',
       entityId: document.id,
-      details: JSON.stringify({ customerId, docType, fileName })
+      details: `Uploaded ${friendlyDoc} (${fileName}) for customer #${customerId}`
     });
 
     return res.status(201).json(document);
@@ -217,12 +232,15 @@ export const verifyCustomerDocument = async (req: any, res: Response) => {
       });
     }
 
+    const friendlyDoc = formatDocTypeName(document.docType);
+    const actionVerb = status === 'verified' ? 'Approved & verified' : status === 'rejected' ? 'Rejected' : 'Reviewed';
+    const reasonText = status === 'rejected' && rejectionReason ? ` (Reason: "${rejectionReason}")` : '';
     await logAudit({
       req,
       action: status === 'verified' ? 'VERIFY_CUSTOMER_DOCUMENT' : 'REJECT_CUSTOMER_DOCUMENT',
       entityType: 'CustomerDocument',
       entityId: docId,
-      details: JSON.stringify({ customerId, docType: document.docType, status, rejectionReason })
+      details: `${actionVerb} ${friendlyDoc} for customer #${customerId}${reasonText}`
     });
 
     return res.json(updated);
@@ -263,12 +281,13 @@ export const deleteCustomerDocument = async (req: any, res: Response) => {
       where: { id: docId }
     });
 
+    const friendlyDoc = formatDocTypeName(document.docType);
     await logAudit({
       req,
       action: 'DELETE_CUSTOMER_DOCUMENT',
       entityType: 'CustomerDocument',
       entityId: docId,
-      details: JSON.stringify({ customerId, docType: document.docType })
+      details: `Deleted ${friendlyDoc} for customer #${customerId}`
     });
 
     return res.json({ success: true, message: 'Document deleted successfully' });
@@ -315,12 +334,14 @@ export const updateCustomerKycStatus = async (req: any, res: Response) => {
       data: { kycStatus }
     });
 
+    const prevStatus = customer.kycStatus ? customer.kycStatus.toUpperCase() : 'PENDING';
+    const nextStatus = kycStatus.toUpperCase();
     await logAudit({
       req,
       action: 'UPDATE_CUSTOMER_KYC_STATUS',
       entityType: 'Customer',
       entityId: customerId,
-      details: JSON.stringify({ previousStatus: customer.kycStatus, newStatus: kycStatus })
+      details: `KYC status updated from ${prevStatus} to ${nextStatus} for customer #${customerId}`
     });
 
     return res.json({ success: true, kycStatus: updated.kycStatus });

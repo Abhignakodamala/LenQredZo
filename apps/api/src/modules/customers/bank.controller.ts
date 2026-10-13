@@ -205,18 +205,13 @@ export const verifyCustomerBankAccount = async (req: any, res: Response) => {
     });
 
     // 5. Audit Log
+    const statusLabel = status === 'verified' ? 'Verified' : status === 'failed' ? 'Failed' : 'Manual Review';
     await logAudit({
       req,
       action: 'VERIFY_BANK_ACCOUNT',
       entityType: 'Customer',
       entityId: customerId,
-      details: JSON.stringify({
-        bankName,
-        ifsc,
-        beneficiaryName,
-        matchScore,
-        status
-      })
+      details: `Bank account verified: ${bankName} (${ifsc}) · Beneficiary: "${beneficiaryName}" · Name Match: ${matchScore}% (${statusLabel})`
     });
 
     return res.json({
@@ -284,7 +279,7 @@ export const updateCustomerBankDetails = async (req: any, res: Response) => {
       action: 'UPDATE_BANK_DETAILS',
       entityType: 'Customer',
       entityId: customerId,
-      details: JSON.stringify({ bankName: resolvedBank, ifsc: bankIfsc })
+      details: `Updated bank details: ${resolvedBank || 'Bank'} (IFSC: ${bankIfsc || 'N/A'}${branch ? `, ${branch}` : ''})`
     });
 
     return res.json({
