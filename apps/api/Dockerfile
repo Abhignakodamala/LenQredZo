@@ -9,6 +9,7 @@ RUN apk add --no-cache openssl libc6-compat
 COPY package.json package-lock.json ./
 COPY apps/api/package.json ./apps/api/
 COPY prisma ./prisma/
+COPY packages ./packages/
 
 # Install dependencies
 RUN npm ci
@@ -24,6 +25,9 @@ RUN mkdir -p apps/api/uploads/kyc
 
 WORKDIR /app/apps/api
 
+# Build production TypeScript output
+RUN npm run build
+
 EXPOSE 5000
 
-CMD ["npm", "run", "dev"]
+CMD ["node", "dist/index.js"]

@@ -8,6 +8,7 @@ RUN apk add --no-cache libc6-compat
 # Copy root monorepo files
 COPY package.json package-lock.json ./
 COPY apps/web/package.json ./apps/web/
+COPY packages ./packages/
 
 # Install dependencies
 RUN npm ci
