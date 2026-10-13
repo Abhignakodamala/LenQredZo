@@ -1,5 +1,5 @@
 'use client';
-import { ChangeEvent, useState, useEffect } from 'react';
+import { ChangeEvent, DragEvent, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
 import Sidebar from '@/components/Sidebar';
@@ -10,7 +10,6 @@ const ALLOWED = ['owner', 'admin', 'Super Admin', 'branch_manager'];
 
 type ImportRow = { [key: string]: string | number };
 type SkipReason = { row: number; name: string; reason: string };
-
 type PreviewRow = { rowNum: number; name: string; phone: string; email: string; address: string; aadhar: string; pan: string; branch: string };
 
 /**
@@ -81,15 +80,200 @@ function extractCustomerFromPdfText(text: string): ImportRow {
 export default function BulkImportPage() {
   const [me, setMe] = useState<AuthUser | null>(null);
   const [rows, setRows] = useState<ImportRow[]>([]);
-  const [fileName, setFileName] = useState('');
-  const [sheetName, setSheetName] = useState<string | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<{ name: string; size: string; isPdf: boolean }[]>([]);
   const [importing, setImporting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [result, setResult] = useState<{ addedCount: number; skippedCount: number; skipped: SkipReason[] } | null>(null);
   const [error, setError] = useState('');
   const [preview, setPreview] = useState<PreviewRow[]>([]);
   const [validation, setValidation] = useState<{ valid: number; invalid: number; errors: SkipReason[] }>({ valid: 0, invalid: 0, errors: [] });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setMe(getAuthUser()); }, []);
+
+  const resetAll = () => {
+    setRows([]);
+    setUploadedFiles([]);
+    setPreview([]);
+    setValidation({ valid: 0, invalid: 0, errors: [] });
+    setError('');
+    setResult(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const processFiles = async (files: File[]) => {
+    if (!files || files.length === 0) return;
+    setError('');
+    setResult(null);
+    setPreview([]);
+    setValidation({ valid: 0, invalid: 0, errors: [] });
+
+    const fileMeta = files.map(f => ({
+      name: f.name,
+      size: `${(f.size / 1024).toFixed(1)} KB`,
+      isPdf: f.name.toLowerCase().endsWith('.pdf')
+    }));
+    setUploadedFiles(fileMeta);
+
+    // 1. Process PDF documents
+    const pdfFiles = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
+    if (pdfFiles.length > 0) {
+      try {
+        const parsedRows: ImportRow[] = [];
+        for (const file of pdfFiles) {
+          const text = await file.text();
+          const customer = extractCustomerFromPdfText(text);
+          if (customer.name || customer.phone) {
+            parsedRows.push(customer);
+          }
+        }
+
+        if (parsedRows.length === 0) {
+          setError('Could not extract customer details from the selected PDF(s). Please check the file content.');
+          setRows([]);
+          return;
+        }
+
+        setRows(parsedRows);
+        buildPreviewAndValidate(parsedRows);
+        return;
+      } catch (pdfErr) {
+        console.error(pdfErr);
+        setError('Failed to process PDF document. Please verify the document format.');
+        setRows([]);
+        return;
+      }
+    }
+
+    // 2. Process Spreadsheet (Excel or CSV)
+    const spreadsheetFile = files[0];
+    const reader = new FileReader();
+    reader.onload = (ev: ProgressEvent<FileReader>) => {
+      try {
+        const res = ev.target?.result;
+        if (!res) throw new Error('File load failed');
+        const wb = XLSX.read(res, { type: 'array' });
+        const firstSheetName = wb.SheetNames[0] ?? null;
+        const sheet = wb.Sheets[firstSheetName || ''];
+        const rawJson = XLSX.utils.sheet_to_json(sheet, { defval: '' }) as ImportRow[];
+
+        const cleanedRows: ImportRow[] = [];
+        for (const r of rawJson) {
+          const norm = normalizeRow(r);
+          if (norm.name || norm.phone || norm.email || norm.address || norm.aadhar || norm.pan) {
+            cleanedRows.push(norm);
+          }
+        }
+
+        if (cleanedRows.length === 0) {
+          setError('No valid customer data found. Please ensure the file has column headers and customer records.');
+          setRows([]);
+          return;
+        }
+
+        setRows(cleanedRows);
+        buildPreviewAndValidate(cleanedRows);
+      } catch (err) {
+        console.error(err);
+        setError('Could not read this file. Please upload an Excel (.xlsx), CSV, or customer profile PDF.');
+        setRows([]);
+      }
+    };
+    reader.readAsArrayBuffer(spreadsheetFile);
+  };
+
+  const onFileInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      processFiles(Array.from(e.target.files));
+    }
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFiles(Array.from(e.dataTransfer.files));
+    }
+  };
+
+  function buildPreviewAndValidate(json: ImportRow[]) {
+    const p: PreviewRow[] = [];
+    const errs: SkipReason[] = [];
+    for (let i = 0; i < Math.min(json.length, 5); i++) {
+      const r = json[i] || {};
+      p.push({
+        rowNum: i + 1,
+        name: String(r.name || ''),
+        phone: String(r.phone || ''),
+        email: String(r.email || ''),
+        address: String(r.address || ''),
+        aadhar: String(r.aadhar || ''),
+        pan: String(r.pan || ''),
+        branch: String(r.branch || '')
+      });
+    }
+
+    let valid = 0, invalid = 0;
+    for (let i = 0; i < json.length; i++) {
+      const r = json[i] || {};
+      const rowNum = i + 1;
+      const name = String(r.name || '').trim();
+      const phone = String(r.phone || '').trim();
+      const aadhar = String(r.aadhar || '').replace(/[\s-]/g, '').trim();
+
+      let badReason = '';
+      if (!name) badReason = 'Name is required';
+      else if (!phone || phone.length < 10) badReason = 'Valid 10-digit Phone is required';
+      else if (aadhar && !/^\d{12}$/.test(aadhar) && !/^X{4}-?X{4}-?\d{4}$/i.test(aadhar)) {
+        badReason = 'Aadhaar must be 12 digits';
+      }
+
+      if (badReason) {
+        invalid++;
+        errs.push({ row: rowNum, name: name || '(blank)', reason: badReason });
+      } else {
+        valid++;
+      }
+    }
+
+    setPreview(p);
+    setValidation({ valid, invalid, errors: errs });
+  }
+
+  const doImport = async (onlyValid = false) => {
+    setError('');
+    setResult(null);
+    if (rows.length === 0) { setError('Please select a file to import first.'); return; }
+    if (rows.length > 2000) { setError('Too many rows. Please import at most 2000 at a time.'); return; }
+    setImporting(true);
+    try {
+      const payload = onlyValid ? { rows: rows.filter((_r, i) => !validation.errors.find(e => e.row === i + 1)) } : { rows };
+      const res = await fetch(`${API_URL}/api/customers/bulk-import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.message || 'Import failed.'); setImporting(false); return; }
+      setResult(data);
+    } catch (err) {
+      console.error(err);
+      setError('Could not reach the server.');
+    }
+    setImporting(false);
+  };
 
   const downloadTemplateExcel = () => {
     const headers = [['name', 'phone', 'email', 'address', 'aadhar', 'pan', 'branch']];
@@ -118,157 +302,8 @@ export default function BulkImportPage() {
     document.body.removeChild(link);
   };
 
-  const onFile = async (e: ChangeEvent<HTMLInputElement>) => {
-    setError('');
-    setResult(null);
-    setPreview([]);
-    setValidation({ valid: 0, invalid: 0, errors: [] });
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    const fileList = Array.from(files);
-    setFileName(fileList.map(f => f.name).join(', '));
-
-    // Handle PDF files directly
-    const pdfFiles = fileList.filter(f => f.name.toLowerCase().endsWith('.pdf'));
-    if (pdfFiles.length > 0) {
-      try {
-        const parsedRows: ImportRow[] = [];
-        for (const file of pdfFiles) {
-          const text = await file.text();
-          const customer = extractCustomerFromPdfText(text);
-          if (customer.name || customer.phone) {
-            parsedRows.push(customer);
-          }
-        }
-
-        if (parsedRows.length === 0) {
-          setError('Could not extract customer details from the selected PDF(s). Please verify the document format.');
-          setRows([]);
-          return;
-        }
-
-        setSheetName(`Customer Profile PDF (${parsedRows.length} applicant${parsedRows.length > 1 ? 's' : ''})`);
-        setRows(parsedRows);
-        buildPreviewAndValidate(parsedRows);
-        return;
-      } catch (pdfErr) {
-        console.error(pdfErr);
-        setError('Failed to parse customer PDF document. Please upload a valid customer profile or Excel template.');
-        setRows([]);
-        return;
-      }
-    }
-
-    // Handle Excel (.xlsx, .xls) and CSV (.csv) files
-    const file = fileList[0];
-    const reader = new FileReader();
-    reader.onload = (ev: ProgressEvent<FileReader>) => {
-      try {
-        const res = ev.target?.result;
-        if (!res) throw new Error('File load failed');
-        const wb = XLSX.read(res, { type: 'array' });
-        const firstSheetName = wb.SheetNames[0] ?? null;
-        setSheetName(firstSheetName);
-        const sheet = wb.Sheets[firstSheetName || ''];
-        const rawJson = XLSX.utils.sheet_to_json(sheet, { defval: '' }) as ImportRow[];
-
-        // Normalize rows and skip completely empty lines
-        const cleanedRows: ImportRow[] = [];
-        for (const r of rawJson) {
-          const norm = normalizeRow(r);
-          if (norm.name || norm.phone || norm.email || norm.address || norm.aadhar || norm.pan) {
-            cleanedRows.push(norm);
-          }
-        }
-
-        if (cleanedRows.length === 0) {
-          setError('No customer rows found. Ensure your file contains headers and valid applicant details.');
-          setRows([]);
-          return;
-        }
-
-        setRows(cleanedRows);
-        buildPreviewAndValidate(cleanedRows);
-      } catch (err) {
-        console.error(err);
-        setError('Could not read this file. Please upload an Excel (.xlsx), CSV, or customer profile PDF.');
-        setRows([]);
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  };
-
-  function buildPreviewAndValidate(json: ImportRow[]) {
-    const p: PreviewRow[] = [];
-    const errs: SkipReason[] = [];
-    for (let i = 0; i < Math.min(json.length, 5); i++) {
-      const r = json[i] || {};
-      p.push({
-        rowNum: i + 2,
-        name: String(r.name || ''),
-        phone: String(r.phone || ''),
-        email: String(r.email || ''),
-        address: String(r.address || ''),
-        aadhar: String(r.aadhar || ''),
-        pan: String(r.pan || ''),
-        branch: String(r.branch || '')
-      });
-    }
-
-    let valid = 0, invalid = 0;
-    for (let i = 0; i < json.length; i++) {
-      const r = json[i] || {};
-      const rowNum = i + 2;
-      const name = String(r.name || '').trim();
-      const phone = String(r.phone || '').trim();
-      const aadhar = String(r.aadhar || '').replace(/[\s-]/g, '').trim();
-
-      let badReason = '';
-      if (!name) badReason = 'Name is required';
-      else if (!phone || phone.length < 10) badReason = 'Valid 10-digit Phone is required';
-      else if (aadhar && !/^\d{12}$/.test(aadhar) && !/^X{4}-?X{4}-?\d{4}$/i.test(aadhar)) {
-        badReason = 'Aadhaar must be 12 digits';
-      }
-
-      if (badReason) {
-        invalid++;
-        errs.push({ row: rowNum, name: name || '(blank)', reason: badReason });
-      } else {
-        valid++;
-      }
-    }
-
-    setPreview(p);
-    setValidation({ valid, invalid, errors: errs });
-  }
-
-  const doImport = async (onlyValid = false) => {
-    setError('');
-    setResult(null);
-    if (rows.length === 0) { setError('Please upload a filled template first.'); return; }
-    if (rows.length > 2000) { setError('Too many rows. Please import at most 2000 at a time.'); return; }
-    setImporting(true);
-    try {
-      const payload = onlyValid ? { rows: rows.filter((_r, i) => !validation.errors.find(e => e.row === i + 2)) } : { rows };
-      const res = await fetch(`${API_URL}/api/customers/bulk-import`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!res.ok) { setError(data.message || 'Import failed.'); setImporting(false); return; }
-      setResult(data);
-    } catch (err) {
-      console.error(err);
-      setError('Could not reach the server.');
-    }
-    setImporting(false);
-  };
-
   const allowed = me && ALLOWED.includes(me.role);
-  const card = { background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e5e7eb', marginBottom: '20px' } as any;
-  const btn = { background: '#1e40af', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: 600 as const, cursor: 'pointer' };
+  const card = { background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', marginBottom: '20px' } as any;
 
   if (me && !allowed) {
     return (
@@ -276,207 +311,353 @@ export default function BulkImportPage() {
         <Sidebar />
         <div style={{ marginLeft: '220px', flex: 1, padding: '40px', textAlign: 'center', color: '#6b7280' }}>
           <p style={{ fontSize: '40px', margin: '0 0 8px' }}>🔒</p>
-          <p style={{ fontWeight: 600, color: '#111827' }}>Bulk import is for owners and managers only.</p>
+          <p style={{ fontWeight: 600, color: '#111827' }}>Customer importing is reserved for owners and branch managers.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f8fafc' }}>
       <Sidebar />
-      <div style={{ marginLeft: '220px', flex: 1, padding: '24px', maxWidth: '960px' }}>
+      <div style={{ marginLeft: '220px', flex: 1, padding: '32px', maxWidth: '1000px' }}>
+        
+        {/* Page Header */}
         <div style={{ marginBottom: '24px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>📥 Import Customers</h2>
-          <p style={{ color: '#6b7280', margin: '4px 0 0', fontSize: '14px' }}>
-            Batch import your borrower accounts from Excel spreadsheets, CSV files, or Customer Profile PDFs.
+          <h2 style={{ fontSize: '26px', fontWeight: '800', color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span>📥</span> Import Customers
+          </h2>
+          <p style={{ color: '#64748b', margin: '6px 0 0', fontSize: '14px' }}>
+            Directly upload your customer profiles or spreadsheets to add them to your FinSmart database.
           </p>
         </div>
 
-        {/* Step 1: Template Download */}
+        {/* HERO UPLOAD ZONE (Front & Center) */}
         <div style={card}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '8px' }}>
-            <h3 style={{ fontWeight: 700, fontSize: '16px', margin: 0 }}>Step 1 — Download sample template</h3>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={downloadTemplateExcel} style={{ ...btn, background: '#059669', fontSize: '13px', padding: '8px 14px' }}>
-                ⬇ Excel Template (.xlsx)
-              </button>
-              <button onClick={downloadTemplateCsv} style={{ ...btn, background: '#0284c7', fontSize: '13px', padding: '8px 14px' }}>
-                ⬇ CSV Template (.csv)
-              </button>
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              border: `2px dashed ${isDragging ? '#2563eb' : '#cbd5e1'}`,
+              background: isDragging ? '#eff6ff' : '#f8fafc',
+              borderRadius: '14px',
+              padding: '48px 24px',
+              textAlign: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              outline: 'none'
+            }}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".xlsx,.xls,.csv,.pdf"
+              onChange={onFileInputChange}
+              style={{ display: 'none' }}
+            />
+
+            <div style={{ fontSize: '48px', marginBottom: '12px' }}>
+              {isDragging ? '📂' : '⬆️'}
             </div>
-          </div>
-          <p style={{ fontSize: '13px', color: '#6b7280', margin: 0, lineHeight: '1.5' }}>
-            Fill customer records into the template. Name and Phone are required; Email, Address, Aadhaar, PAN, and Branch are optional.
-            <br />
-            <span style={{ color: '#4338ca', fontWeight: 500 }}>
-              💡 Pro-Tip: You can also upload customer profile PDF documents directly from the <strong>sample-customer-pdfs</strong> folder!
-            </span>
-          </p>
-        </div>
 
-        {/* Step 2: Upload File */}
-        <div style={card}>
-          <h3 style={{ fontWeight: 700, fontSize: '16px', margin: '0 0 8px' }}>Step 2 — Upload your customer file(s)</h3>
-          <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 14px' }}>
-            Accepts <strong>.xlsx</strong>, <strong>.xls</strong>, <strong>.csv</strong>, or <strong>.pdf</strong> customer profile documents. You can select single or multiple files.
-          </p>
-          <input
-            type="file"
-            multiple
-            accept=".xlsx,.xls,.csv,.pdf"
-            onChange={onFile}
-            style={{ fontSize: '14px', padding: '8px 0' }}
-          />
+            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', margin: '0 0 6px' }}>
+              {isDragging ? 'Drop your customer files here' : 'Drag & drop customer files, or click to browse'}
+            </h3>
 
-          {fileName && (
-            <div style={{ marginTop: '14px', background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-              <p style={{ fontSize: '13px', color: '#1e293b', margin: 0, fontWeight: 600 }}>
-                📄 {fileName}
-              </p>
-              <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0' }}>
-                <strong>{rows.length}</strong> customer records identified {sheetName && `· ${sheetName}`}
-              </p>
-            </div>
-          )}
-          {rows.length > 2000 && (
-            <p style={{ fontSize: '13px', color: '#b91c1c', marginTop: '8px' }}>This file has more than 2000 rows; please split it before importing.</p>
-          )}
-        </div>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 20px', maxWidth: '520px', marginLeft: 'auto', marginRight: 'auto' }}>
+              Upload customer profile documents or batch spreadsheets. All fields are auto-detected and extracted.
+            </p>
 
-        {/* Preview & Validation */}
-        {rows.length > 0 && (
-          <div style={card}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <h3 style={{ fontWeight: 700, fontSize: '16px', margin: 0 }}>
-                Preview {rows.length <= 5 ? `(${rows.length} records)` : `(first 5 of ${rows.length} records)`}
-              </h3>
-              <span style={{ fontSize: '12px', background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', color: '#475569', fontWeight: 600 }}>
-                Ready to Import
+            {/* Supported Formats Pills */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#ffffff', border: '1px solid #e2e8f0', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', color: '#dc2626', boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
+                📄 Customer PDFs (.pdf)
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#ffffff', border: '1px solid #e2e8f0', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', color: '#16a34a', boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
+                📊 Excel (.xlsx, .xls)
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#ffffff', border: '1px solid #e2e8f0', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', color: '#0284c7', boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
+                📝 CSV (.csv)
               </span>
             </div>
-            <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 12px' }}>
-              Review customer profile details before committing them to the company database.
-            </p>
-            <div style={{ overflowX: 'auto', marginTop: '12px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          </div>
+
+          {/* Active File Pills */}
+          {uploadedFiles.length > 0 && (
+            <div style={{ marginTop: '20px', background: '#f1f5f9', borderRadius: '12px', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>✓</span>
+                  <span>{uploadedFiles.length} file{uploadedFiles.length > 1 ? 's' : ''} selected</span>
+                  <span style={{ fontSize: '12px', background: '#e2e8f0', padding: '2px 8px', borderRadius: '12px', color: '#475569', fontWeight: '600' }}>
+                    {rows.length} customers detected
+                  </span>
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                  {uploadedFiles.map(f => f.name).join(' · ')}
+                </div>
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); resetAll(); }}
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '8px',
+                  padding: '6px 14px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  color: '#475569',
+                  cursor: 'pointer'
+                }}
+              >
+                ✕ Change Files
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Error Alert */}
+        {error && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '14px 18px', borderRadius: '12px', fontSize: '14px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>⚠️</span>
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* CUSTOMER PREVIEW & VALIDATION TABLE */}
+        {rows.length > 0 && (
+          <div style={card}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h3 style={{ fontWeight: 700, fontSize: '17px', margin: 0, color: '#0f172a' }}>
+                  Extracted Customer Records {rows.length <= 5 ? `(${rows.length})` : `(Showing first 5 of ${rows.length})`}
+                </h3>
+                <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0' }}>
+                  Preview applicant particulars before saving them into the company database.
+                </p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ background: '#dcfce7', color: '#166534', padding: '4px 10px', borderRadius: '14px', fontSize: '12px', fontWeight: '700' }}>
+                  ✓ {validation.valid} Valid
+                </span>
+                {validation.invalid > 0 && (
+                  <span style={{ background: '#fee2e2', color: '#991b1b', padding: '4px 10px', borderRadius: '14px', fontSize: '12px', fontWeight: '700' }}>
+                    ✕ {validation.invalid} Issues
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div style={{ overflowX: 'auto', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                    {['#', 'Name', 'Phone', 'Email', 'Address', 'Aadhaar', 'PAN', 'Branch'].map(h => (
-                      <th key={h} style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', color: '#6b7280', fontWeight: '600' }}>{h}</th>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                    {['#', 'Full Name', 'Phone Number', 'Email', 'Residential Address', 'Aadhaar', 'PAN', 'Branch'].map(h => (
+                      <th key={h} style={{ padding: '10px 14px', fontSize: '12px', color: '#475569', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.025em' }}>
+                        {h}
+                      </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {preview.map(r => (
-                    <tr key={r.rowNum} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                      <td style={{ padding: '10px 12px', fontSize: '13px', color: '#6b7280' }}>{r.rowNum}</td>
-                      <td style={{ padding: '10px 12px', fontSize: '13px', fontWeight: 700, color: '#111827' }}>{r.name || '—'}</td>
-                      <td style={{ padding: '10px 12px', fontSize: '13px', fontFamily: 'monospace' }}>{r.phone || '—'}</td>
-                      <td style={{ padding: '10px 12px', fontSize: '13px', color: '#6b7280' }}>{r.email || '—'}</td>
-                      <td style={{ padding: '10px 12px', fontSize: '13px', color: '#4b5563', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.address}>
+                    <tr key={r.rowNum} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '12px 14px', fontSize: '13px', color: '#94a3b8' }}>{r.rowNum}</td>
+                      <td style={{ padding: '12px 14px', fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>{r.name || '—'}</td>
+                      <td style={{ padding: '12px 14px', fontSize: '13px', fontFamily: 'monospace', color: '#1e293b' }}>{r.phone || '—'}</td>
+                      <td style={{ padding: '12px 14px', fontSize: '13px', color: '#64748b' }}>{r.email || '—'}</td>
+                      <td style={{ padding: '12px 14px', fontSize: '13px', color: '#475569', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.address}>
                         {r.address || '—'}
                       </td>
-                      <td style={{ padding: '10px 12px', fontSize: '13px', color: '#6b7280', fontFamily: 'monospace' }}>{r.aadhar || '—'}</td>
-                      <td style={{ padding: '10px 12px', fontSize: '13px', color: '#111827', fontWeight: 600, fontFamily: 'monospace' }}>{r.pan || '—'}</td>
-                      <td style={{ padding: '10px 12px', fontSize: '13px', color: '#4338ca', fontWeight: 500 }}>{r.branch || 'Default Branch'}</td>
+                      <td style={{ padding: '12px 14px', fontSize: '13px', color: '#64748b', fontFamily: 'monospace' }}>{r.aadhar || '—'}</td>
+                      <td style={{ padding: '12px 14px', fontSize: '13px', color: '#0f172a', fontWeight: '600', fontFamily: 'monospace' }}>{r.pan || '—'}</td>
+                      <td style={{ padding: '12px 14px', fontSize: '13px', color: '#2563eb', fontWeight: '500' }}>{r.branch || 'Default Branch'}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', flexWrap: 'wrap', gap: '12px' }}>
-              <div>
-                <div style={{ fontSize: '13px', color: '#4b5563', fontWeight: 500 }}>
-                  <span style={{ color: '#16a34a', fontWeight: 700 }}>{validation.valid} valid rows</span>
-                  {validation.invalid > 0 && (
-                    <span style={{ color: '#dc2626', fontWeight: 700, marginLeft: '6px' }}>· {validation.invalid} problematic</span>
-                  )}
-                </div>
-                {validation.invalid > 0 && (
-                  <div style={{ marginTop: '8px', maxHeight: '120px', overflowY: 'auto', border: '1px solid #fee2e2', background: '#fff5f5', borderRadius: '8px', padding: '4px' }}>
-                    {validation.errors.map((e, i) => (
-                      <div key={i} style={{ padding: '6px 10px', fontSize: '12px', color: '#991b1b' }}>
-                        Row {e.row}: {e.name} — {e.reason}
-                      </div>
-                    ))}
+            {/* Validation errors if any */}
+            {validation.invalid > 0 && (
+              <div style={{ marginTop: '14px', maxHeight: '110px', overflowY: 'auto', border: '1px solid #fee2e2', background: '#fff5f5', borderRadius: '10px', padding: '6px' }}>
+                {validation.errors.map((e, i) => (
+                  <div key={i} style={{ padding: '6px 10px', fontSize: '12px', color: '#991b1b' }}>
+                    Record {e.row}: {e.name} — {e.reason}
                   </div>
-                )}
+                ))}
               </div>
+            )}
 
-              <div style={{ display: 'flex', gap: '8px' }}>
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+              {validation.invalid > 0 && (
                 <button
                   onClick={() => doImport(false)}
                   disabled={importing || rows.length === 0}
-                  style={{ ...btn, opacity: (importing || rows.length === 0) ? 0.6 : 1 }}
+                  style={{
+                    background: '#f1f5f9',
+                    border: '1px solid #cbd5e1',
+                    color: '#334155',
+                    padding: '10px 18px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
                 >
-                  {importing ? 'Importing...' : `Import all ${rows.length} rows`}
+                  Import All {rows.length} Records
                 </button>
-                {validation.invalid > 0 && (
-                  <button
-                    onClick={() => doImport(true)}
-                    disabled={importing || validation.valid === 0}
-                    style={{ ...btn, background: '#059669', opacity: (importing || validation.valid === 0) ? 0.6 : 1 }}
-                  >
-                    {importing ? 'Importing...' : `Import ${validation.valid} valid rows`}
-                  </button>
-                )}
-              </div>
+              )}
+              <button
+                onClick={() => doImport(true)}
+                disabled={importing || validation.valid === 0}
+                style={{
+                  background: '#16a34a',
+                  border: 'none',
+                  color: '#ffffff',
+                  padding: '12px 26px',
+                  borderRadius: '10px',
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  cursor: (importing || validation.valid === 0) ? 'not-allowed' : 'pointer',
+                  opacity: (importing || validation.valid === 0) ? 0.6 : 1,
+                  boxShadow: '0 2px 4px rgba(22, 163, 74, 0.2)'
+                }}
+              >
+                {importing ? 'Importing Customers...' : `✓ Import ${validation.valid} Customers`}
+              </button>
             </div>
           </div>
         )}
 
-        {error && (
-          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '12px 16px', borderRadius: '8px', fontSize: '14px', marginBottom: '20px' }}>
-            ⚠️ {error}
-          </div>
-        )}
-
-        {/* Results Card */}
+        {/* RESULTS CARD */}
         {result && (
           <div style={card}>
-            <h3 style={{ fontWeight: 700, fontSize: '16px', margin: '0 0 12px' }}>🎉 Import Results</h3>
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-              <div style={{ flex: 1, background: '#dcfce7', border: '1px solid #86efac', borderRadius: '8px', padding: '14px', textAlign: 'center' }}>
-                <div style={{ fontSize: '26px', fontWeight: 700, color: '#16a34a' }}>{result.addedCount}</div>
-                <div style={{ fontSize: '12px', color: '#15803d', fontWeight: 600 }}>Successfully Added</div>
+            <h3 style={{ fontWeight: 800, fontSize: '18px', margin: '0 0 14px', color: '#0f172a' }}>
+              🎉 Import Completed
+            </h3>
+            <div style={{ display: 'flex', gap: '14px', marginBottom: '18px' }}>
+              <div style={{ flex: 1, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                <div style={{ fontSize: '28px', fontWeight: 800, color: '#16a34a' }}>{result.addedCount}</div>
+                <div style={{ fontSize: '13px', color: '#15803d', fontWeight: 600 }}>Successfully Added</div>
               </div>
-              <div style={{ flex: 1, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '14px', textAlign: 'center' }}>
-                <div style={{ fontSize: '26px', fontWeight: 700, color: '#dc2626' }}>{result.skippedCount}</div>
-                <div style={{ fontSize: '12px', color: '#b91c1c', fontWeight: 600 }}>Skipped (Duplicates / Incomplete)</div>
+              <div style={{ flex: 1, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                <div style={{ fontSize: '28px', fontWeight: 800, color: '#dc2626' }}>{result.skippedCount}</div>
+                <div style={{ fontSize: '13px', color: '#b91c1c', fontWeight: 600 }}>Skipped (Existing / Duplicates)</div>
               </div>
             </div>
+
             {result.skipped && result.skipped.length > 0 && (
-              <div>
-                <p style={{ fontSize: '13px', fontWeight: 600, color: '#374151', margin: '0 0 8px' }}>Skipped records:</p>
-                <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+              <div style={{ marginTop: '12px' }}>
+                <p style={{ fontSize: '13px', fontWeight: 600, color: '#475569', margin: '0 0 8px' }}>Skipped entries:</p>
+                <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
                   {result.skipped.map((s: SkipReason, i: number) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '1px solid #f3f4f6', fontSize: '13px' }}>
-                      <span style={{ color: '#374151', fontWeight: 500 }}>Row {s.row}: {s.name}</span>
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '1px solid #f1f5f9', fontSize: '13px' }}>
+                      <span style={{ color: '#1e293b', fontWeight: 500 }}>Row {s.row}: {s.name}</span>
                       <span style={{ color: '#dc2626', fontSize: '12px' }}>{s.reason}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-            <Link
-              href="/dashboard/customers"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                marginTop: '16px',
-                color: '#1e40af',
-                fontWeight: 600,
-                fontSize: '14px',
-                textDecoration: 'none'
-              }}
-            >
-              <span>👥</span> View all customers in dashboard →
-            </Link>
+
+            <div style={{ marginTop: '20px', display: 'flex', gap: '12px' }}>
+              <Link
+                href="/dashboard/customers"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: '#1e3a8a',
+                  color: '#ffffff',
+                  padding: '10px 18px',
+                  borderRadius: '8px',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  textDecoration: 'none'
+                }}
+              >
+                <span>👥</span> View All Customers →
+              </Link>
+              <button
+                onClick={resetAll}
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid #cbd5e1',
+                  color: '#334155',
+                  padding: '10px 18px',
+                  borderRadius: '8px',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                Upload Another File
+              </button>
+            </div>
           </div>
         )}
+
+        {/* DISCREET OPTIONAL HELPER LINK (At the bottom) */}
+        <div
+          style={{
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '12px',
+            padding: '16px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px'
+          }}
+        >
+          <div>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: '#334155' }}>
+              💡 Don&apos;t have a file ready yet?
+            </p>
+            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
+              Download a blank format to enter customer particulars manually before uploading:
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={downloadTemplateExcel}
+              style={{
+                background: '#f8fafc',
+                border: '1px solid #cbd5e1',
+                borderRadius: '6px',
+                padding: '6px 12px',
+                fontSize: '12px',
+                fontWeight: 600,
+                color: '#334155',
+                cursor: 'pointer'
+              }}
+            >
+              ⬇ Blank Excel (.xlsx)
+            </button>
+            <button
+              onClick={downloadTemplateCsv}
+              style={{
+                background: '#f8fafc',
+                border: '1px solid #cbd5e1',
+                borderRadius: '6px',
+                padding: '6px 12px',
+                fontSize: '12px',
+                fontWeight: 600,
+                color: '#334155',
+                cursor: 'pointer'
+              }}
+            >
+              ⬇ Blank CSV (.csv)
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
   );
