@@ -105,9 +105,14 @@ export const createCustomer = async (req: any, res: Response) => {
   try {
     const companyId = req.user.companyId;
     const { name, email, phone, address, aadhar, pan, branchId } = req.body;
+    let targetBranchId = branchId ? Number(branchId) : null;
+    if (!targetBranchId) {
+      const defaultBranch = await prisma.branch.findFirst({ where: { companyId } });
+      if (defaultBranch) targetBranchId = defaultBranch.id;
+    }
     const customer = await prisma.customer.create({
       data: {
-        name, email, phone, address, branchId, companyId,
+        name, email, phone, address, branchId: targetBranchId, companyId,
         aadhar: aadhar ? encrypt(aadhar) : null,
         pan: pan ? encrypt(pan) : null,
         ...buildCustomerDetailData(req.body)

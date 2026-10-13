@@ -295,6 +295,21 @@ export const updateCustomerKycStatus = async (req: any, res: Response) => {
       return res.status(404).json({ error: 'Customer not found' });
     }
 
+    if (kycStatus === 'verified') {
+      const docs = await prisma.customerDocument.findMany({
+        where: { customerId, companyId: req.user.companyId }
+      });
+      const hasAadhaar = docs.some(d => (d.docType === 'aadhar_front' || d.docType === 'aadhar_back') && d.status === 'verified');
+      const hasPan = docs.some(d => d.docType === 'pan_card' && d.status === 'verified');
+      const hasPhoto = docs.some(d => d.docType === 'photo');
+
+      if (!hasAadhaar || !hasPan || !hasPhoto) {
+        return res.status(400).json({
+          error: 'Cannot mark KYC as verified: Verified Aadhaar, Verified PAN, and Borrower Photo are mandatory.'
+        });
+      }
+    }
+
     const updated = await prisma.customer.update({
       where: { id: customerId },
       data: { kycStatus }

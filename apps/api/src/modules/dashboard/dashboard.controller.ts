@@ -60,10 +60,12 @@ export const getDashboardStats = async (req: any, res: Response) => {
     const npaPercentage = totalDisbursed > 0 ? Number(((overdueAmount / totalDisbursed) * 100).toFixed(2)) : 0;
 
     // === COLLECTION EFFICIENCY ===
-    const dueEmis = allEmis.filter(e => new Date(e.dueDate) <= istNow);
-    const collectionEfficiency = dueEmis.length > 0
-      ? Number(((dueEmis.filter(e => e.status === 'paid').length / dueEmis.length) * 100).toFixed(1))
-      : 0;
+    // All EMIs that have arrived by date OR were collected/foreclosed in advance
+    const payableOrCollectedEmis = allEmis.filter(e => new Date(e.dueDate) <= istNow || e.status === 'paid');
+    const collectedCount = payableOrCollectedEmis.filter(e => e.status === 'paid').length;
+    const collectionEfficiency = payableOrCollectedEmis.length > 0
+      ? Number(((collectedCount / payableOrCollectedEmis.length) * 100).toFixed(1))
+      : (allEmis.length > 0 ? 100 : 0);
 
     // === AI INSIGHTS ===
     const customerOverdueMap: any = {};
@@ -104,14 +106,19 @@ export const getDashboardStats = async (req: any, res: Response) => {
     ];
 
     // === BRANCH PERFORMANCE ===
-    const branchStats = await Promise.all(branches.map(async branch => {
-      const branchCusts = await prisma.customer.findMany({ where: { branchId: branch.id } });
+    const branchStats = await Promise.all(branches.map(async (branch, idx) => {
+      const isPrimary = idx === 0 || branches.length === 1;
+      const branchCusts = await prisma.customer.findMany({
+        where: isPrimary
+          ? { companyId, OR: [{ branchId: branch.id }, { branchId: null }] }
+          : { companyId, branchId: branch.id }
+      });
       const custIds = branchCusts.map(c => c.id);
       const branchLoans = loans.filter(l => custIds.includes(l.customerId));
       const branchTotal = branchLoans.reduce((s, l) => s + l.amount, 0);
       const branchPayments = payments.filter(p => branchLoans.map(l => l.id).includes(p.loanId));
       const paidTotal = branchPayments.reduce((s, p) => s + p.amount, 0);
-      const efficiency = branchTotal > 0 ? Math.round((paidTotal / branchTotal) * 100) : 0;
+      const efficiency = branchTotal > 0 ? Math.min(100, Math.round((paidTotal / branchTotal) * 100)) : 0;
       return { name: branch.name, totalDisbursed: branchTotal, collected: paidTotal, efficiency };
     }));
     branchStats.sort((a, b) => b.totalDisbursed - a.totalDisbursed);

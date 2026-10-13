@@ -189,6 +189,23 @@ export default function CustomerDetailPage() {
 
   // Change overall customer KYC status
   const handleUpdateKycStatus = async (status: string) => {
+    if (status === 'verified') {
+      const docs = customer?.documents || [];
+      const hasAadhaar = docs.some((d: any) => (d.docType === 'aadhar_front' || d.docType === 'aadhar_back') && d.status === 'verified');
+      const hasPan = docs.some((d: any) => d.docType === 'pan_card' && d.status === 'verified');
+      const hasPhoto = docs.some((d: any) => d.docType === 'photo');
+
+      const missing: string[] = [];
+      if (!hasAadhaar) missing.push('Verified Aadhaar (Front/Back)');
+      if (!hasPan) missing.push('Verified PAN Card');
+      if (!hasPhoto) missing.push('Borrower Photo');
+
+      if (missing.length > 0) {
+        alert(`⚠️ Cannot mark KYC as Verified:\n\nThe following mandatory identity documents are missing or unverified:\n• ${missing.join('\n• ')}\n\nPlease upload and verify all required documents first.`);
+        return;
+      }
+    }
+
     setKycUpdating(true);
     try {
       const res = await fetch(`${API_URL}/api/customers/${id}/kyc-status`, {
