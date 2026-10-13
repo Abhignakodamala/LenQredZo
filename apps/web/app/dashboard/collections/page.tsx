@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import FaceCaptureModal from '@/components/FaceCaptureModal';
 import CollectionRunSheetModal from '@/components/CollectionRunSheetModal';
+import CashReconciliationModal from '@/components/CashReconciliationModal';
 import { getAuthUser, can } from '@/lib/authUser';
 import { API_URL } from '@/lib/api';
 
@@ -13,6 +14,7 @@ export default function CollectionsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showRunSheet, setShowRunSheet] = useState(false);
+  const [showCashReconciliation, setShowCashReconciliation] = useState(false);
 
   // Collect dialog state
   const [dialog, setDialog] = useState<any>(null); // { emi, collectPenalty }
@@ -244,6 +246,27 @@ export default function CollectionsPage() {
               }}
             >
               📋 Print Morning Collection Sheet (Vasool List)
+            </button>
+
+            <button
+              onClick={() => setShowCashReconciliation(true)}
+              style={{
+                background: '#15803d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '10px 18px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 4px rgba(21, 128, 61, 0.2)'
+              }}
+              title="Day-End Cash Drawer Reconciliation & Physical Denomination Count"
+            >
+              💵 Day-End Cash Tally
             </button>
           </div>
         </div>
@@ -585,6 +608,15 @@ export default function CollectionsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Day-End Counter Cash Drawer & Tally Modal */}
+      {showCashReconciliation && (
+        <CashReconciliationModal
+          companyName={me?.companyName || 'LenQredzo Capital Pvt Ltd'}
+          branchName={me?.branchName || 'Headquarters Branch'}
+          onClose={() => setShowCashReconciliation(false)}
+        />
       )}
     </div>
   );
