@@ -80,8 +80,10 @@ export const getCustomerById = async (req: any, res: Response) => {
     const customer = await prisma.customer.findUnique({
       where: { id: Number(req.params.id) },
       include: {
+        company: true,
+        branch: true,
         loans: {
-          include: { payments: true, emis: true },
+          include: { payments: true, emis: true, guarantors: true },
           orderBy: { createdAt: 'desc' }
         },
         documents: {

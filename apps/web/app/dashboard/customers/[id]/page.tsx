@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import BankAccountCard from '@/components/BankAccountCard';
+import CustomerPassbookModal from '@/components/CustomerPassbookModal';
 import { API_URL } from '@/lib/api';
 
 type CustomerDoc = {
@@ -45,6 +46,7 @@ export default function CustomerDetailPage() {
   const [kycUpdating, setKycUpdating] = useState(false);
   const [customDocType, setCustomDocType] = useState('other');
   const [showCustomUpload, setShowCustomUpload] = useState(false);
+  const [showPassbookModal, setShowPassbookModal] = useState(false);
 
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
@@ -310,29 +312,52 @@ export default function CustomerDetailPage() {
             </div>
           </div>
 
-          {/* Quick Staff KYC Status Override */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', padding: '6px 12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-            <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>KYC Status:</span>
-            <select
-              value={kycStatus}
-              disabled={kycUpdating}
-              onChange={(e) => handleUpdateKycStatus(e.target.value)}
+          {/* Header Action Buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              onClick={() => setShowPassbookModal(true)}
               style={{
-                fontSize: '13px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: '#1e3a8a',
+                color: 'white',
+                border: 'none',
+                padding: '7px 14px',
+                borderRadius: '8px',
                 fontWeight: 600,
-                padding: '4px 8px',
-                borderRadius: '6px',
-                border: '1px solid #d1d5db',
-                background: '#f9fafb',
-                color: '#111827',
-                cursor: 'pointer'
+                fontSize: '13px',
+                cursor: 'pointer',
+                boxShadow: '0 1px 3px rgba(30, 58, 138, 0.2)'
               }}
             >
-              <option value="pending">Pending Documents</option>
-              <option value="submitted">Under Review</option>
-              <option value="verified">KYC Verified</option>
-              <option value="rejected">Rejected</option>
-            </select>
+              📖 Account Passbook / SOA
+            </button>
+
+            {/* Quick Staff KYC Status Override */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', padding: '6px 12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+              <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>KYC Status:</span>
+              <select
+                value={kycStatus}
+                disabled={kycUpdating}
+                onChange={(e) => handleUpdateKycStatus(e.target.value)}
+                style={{
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid #d1d5db',
+                  background: '#f9fafb',
+                  color: '#111827',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="pending">Pending Documents</option>
+                <option value="submitted">Under Review</option>
+                <option value="verified">KYC Verified</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -958,6 +983,14 @@ export default function CustomerDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Account Passbook / Statement of Account Modal */}
+      {showPassbookModal && (
+        <CustomerPassbookModal
+          customer={customer}
+          onClose={() => setShowPassbookModal(false)}
+        />
       )}
 
     </div>
