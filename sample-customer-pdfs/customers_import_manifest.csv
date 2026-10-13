@@ -1,0 +1,6 @@
+Name,Phone,Email,Aadhaar,PAN,Bank_Name,IFSC,Account_Number,Monthly_Income,Loan_Amount,Loan_Type
+Rajesh Verma,9876543210,rajesh.verma@example.com,XXXX-XXXX-8492,ABCDE1234F,State Bank of India,SBIN0000847,384920194857,85000,200000,Personal
+Priya Sharma,9823011223,priya.sharma91@example.com,XXXX-XXXX-3341,BKWPS9912K,HDFC Bank,HDFC0000542,50100482910394,120000,350000,Business
+Mohammed Irfan,9700088991,irfan.generalstore@example.com,XXXX-XXXX-9120,CZMPM4821N,Canara Bank,CNRB0000412,0412101039281,45000,50000,Daily Collection
+Sunita Reddy,9949055667,sunita.reddy@example.com,XXXX-XXXX-6712,AGVPR7729L,ICICI Bank,ICIC0000048,004801592834,62000,95000,Two-Wheeler
+Amit Patel,9428033445,amit.patel@example.com,XXXX-XXXX-1983,BHZPP6631Q,Bank of Baroda,BARB0BEGUMP,28490100019284,145000,500000,Working Capital

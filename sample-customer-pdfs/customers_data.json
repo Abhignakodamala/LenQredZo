@@ -1,0 +1,217 @@
+[
+  {
+    "fileName": "01_Rajesh_Verma_Customer_Details.pdf",
+    "title": "CUSTOMER PROFILE & LOAN APPLICATION",
+    "subtitle": "FinSmart Lending Services - Applicant Reference ID: CUST-2026-081",
+    "data": [
+      {
+        "category": "Personal Identification",
+        "fields": {
+          "Full Name": "Rajesh Verma",
+          "Phone Number": "+91 98765 43210",
+          "Email": "rajesh.verma@example.com",
+          "Date of Birth": "14-Aug-1988 (Age: 38)",
+          "Gender": "Male",
+          "Residential Address": "Flat 402, Sai Residency, Ameerpet, Hyderabad - 500016",
+          "Aadhaar Number": "XXXX-XXXX-8492",
+          "PAN Card": "ABCDE1234F"
+        }
+      },
+      {
+        "category": "Banking Particulars",
+        "fields": {
+          "Bank Name": "State Bank of India",
+          "Account Number": "384920194857",
+          "IFSC Code": "SBIN0000847",
+          "Branch": "Ameerpet Main Branch",
+          "Account Holder": "RAJESH VERMA",
+          "Account Status": "Active / Verified"
+        }
+      },
+      {
+        "category": "Employment & Loan Request",
+        "fields": {
+          "Employment Type": "Salaried - Senior Software Engineer",
+          "Employer Name": "Infosys Technologies Ltd",
+          "Monthly Net Income": "Rs. 85,000",
+          "Requested Loan Type": "Personal Loan",
+          "Requested Principal": "Rs. 2,00,000",
+          "Requested Tenure": "12 Months (Monthly EMI)",
+          "Assigned Branch": "Hyderabad City Branch"
+        }
+      }
+    ]
+  },
+  {
+    "fileName": "02_Priya_Sharma_Customer_Details.pdf",
+    "title": "CUSTOMER PROFILE & LOAN APPLICATION",
+    "subtitle": "FinSmart Lending Services - Applicant Reference ID: CUST-2026-082",
+    "data": [
+      {
+        "category": "Personal Identification",
+        "fields": {
+          "Full Name": "Priya Sharma",
+          "Phone Number": "+91 98230 11223",
+          "Email": "priya.sharma91@example.com",
+          "Date of Birth": "22-Mar-1991 (Age: 35)",
+          "Gender": "Female",
+          "Residential Address": "Plot 18, Road No. 4, Jubilee Hills, Hyderabad - 500033",
+          "Aadhaar Number": "XXXX-XXXX-3341",
+          "PAN Card": "BKWPS9912K"
+        }
+      },
+      {
+        "category": "Banking Particulars",
+        "fields": {
+          "Bank Name": "HDFC Bank",
+          "Account Number": "50100482910394",
+          "IFSC Code": "HDFC0000542",
+          "Branch": "Jubilee Hills Branch",
+          "Account Holder": "PRIYA SHARMA",
+          "Account Status": "Active / Verified"
+        }
+      },
+      {
+        "category": "Employment & Loan Request",
+        "fields": {
+          "Employment Type": "Business Owner - Retail Boutique",
+          "Business Name": "Shree Collections & Textiles",
+          "Monthly Net Income": "Rs. 1,20,000",
+          "Requested Loan Type": "Small Business Loan",
+          "Requested Principal": "Rs. 3,50,000",
+          "Requested Tenure": "18 Months (Monthly EMI)",
+          "Assigned Branch": "Banjara Hills Branch"
+        }
+      }
+    ]
+  },
+  {
+    "fileName": "03_Mohammed_Irfan_Customer_Details.pdf",
+    "title": "CUSTOMER PROFILE & LOAN APPLICATION",
+    "subtitle": "FinSmart Lending Services - Applicant Reference ID: CUST-2026-083",
+    "data": [
+      {
+        "category": "Personal Identification",
+        "fields": {
+          "Full Name": "Mohammed Irfan",
+          "Phone Number": "+91 97000 88991",
+          "Email": "irfan.generalstore@example.com",
+          "Date of Birth": "05-Nov-1985 (Age: 41)",
+          "Gender": "Male",
+          "Residential Address": "House 12-2-417, Mehdipatnam, Hyderabad - 500028",
+          "Aadhaar Number": "XXXX-XXXX-9120",
+          "PAN Card": "CZMPM4821N"
+        }
+      },
+      {
+        "category": "Banking Particulars",
+        "fields": {
+          "Bank Name": "Canara Bank",
+          "Account Number": "0412101039281",
+          "IFSC Code": "CNRB0000412",
+          "Branch": "Mehdipatnam Branch",
+          "Account Holder": "MOHAMMED IRFAN",
+          "Account Status": "Active"
+        }
+      },
+      {
+        "category": "Employment & Loan Request",
+        "fields": {
+          "Employment Type": "Self-Employed - Kirana & Provisions",
+          "Business Name": "Al-Madina General Store",
+          "Daily Cash Flow": "Rs. 6,000 - 8,000",
+          "Requested Loan Type": "Micro Daily Collection Loan",
+          "Requested Principal": "Rs. 50,000",
+          "Requested Tenure": "100 Days (Daily Collection)",
+          "Assigned Branch": "Old City Branch"
+        }
+      }
+    ]
+  },
+  {
+    "fileName": "04_Sunita_Reddy_Customer_Details.pdf",
+    "title": "CUSTOMER PROFILE & LOAN APPLICATION",
+    "subtitle": "FinSmart Lending Services - Applicant Reference ID: CUST-2026-084",
+    "data": [
+      {
+        "category": "Personal Identification",
+        "fields": {
+          "Full Name": "Sunita Reddy",
+          "Phone Number": "+91 99490 55667",
+          "Email": "sunita.reddy@example.com",
+          "Date of Birth": "19-Jan-1994 (Age: 32)",
+          "Gender": "Female",
+          "Residential Address": "Flat 201, Srinivasa Heights, Kukatpally, Hyderabad - 500072",
+          "Aadhaar Number": "XXXX-XXXX-6712",
+          "PAN Card": "AGVPR7729L"
+        }
+      },
+      {
+        "category": "Banking Particulars",
+        "fields": {
+          "Bank Name": "ICICI Bank",
+          "Account Number": "004801592834",
+          "IFSC Code": "ICIC0000048",
+          "Branch": "Kukatpally KPHB Branch",
+          "Account Holder": "SUNITA REDDY",
+          "Account Status": "Active / Verified"
+        }
+      },
+      {
+        "category": "Employment & Loan Request",
+        "fields": {
+          "Employment Type": "Salaried - Marketing Specialist",
+          "Employer Name": "Apollo Healthcare Solutions",
+          "Monthly Net Income": "Rs. 62,000",
+          "Requested Loan Type": "Two-Wheeler Loan",
+          "Requested Principal": "Rs. 95,000",
+          "Requested Tenure": "12 Months (Monthly EMI)",
+          "Assigned Branch": "Kukatpally Branch"
+        }
+      }
+    ]
+  },
+  {
+    "fileName": "05_Amit_Patel_Customer_Details.pdf",
+    "title": "CUSTOMER PROFILE & LOAN APPLICATION",
+    "subtitle": "FinSmart Lending Services - Applicant Reference ID: CUST-2026-085",
+    "data": [
+      {
+        "category": "Personal Identification",
+        "fields": {
+          "Full Name": "Amit Patel",
+          "Phone Number": "+91 94280 33445",
+          "Email": "amit.patel@example.com",
+          "Date of Birth": "30-Jun-1980 (Age: 46)",
+          "Gender": "Male",
+          "Residential Address": "34 Green Park Society, Begumpet, Secunderabad - 500003",
+          "Aadhaar Number": "XXXX-XXXX-1983",
+          "PAN Card": "BHZPP6631Q"
+        }
+      },
+      {
+        "category": "Banking Particulars",
+        "fields": {
+          "Bank Name": "Bank of Baroda",
+          "Account Number": "28490100019284",
+          "IFSC Code": "BARB0BEGUMP",
+          "Branch": "Begumpet Branch",
+          "Account Holder": "AMIT PATEL",
+          "Account Status": "Active / Verified"
+        }
+      },
+      {
+        "category": "Employment & Loan Request",
+        "fields": {
+          "Employment Type": "Business Owner - Hardware Supplies",
+          "Business Name": "Patel Electricals & Hardware",
+          "Monthly Net Income": "Rs. 1,45,000",
+          "Requested Loan Type": "Equipment & Working Capital Loan",
+          "Requested Principal": "Rs. 5,00,000",
+          "Requested Tenure": "24 Months (Monthly EMI)",
+          "Assigned Branch": "Secunderabad Branch"
+        }
+      }
+    ]
+  }
+]
