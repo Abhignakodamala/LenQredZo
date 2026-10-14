@@ -3,26 +3,17 @@ import { API_URL } from '@/lib/api';
 import FaceCaptureModal from '@/components/FaceCaptureModal';
 import Script from 'next/script';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { loginWithPasskey } from '@/lib/webauthn';
 
-type Tab = 'password' | 'otp';
-type OTPChannel = 'email' | 'sms';
 type ForgotStep = 'idle' | 'send' | 'verify' | 'done';
+type OTPChannel = 'email' | 'sms';
 
 export default function LoginPage() {
-  const [tab, setTab] = useState<Tab>('password');
-  const [otpChannel, setOtpChannel] = useState<OTPChannel>('email');
-
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
-  const [otpEmail, setOtpEmail] = useState('');
-  const [otpPhone, setOtpPhone] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-
+  // Forgot password flow
   const [forgotStep, setForgotStep] = useState<ForgotStep>('idle');
   const [forgotChannel, setForgotChannel] = useState<OTPChannel>('email');
   const [forgotEmail, setForgotEmail] = useState('');
@@ -32,28 +23,16 @@ export default function LoginPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
-  const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Mandatory photo capture step on every login
   const [showLoginCapture, setShowLoginCapture] = useState(false);
   const [pendingToken, setPendingToken] = useState('');
+  const [pendingUser, setPendingUser] = useState<any>(null);
 
   const clearMessages = () => { setError(''); setSuccess(''); };
-
-  const completeLogin = useCallback((token: string, user: any, capturePhoto = false) => {
-    if (rememberMe && typeof user?.email === 'string') {
-      localStorage.setItem('rememberedLoginEmail', user.email);
-    }
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
-    if (!capturePhoto) {
-      window.location.href = '/dashboard';
-      return;
-    }
-    setPendingToken(token);
-    setShowLoginCapture(true);
-  }, [rememberMe]);
 
   useEffect(() => {
     const rememberedEmail = localStorage.getItem('rememberedLoginEmail');
@@ -65,6 +44,14 @@ export default function LoginPage() {
     if (!checked) localStorage.removeItem('rememberedLoginEmail');
   };
 
+  // Called after successful credentials/google auth to trigger mandatory photo capture
+  const initiateMandatoryPhotoCapture = useCallback((token: string, user: any) => {
+    setPendingToken(token);
+    setPendingUser(user);
+    setShowLoginCapture(true);
+  }, []);
+
+  // Called when photo is captured in the webcam modal
   const handleLoginPhotoCapture = async (photoBase64: string) => {
     try {
       await fetch(`${API_URL}/api/auth/login-photo`, {
@@ -72,63 +59,33 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pendingToken}` },
         body: JSON.stringify({ photoData: photoBase64 }),
       });
-    } catch {
-      // Photo evidence is optional; a failed upload must not block login.
+    } catch (e) {
+      console.warn('Login attendance photo upload error:', e);
     }
+
+    // Persist session and enter dashboard
+    if (rememberMe && typeof pendingUser?.email === 'string') {
+      localStorage.setItem('rememberedLoginEmail', pendingUser.email);
+    }
+    localStorage.setItem('token', pendingToken);
+    localStorage.setItem('user', JSON.stringify(pendingUser));
     window.location.href = '/dashboard';
   };
 
-  const handleLoginPhotoSkip = () => {
-    window.location.href = '/dashboard';
-  };
-
-  const googleBtnRef = useRef<HTMLDivElement>(null);
-  const [gsiLoaded, setGsiLoaded] = useState(false);
-
-  const handleLogin = async () => {
-    setLoading(true); clearMessages();
-    try {
-      const res = await fetch(`${API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        completeLogin(data.token, data.user);
-      } else {
-        setError(data.message || 'Login failed');
-      }
-    } catch {
-      setError('Server not reachable. Make sure backend is running.');
-    }
-    setLoading(false);
-  };
-
-  const handlePasskeyLogin = async () => {
-    const accountEmail = email.trim().toLowerCase();
-    if (!accountEmail) {
-      setError('Enter your account email first to use device biometrics.');
-      return;
-    }
-    if (!window.isSecureContext || !window.PublicKeyCredential) {
-      setError('Passkey login requires a supported browser on localhost or a secure HTTPS connection.');
-      return;
-    }
-
-    setPasskeyLoading(true);
-    clearMessages();
-    try {
-      const data = await loginWithPasskey(accountEmail);
-      completeLogin(data.token, data.user, false);
-    } catch (loginError) {
-      setError(loginError instanceof Error ? loginError.message : 'Passkey login failed.');
-    } finally {
-      setPasskeyLoading(false);
-    }
+  // Called if user cancels the camera modal without capturing
+  const handleLoginPhotoCancel = () => {
+    setShowLoginCapture(false);
+    setPendingToken('');
+    setPendingUser(null);
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setError('Photo capture is mandatory to log in. Verification was not completed.');
   };
 
   // ── Google Sign-In ─────────────────────────────────────────────────────
+  const googleBtnRef = useRef<HTMLDivElement>(null);
+  const [gsiLoaded, setGsiLoaded] = useState(false);
+
   const handleGoogleCredential = useCallback(async (response: { credential: string }) => {
     setGoogleLoading(true); clearMessages();
     try {
@@ -139,7 +96,7 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        completeLogin(data.token, data.user);
+        initiateMandatoryPhotoCapture(data.token, data.user);
       } else {
         setError(data.message || 'Google sign-in failed');
       }
@@ -147,7 +104,7 @@ export default function LoginPage() {
       setError('Server not reachable.');
     }
     setGoogleLoading(false);
-  }, [completeLogin]);
+  }, [initiateMandatoryPhotoCapture]);
 
   useEffect(() => {
     if (!gsiLoaded || !googleBtnRef.current) return;
@@ -162,49 +119,32 @@ export default function LoginPage() {
     });
   }, [gsiLoaded, handleGoogleCredential]);
 
-  const handleSendLoginOTP = async () => {
+  // ── Email & Password Sign-In ───────────────────────────────────────────
+  const handleLogin = async () => {
+    if (!email.trim() || !password) {
+      setError('Please enter both your email address and password.');
+      return;
+    }
     setLoading(true); clearMessages();
     try {
-      const res = await fetch(`${API_URL}/api/auth/send-otp`, {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: otpChannel === 'email' ? otpEmail : undefined,
-          phone: otpChannel === 'sms' ? otpPhone : undefined,
-          type: 'login_otp',
-          channel: otpChannel
-        })
-      });
-      const data = await res.json();
-      if (res.ok) { setOtpSent(true); setSuccess('OTP sent! Check your ' + (otpChannel === 'email' ? 'email' : 'phone')); }
-      else setError(data.message || 'Failed to send OTP');
-    } catch { setError('Server not reachable.'); }
-    setLoading(false);
-  };
-
-  const handleOTPLogin = async () => {
-    setLoading(true); clearMessages();
-    try {
-      const res = await fetch(`${API_URL}/api/auth/login-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: otpChannel === 'email' ? otpEmail : undefined,
-          phone: otpChannel === 'sms' ? otpPhone : undefined,
-          code: otpCode,
-          channel: otpChannel
-        })
+        body: JSON.stringify({ email, password })
       });
       const data = await res.json();
       if (res.ok) {
-        completeLogin(data.token, data.user);
+        initiateMandatoryPhotoCapture(data.token, data.user);
       } else {
-        setError(data.message || 'Invalid OTP');
+        setError(data.message || 'Invalid email or password');
       }
-    } catch { setError('Server not reachable.'); }
+    } catch {
+      setError('Server not reachable. Make sure backend is running.');
+    }
     setLoading(false);
   };
 
+  // ── Forgot Password Handlers ───────────────────────────────────────────
   const handleForgotSend = async () => {
     setLoading(true); clearMessages();
     try {
@@ -340,6 +280,7 @@ export default function LoginPage() {
         {[
           ['🔒', 'AES-256 Encryption', 'Aadhaar, PAN & bank details encrypted at rest'],
           ['🛡️', 'Role-Based Access', 'Owners, branch managers & staff — scoped by role'],
+          ['📸', 'Attendance Audit Photo', 'Mandatory live webcam capture on every login'],
         ].map(([icon, title, desc]) => (
           <div key={title} style={{ display: 'flex', gap: '13px', alignItems: 'flex-start' }}>
             <div style={{ width: '32px', height: '32px', borderRadius: '9px', background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>{icon}</div>
@@ -360,11 +301,11 @@ export default function LoginPage() {
       border: '1px solid #e5e7eb', boxShadow: '0 4px 20px rgba(15,23,42,0.05)', display: 'flex', flexWrap: 'wrap', padding: '18px 8px'
     }}>
       {[
-        ['🔐', 'Multi-Factor Auth', 'Password + OTP login'],
-        ['📧', 'OTP via SMS/Email', 'One-time login codes'],
+        ['📸', 'Mandatory Photo Capture', 'Attendance logged every login'],
+        ['🌐', 'Google & Email Sign-In', 'Fast, secure access'],
         ['🛡️', 'Role-Based Access', 'Scoped by role & branch'],
         ['🔒', '256-bit Encryption', 'Bank-level security'],
-        ['📋', 'Full Audit Trail', 'Every action logged'],
+        ['📋', '6-Month Audit Trail', 'Full operation logs'],
       ].map(([icon, title, desc]) => (
         <div key={title} style={{ flex: '1 1 180px', display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '8px 16px', minWidth: '180px' }}>
           <span style={{ fontSize: '16px' }}>{icon}</span>
@@ -377,6 +318,7 @@ export default function LoginPage() {
     </div>
   );
 
+  // ── Forgot Password Screen ──────────────────────────────────────────────
   if (forgotStep !== 'idle') {
     return (
       <div style={pageWrap}>
@@ -386,7 +328,7 @@ export default function LoginPage() {
             <div style={{ width: '100%', maxWidth: '380px' }}>
               <div style={{ marginBottom: '24px' }}>
                 <h2 style={{ fontSize: '24px', fontWeight: 700, color: 'white', margin: '0 0 4px' }}>Reset Password</h2>
-                <p style={{ fontSize: '13.5px', color: 'rgba(255,255,255,0.75)', margin: 0 }}>We'll help you get back in</p>
+                <p style={{ fontSize: '13.5px', color: 'rgba(255,255,255,0.75)', margin: 0 }}>We'll help you get back into your account</p>
               </div>
 
               {error && <div style={{ background: 'rgba(255,255,255,0.9)', border: '1px solid #fecaca', color: '#dc2626', padding: '10px 12px', borderRadius: '8px', fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
@@ -452,6 +394,7 @@ export default function LoginPage() {
     );
   }
 
+  // ── Main Login Screen (2 Options: Google or Email & Password) ────────────
   return (
     <>
       <Script
@@ -469,133 +412,102 @@ export default function LoginPage() {
                 <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '13.5px', margin: 0 }}>Sign in to your LenQredzo account</p>
               </div>
 
-              {/* ── Google Sign-In, rendered first per the reference layout ── */}
-              <div ref={googleBtnRef} style={{ display: 'flex', justifyContent: 'center', minHeight: '44px', marginBottom: '18px' }} />
+              {/* ── Option 1: Continue with Google ── */}
+              <div ref={googleBtnRef} style={{ display: 'flex', justifyContent: 'center', minHeight: '44px', marginBottom: '16px' }} />
               {googleLoading && <p style={{ textAlign: 'center', fontSize: '13px', color: 'rgba(255,255,255,0.8)', marginBottom: '10px' }}>Signing in with Google...</p>}
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '6px 0 20px' }}>
                 <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.25)' }} />
-                <span style={{ fontSize: '11.5px', color: 'rgba(255,255,255,0.6)', whiteSpace: 'nowrap' }}>or sign in with email</span>
+                <span style={{ fontSize: '11.5px', color: 'rgba(255,255,255,0.6)', whiteSpace: 'nowrap' }}>or continue with email</span>
                 <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.25)' }} />
-              </div>
-
-              <div style={{ display: 'flex', marginBottom: '22px', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '10px', overflow: 'hidden' }}>
-                {([['password', '🔑 Password'], ['otp', '📱 OTP Login']] as [Tab, string][]).map(([t, label]) => (
-                  <button key={t} onClick={() => { setTab(t); clearMessages(); setOtpSent(false); }} style={{
-                    flex: 1, padding: '10px', border: 'none',
-                    background: tab === t ? ACCENT : 'white',
-                    color: tab === t ? 'white' : '#374151',
-                    fontSize: '13px', fontWeight: 600, cursor: 'pointer'
-                  }}>{label}</button>
-                ))}
               </div>
 
               {error && <div style={{ background: 'rgba(255,255,255,0.9)', border: '1px solid #fecaca', color: '#dc2626', padding: '10px 12px', borderRadius: '8px', fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
               {success && <div style={{ background: 'rgba(255,255,255,0.9)', border: '1px solid #86efac', color: '#16a34a', padding: '10px 12px', borderRadius: '8px', fontSize: '13px', marginBottom: '16px' }}>{success}</div>}
 
-              {tab === 'password' && (
-                <>
-                  <div style={{ marginBottom: '16px' }}>
-                    <label style={lbl}>Email</label>
-                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="ramesh@company.com" style={inp} />
-                  </div>
-                  <div style={{ marginBottom: '8px' }}>
-                    <label style={lbl}>Password</label>
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter' && !loading) handleLogin(); }}
-                        placeholder="Enter your password"
-                        style={{ ...inp, paddingRight: '44px' }}
-                      />
-                      <button type="button" onClick={() => setShowPassword(s => !s)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', padding: 0 }}>
-                        {showPassword ? '🙈' : '👁️'}
-                      </button>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '10px 0 20px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'rgba(255,255,255,0.8)', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={rememberMe} onChange={e => handleRememberMeChange(e.target.checked)} />
-                      Remember me
-                    </label>
-                    <button onClick={() => { setForgotStep('send'); clearMessages(); }} style={{ background: 'none', border: 'none', color: '#bfdbfe', fontSize: '13px', cursor: 'pointer', fontWeight: 500 }}>
-                      Forgot password?
-                    </button>
-                  </div>
-                  <button onClick={handleLogin} disabled={loading} style={btn()}>{loading ? 'Signing in...' : '🔒 Login Securely'}</button>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '18px 0 14px' }}>
-                    <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.25)' }} />
-                    <span style={{ fontSize: '11.5px', color: 'rgba(255,255,255,0.65)' }}>OR USE YOUR DEVICE</span>
-                    <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.25)' }} />
-                  </div>
-                  <div style={{ border: '1px solid rgba(255,255,255,0.25)', borderRadius: '12px', padding: '14px', background: 'rgba(255,255,255,0.08)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                      <span aria-hidden="true" style={{ fontSize: '22px' }}>◉</span>
-                      <div>
-                        <p style={{ color: 'white', fontWeight: 600, fontSize: '14px', margin: 0 }}>Face / fingerprint login</p>
-                        <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '11.5px', margin: '3px 0 0' }}>Secure · Passwordless · Device verified</p>
-                      </div>
-                    </div>
-                    <button onClick={handlePasskeyLogin} disabled={passkeyLoading} style={{ ...btn(), marginTop: 0, opacity: passkeyLoading ? 0.7 : 1 }}>
-                      {passkeyLoading ? 'Confirm on your device...' : 'Continue with Face ID / fingerprint'}
-                    </button>
-                    <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '11px', lineHeight: 1.5, textAlign: 'center', margin: '9px 0 0' }}>
-                      First sign in, then enable a device passkey in Settings once. Your device will request Face ID, Windows Hello, fingerprint, or its screen lock; this app does not use the camera to identify your face.
-                    </p>
-                  </div>
-                </>
-              )}
+              {/* ── Option 2: Email & Password ── */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={lbl}>Email Address</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="name@company.com"
+                  style={inp}
+                />
+              </div>
 
-              {tab === 'otp' && (
-                <>
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                    {(['email', 'sms'] as OTPChannel[]).map(ch => (
-                      <button key={ch} onClick={() => { setOtpChannel(ch); setOtpSent(false); clearMessages(); }} style={{
-                        flex: 1, padding: '8px', borderRadius: '8px', border: '1px solid',
-                        borderColor: otpChannel === ch ? 'white' : 'rgba(255,255,255,0.3)',
-                        background: otpChannel === ch ? 'white' : 'transparent',
-                        color: otpChannel === ch ? ACCENT : 'rgba(255,255,255,0.8)',
-                        fontSize: '13px', fontWeight: 500, cursor: 'pointer'
-                      }}>{ch === 'email' ? '📧 Email OTP' : '📱 SMS OTP'}</button>
-                    ))}
-                  </div>
+              <div style={{ marginBottom: '8px' }}>
+                <label style={lbl}>Password</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !loading) handleLogin(); }}
+                    placeholder="Enter your password"
+                    style={{ ...inp, paddingRight: '44px' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(s => !s)}
+                    style={{
+                      position: 'absolute',
+                      right: '10px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '16px',
+                      padding: 0
+                    }}
+                  >
+                    {showPassword ? '🙈' : '👁️'}
+                  </button>
+                </div>
+              </div>
 
-                  {otpChannel === 'email' ? (
-                    <div style={{ marginBottom: '16px' }}>
-                      <label style={lbl}>Email Address</label>
-                      <input type="email" value={otpEmail} onChange={e => setOtpEmail(e.target.value)} placeholder="your@email.com" style={inp} />
-                    </div>
-                  ) : (
-                    <div style={{ marginBottom: '16px' }}>
-                      <label style={lbl}>Mobile Number</label>
-                      <input type="tel" value={otpPhone} onChange={e => setOtpPhone(e.target.value)} placeholder="9876543210" maxLength={10} style={inp} />
-                    </div>
-                  )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '10px 0 20px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'rgba(255,255,255,0.8)', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={e => handleRememberMeChange(e.target.checked)}
+                  />
+                  Remember me
+                </label>
+                <button
+                  type="button"
+                  onClick={() => { setForgotStep('send'); clearMessages(); }}
+                  style={{ background: 'none', border: 'none', color: '#bfdbfe', fontSize: '13px', cursor: 'pointer', fontWeight: 500 }}
+                >
+                  Forgot password?
+                </button>
+              </div>
 
-                  {!otpSent ? (
-                    <button onClick={handleSendLoginOTP} disabled={loading} style={btn()}>{loading ? 'Sending...' : 'Send OTP'}</button>
-                  ) : (
-                    <>
-                      <div style={{ marginBottom: '16px' }}>
-                        <label style={lbl}>Enter OTP</label>
-                        <input
-                          value={otpCode}
-                          onChange={e => setOtpCode(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter' && !loading) handleOTPLogin(); }}
-                          placeholder="6-digit OTP"
-                          maxLength={6}
-                          style={{ ...inp, textAlign: 'center', fontSize: '22px', letterSpacing: '6px', fontWeight: 700 }}
-                        />
-                        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', margin: '6px 0 0' }}>OTP valid for 10 minutes</p>
-                      </div>
-                      <button onClick={handleOTPLogin} disabled={loading} style={btn()}>{loading ? 'Verifying...' : '🔒 Login with OTP'}</button>
-                      <button onClick={() => { setOtpSent(false); clearMessages(); }} style={{ ...btnWhite(), marginTop: '8px' }}>← Resend OTP</button>
-                    </>
-                  )}
-                </>
-              )}
+              <button
+                type="button"
+                onClick={handleLogin}
+                disabled={loading}
+                style={btn()}
+              >
+                {loading ? 'Verifying...' : '🔒 Login Securely'}
+              </button>
+
+              <div style={{
+                marginTop: '16px',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                fontSize: '12px',
+                color: 'rgba(255, 255, 255, 0.75)',
+                lineHeight: 1.4,
+                textAlign: 'center'
+              }}>
+                📷 <strong>Mandatory Attendance Step:</strong> Every sign-in requires a quick webcam attendance photo capture before dashboard access.
+              </div>
 
               <p style={{ textAlign: 'center', fontSize: '13px', color: 'rgba(255,255,255,0.8)', marginTop: '22px', marginBottom: 0 }}>
                 Not registered yet? <a href="/register" style={{ color: '#bfdbfe', fontWeight: 600, textDecoration: 'none' }}>Create an account</a>
@@ -605,12 +517,14 @@ export default function LoginPage() {
         </div>
         <FeatureStrip />
       </div>
+
+      {/* Mandatory Attendance Photo Capture Modal on EVERY Login */}
       {showLoginCapture && (
         <FaceCaptureModal
-          title="Quick photo for the login record"
-          message="This is logged for accountability — not required to proceed."
+          title="Mandatory Attendance Photo"
+          message="Please capture a clear photo of your face to verify your attendance and proceed to the dashboard."
           onCapture={handleLoginPhotoCapture}
-          onCancel={handleLoginPhotoSkip}
+          onCancel={handleLoginPhotoCancel}
         />
       )}
     </>

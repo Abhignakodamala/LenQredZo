@@ -3,9 +3,7 @@ import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { API_URL } from '@/lib/api';
 import ActivityLog from '@/components/ActivityLog';
-import ManagePasskeys from '@/components/ManagePasskeys';
 import SecurityDeviceInfo from '@/components/SecurityDeviceInfo';
-import { registerPasskey } from '@/lib/webauthn';
 
 type CompanyState = { name: string; plan: string; logo?: string | null; primaryColor?: string | null };
 type UserState = { name: string; email: string; role: string };
@@ -26,7 +24,6 @@ export default function SettingsPage() {
   const [savingPwd, setSavingPwd] = useState(false);
   const [pwdError, setPwdError] = useState('');
   const [exporting, setExporting] = useState(false);
-  const [biometricLoading, setBiometricLoading] = useState(false);
 
   const logoInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -121,36 +118,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleEnableBiometric = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      showMsg('❌ Your session has expired. Please log in again.');
-      return;
-    }
-    if (!window.isSecureContext) {
-      showMsg('❌ Biometric login requires localhost or a secure HTTPS connection.');
-      return;
-    }
-    if (!window.PublicKeyCredential) {
-      showMsg('❌ This browser does not support biometric login.');
-      return;
-    }
-    setBiometricLoading(true);
-    try {
-      const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-      if (!available) {
-        showMsg('❌ No Windows Hello, fingerprint, or Face ID authenticator is available on this device.');
-        setBiometricLoading(false);
-        return;
-      }
-      await registerPasskey(token, navigator.platform || 'This device');
-      window.dispatchEvent(new Event('passkeys:updated'));
-      showMsg('✅ Biometric login enabled on this device');
-    } catch (error: any) {
-      showMsg(`❌ ${error.message || 'Failed to enable biometric login'}`);
-    }
-    setBiometricLoading(false);
-  };
 
   const saveCompany = async () => {
     setSavingCompany(true);
@@ -458,17 +425,7 @@ export default function SettingsPage() {
   </button>
 </div>
 
-        {/* Biometric Login */}
-        <div style={card}>
-          <h3 style={{ fontWeight: '700', fontSize: '16px', margin: '0 0 8px' }}>👤 Biometric Login</h3>
-          <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px' }}>
-            Register a device passkey to sign in with Face ID, fingerprint, Windows Hello, or a device PIN.
-          </p>
-          <button onClick={handleEnableBiometric} disabled={biometricLoading} style={{ ...btn, opacity: biometricLoading ? 0.7 : 1 }}>
-            {biometricLoading ? 'Waiting for device...' : 'Enable Device Passkey Login'}
-          </button>
-          <ManagePasskeys />
-        </div>
+
 
         <SecurityDeviceInfo />
 

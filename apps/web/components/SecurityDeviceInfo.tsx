@@ -43,6 +43,7 @@ export default function SecurityDeviceInfo() {
   const [events, setEvents] = useState<LoginEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     const loadHistory = async () => {
@@ -88,41 +89,68 @@ export default function SecurityDeviceInfo() {
 
   return (
     <section style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e5e7eb', marginBottom: '20px' }}>
-      <h3 style={{ fontWeight: 700, fontSize: '16px', margin: '0 0 4px', color: '#111827' }}>
-        Security &amp; Device Info
-      </h3>
-      <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 14px' }}>
-        Recent successful sign-ins to your account.
-      </p>
-
-      {loading && <p style={{ fontSize: '13px', color: '#6b7280' }}>Loading login history...</p>}
-      {error && <p role="alert" style={{ fontSize: '13px', color: '#dc2626' }}>{error}</p>}
-      {!loading && !error && events.length === 0 && (
-        <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
-          No login history yet. Successful sign-ins will appear here.
-        </p>
-      )}
-      {events.map((event, index) => (
-        <div key={event.id} style={{ ...row, borderBottom: index === events.length - 1 ? 'none' : row.borderBottom }}>
-          <div>
-            <p style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: 0 }}>
-              {index === 0 ? 'Last login' : new Date(event.createdAt).toLocaleString('en-IN')}
-            </p>
-            <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0 0' }}>
-              {index === 0 && `${new Date(event.createdAt).toLocaleString('en-IN')} · `}
-              {describeDevice(event.userAgent)}
-              {' · '}
-              {event.method[0].toUpperCase() + event.method.slice(1)}
-            </p>
-            <p style={{ fontSize: '12px', color: '#6b7280', margin: '3px 0 0' }}>
-              IP address: {event.ipAddress || 'Unavailable'}
-            </p>
-          </div>
-          <span style={{ color: '#15803d', background: '#f0fdf4', padding: '5px 9px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap' }}>
-            Successful
-          </span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: collapsed ? 0 : '14px', flexWrap: 'wrap', gap: '8px' }}>
+        <div>
+          <h3 style={{ fontWeight: 700, fontSize: '16px', margin: '0 0 4px', color: '#111827', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>🛡️</span> Security &amp; Device Info
+          </h3>
+          <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
+            Recent successful sign-ins to your account.
+          </p>
         </div>
-      ))}
+        <button
+          type="button"
+          onClick={() => setCollapsed(!collapsed)}
+          style={{
+            background: '#f8fafc',
+            border: '1px solid #cbd5e1',
+            borderRadius: '6px',
+            padding: '5px 12px',
+            fontSize: '12px',
+            fontWeight: 600,
+            color: '#475569',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+        >
+          {collapsed ? '▼ Expand' : '▲ Collapse'}
+        </button>
+      </div>
+
+      {!collapsed && (
+        <>
+          {loading && <p style={{ fontSize: '13px', color: '#6b7280' }}>Loading login history...</p>}
+          {error && <p role="alert" style={{ fontSize: '13px', color: '#dc2626' }}>{error}</p>}
+          {!loading && !error && events.length === 0 && (
+            <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
+              No login history yet. Successful sign-ins will appear here.
+            </p>
+          )}
+          {events.map((event, index) => (
+            <div key={event.id} style={{ ...row, borderBottom: index === events.length - 1 ? 'none' : row.borderBottom }}>
+              <div>
+                <p style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: 0 }}>
+                  {index === 0 ? 'Last login' : new Date(event.createdAt).toLocaleString('en-IN')}
+                </p>
+                <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0 0' }}>
+                  {index === 0 && `${new Date(event.createdAt).toLocaleString('en-IN')} · `}
+                  {describeDevice(event.userAgent)}
+                  {' · '}
+                  {event.method[0].toUpperCase() + event.method.slice(1)}
+                </p>
+                <p style={{ fontSize: '12px', color: '#6b7280', margin: '3px 0 0' }}>
+                  IP address: {event.ipAddress || 'Unavailable'}
+                </p>
+              </div>
+              <span style={{ color: '#15803d', background: '#f0fdf4', padding: '5px 9px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                Successful
+              </span>
+            </div>
+          ))}
+        </>
+      )}
     </section>
   );
 }

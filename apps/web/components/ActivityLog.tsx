@@ -64,14 +64,21 @@ export default function ActivityLog() {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'payments' | 'bank_kyc' | 'customers' | 'system'>('all');
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
-
   const [error, setError] = useState<string | null>(null);
+
+  // Collapse toggle
+  const [collapsed, setCollapsed] = useState(false);
+
+  // Date range filter states (6-month retention baseline)
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [datePreset, setDatePreset] = useState<'all' | 'today' | '7days' | '30days'>('all');
 
   useEffect(() => {
     fetchLogs();
   }, []);
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (customStart?: string, customEnd?: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -82,7 +89,15 @@ export default function ActivityLog() {
         return;
       }
 
-      const res = await fetch(`${API_URL}/api/audit`, {
+      const s = customStart !== undefined ? customStart : startDate;
+      const e = customEnd !== undefined ? customEnd : endDate;
+
+      const params = new URLSearchParams();
+      if (s) params.append('startDate', s);
+      if (e) params.append('endDate', e);
+      const queryStr = params.toString() ? `?${params.toString()}` : '';
+
+      const res = await fetch(`${API_URL}/api/audit${queryStr}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -105,6 +120,45 @@ export default function ActivityLog() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePresetChange = (preset: 'all' | 'today' | '7days' | '30days') => {
+    setDatePreset(preset);
+    let s = '';
+    let e = '';
+    const now = new Date();
+    if (preset === 'today') {
+      s = now.toISOString().slice(0, 10);
+      e = s;
+    } else if (preset === '7days') {
+      const past7 = new Date();
+      past7.setDate(past7.getDate() - 7);
+      s = past7.toISOString().slice(0, 10);
+      e = now.toISOString().slice(0, 10);
+    } else if (preset === '30days') {
+      const past30 = new Date();
+      past30.setDate(past30.getDate() - 30);
+      s = past30.toISOString().slice(0, 10);
+      e = now.toISOString().slice(0, 10);
+    } else {
+      s = '';
+      e = '';
+    }
+    setStartDate(s);
+    setEndDate(e);
+    fetchLogs(s, e);
+  };
+
+  const handleCustomDateApply = () => {
+    setDatePreset('all');
+    fetchLogs(startDate, endDate);
+  };
+
+  const handleResetDateFilter = () => {
+    setDatePreset('all');
+    setStartDate('');
+    setEndDate('');
+    fetchLogs('', '');
   };
 
   const timeAgo = (d: string) => {
@@ -369,35 +423,172 @@ export default function ActivityLog() {
       }}
     >
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: collapsed ? 0 : '16px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h3 style={{ fontWeight: '700', fontSize: '18px', margin: 0, color: '#111827', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>🕒</span> Company Activity & Audit Trail
-          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <h3 style={{ fontWeight: '700', fontSize: '18px', margin: 0, color: '#111827', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>🕒</span> Company Activity &amp; Audit Trail
+            </h3>
+            <span style={{ background: '#dbeafe', color: '#1e40af', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '12px' }}>
+              Past 6 Months
+            </span>
+          </div>
           <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0' }}>
-            Track every loan disbursal, EMI collection, KYC verification, and staff login with full timestamp accuracy.
+            Track every loan disbursal, EMI collection, KYC verification, and staff login with full timestamp accuracy. Activities are automatically retained for 6 months.
           </p>
         </div>
-        <button
-          onClick={fetchLogs}
-          disabled={loading}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            background: '#f9fafb',
-            border: '1px solid #d1d5db',
-            padding: '7px 14px',
-            borderRadius: '8px',
-            fontSize: '13px',
-            fontWeight: '600',
-            color: '#374151',
-            cursor: loading ? 'not-allowed' : 'pointer'
-          }}
-        >
-          <span>🔄</span> {loading ? 'Refreshing...' : 'Refresh Logs'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            onClick={() => fetchLogs()}
+            disabled={loading}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: '#f9fafb',
+              border: '1px solid #d1d5db',
+              padding: '7px 14px',
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontWeight: '600',
+              color: '#374151',
+              cursor: loading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            <span>🔄</span> {loading ? 'Refreshing...' : 'Refresh Logs'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setCollapsed(!collapsed)}
+            style={{
+              background: '#f1f5f9',
+              border: '1px solid #cbd5e1',
+              borderRadius: '8px',
+              padding: '7px 14px',
+              fontSize: '13px',
+              fontWeight: '600',
+              color: '#475569',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            {collapsed ? '▼ Expand' : '▲ Collapse'}
+          </button>
+        </div>
       </div>
+
+      {!collapsed && (
+        <>
+          {/* Date Filter Bar */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '12px',
+            padding: '10px 14px',
+            marginBottom: '16px'
+          }}>
+            {/* Quick Presets */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569', marginRight: '4px' }}>📅 Filter by Date:</span>
+              {[
+                { id: 'all', label: 'All (6 Months)' },
+                { id: 'today', label: 'Today' },
+                { id: '7days', label: 'Last 7 Days' },
+                { id: '30days', label: 'Last 30 Days' },
+              ].map(preset => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => handlePresetChange(preset.id as any)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: datePreset === preset.id ? '700' : '500',
+                    background: datePreset === preset.id ? '#1e40af' : '#ffffff',
+                    color: datePreset === preset.id ? '#ffffff' : '#475569',
+                    border: `1px solid ${datePreset === preset.id ? '#1e40af' : '#cbd5e1'}`,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Custom Date Pickers */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '12px', color: '#64748b' }}>From:</span>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={e => { setDatePreset('all'); setStartDate(e.target.value); }}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12px',
+                    background: '#ffffff'
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '12px', color: '#64748b' }}>To:</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={e => { setDatePreset('all'); setEndDate(e.target.value); }}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12px',
+                    background: '#ffffff'
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleCustomDateApply}
+                style={{
+                  background: '#2563eb',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '5px 12px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Apply
+              </button>
+              {(startDate || endDate) && (
+                <button
+                  type="button"
+                  onClick={handleResetDateFilter}
+                  style={{
+                    background: 'transparent',
+                    color: '#64748b',
+                    border: 'none',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    textDecoration: 'underline'
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
 
       {/* Filter Tabs & Search */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
@@ -490,7 +681,7 @@ export default function ActivityLog() {
             <span>{error}</span>
           </div>
           <button
-            onClick={fetchLogs}
+            onClick={() => fetchLogs()}
             style={{
               background: '#ffffff',
               border: '1px solid #fca5a5',
@@ -648,6 +839,8 @@ export default function ActivityLog() {
           })}
         </div>
       )}
+      </>
+    )}
 
       {/* Photo Preview Modal */}
       {previewPhoto && (

@@ -6,13 +6,46 @@ import { getAuditPhotos } from './audit.controller';
 
 const router = Router();
 
+// GET /api/audit
+// Retains activities for past 6 months (180 days) and supports date range filtering
 router.get('/', protect, async (req: any, res) => {
   try {
     const companyId = req.user.companyId;
+
+    // 6-month retention baseline (180 days)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    sixMonthsAgo.setHours(0, 0, 0, 0);
+
+    const where: any = {
+      companyId,
+      createdAt: { gte: sixMonthsAgo }
+    };
+
+    const { startDate, endDate } = req.query;
+
+    if (startDate) {
+      const parsedStart = new Date(String(startDate));
+      if (!isNaN(parsedStart.getTime())) {
+        parsedStart.setHours(0, 0, 0, 0);
+        // Ensure query cannot exceed the 6-month retention baseline
+        const effectiveStart = parsedStart > sixMonthsAgo ? parsedStart : sixMonthsAgo;
+        where.createdAt.gte = effectiveStart;
+      }
+    }
+
+    if (endDate) {
+      const parsedEnd = new Date(String(endDate));
+      if (!isNaN(parsedEnd.getTime())) {
+        parsedEnd.setHours(23, 59, 59, 999);
+        where.createdAt.lte = parsedEnd;
+      }
+    }
+
     const logs = await prisma.auditLog.findMany({
-      where: { companyId },
+      where,
       orderBy: { createdAt: 'desc' },
-      take: 200
+      take: 500
     });
     res.json(logs);
   } catch (error) {

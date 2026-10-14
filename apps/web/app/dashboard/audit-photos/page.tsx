@@ -82,8 +82,26 @@ export default function AuditPhotosPage() {
       <Sidebar />
       <div style={{ marginLeft: '220px', flex: 1, padding: '24px', maxWidth: '1100px' }}>
         <div style={{ marginBottom: '20px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>📸 Audit Photos</h2>
-          <p style={{ color: '#6b7280', margin: '4px 0 0' }}>Photos captured at login and payment collection, for accountability.</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>📸 Audit Photos</h2>
+              <p style={{ color: '#6b7280', margin: '4px 0 0' }}>Mandatory photo proof captured at login and payment collection for accountability.</p>
+            </div>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              color: '#1d4ed8',
+              padding: '6px 12px',
+              borderRadius: '8px',
+              fontSize: '12px',
+              fontWeight: 600
+            }}>
+              <span>🕒</span> 3-Month Retention Policy Active (Auto-purges older images)
+            </div>
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
