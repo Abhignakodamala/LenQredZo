@@ -125,7 +125,7 @@ export default function Sidebar() {
       {/* Nav */}
       <nav style={{padding:'12px 8px',flex:1,overflowY:'auto'}}>
   {menuItems.map((item) => {
-    const isActive = pathname === item.href;
+    const isActive = item.href === '/dashboard' ? pathname === '/dashboard' : (pathname === item.href || pathname.startsWith(item.href + '/'));
     return (
       <Link key={item.name} href={item.href} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'10px',padding:'10px 8px',borderRadius:'8px',marginBottom:'2px',textDecoration:'none',fontSize:'14px',fontWeight:isActive?'600':'400',background:isActive?'#1e40af':'transparent',color:isActive?'white':'#cbd5e1'}}>
         <span>{item.icon}</span>

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { API_URL } from '@/lib/api';
+import Sidebar from '@/components/Sidebar';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Stats = {
@@ -47,88 +48,18 @@ function ChangeTag({ val }: { val: number | null }) {
   );
 }
 
-// ── Sidebar ───────────────────────────────────────────────────────────────────
-const MENU = [
-  { name: 'Dashboard', icon: '⊞', href: '/dashboard' },
-  { name: 'Customers', icon: '👥', href: '/dashboard/customers' },
-  { name: 'Loans', icon: '💰', href: '/dashboard/loans' },
-  { name: 'Collections', icon: '📋', href: '/dashboard/collections' },
-  { name: 'Payments', icon: '💳', href: '/dashboard/payments' },
-  { name: 'Analytics', icon: '📈', href: '/dashboard/analytics' },
-  { name: 'AI Insights', icon: '🤖', href: '/dashboard/ai' },
-  { name: 'Branches', icon: '🏢', href: '/dashboard/branches' },
-  { name: 'Staff', icon: '👔', href: '/dashboard/staff' },
-  { name: 'Settings', icon: '⚙️', href: '/dashboard/settings' },
-];
 
-const OWNER_ROLES = ['owner', 'admin', 'Super Admin'];
+
 const ROLE_LABELS: Record<string, string> = {
-  owner: 'Finance Owner', admin: 'Finance Owner', 'Super Admin': 'Super Admin',
-  branch_manager: 'Branch Manager', loan_officer: 'Loan Officer',
-  accountant: 'Accountant', collection_agent: 'Collection Agent',
+  owner: 'Finance Owner',
+  admin: 'Finance Owner',
+  'Super Admin': 'Super Admin',
+  branch_manager: 'Branch Manager',
+  loan_officer: 'Loan Officer',
+  accountant: 'Accountant',
+  collection_agent: 'Collection Agent',
+  recovery_officer: 'Recovery Officer',
 };
-
-function Sidebar({ user }: { user: User | null }) {
-  const [path, setPath] = useState('');
-  useEffect(() => { setPath(window.location.pathname); }, []);
-  const isOwner = OWNER_ROLES.includes(user?.role || '');
-  const menu = MENU.filter(m => m.name !== 'Staff' || isOwner);
-  const roleLabel = ROLE_LABELS[user?.role || ''] || user?.role || 'User';
-
-  return (
-    <div style={{ width: 220, background: '#0f172a', height: '100vh', position: 'fixed', left: 0, top: 0, display: 'flex', flexDirection: 'column', zIndex: 100 }}>
-      {/* Logo */}
-      <div style={{ padding: '16px 20px', borderBottom: '1px solid #1e293b' }}>
-        <Image
-          src="/lenqredzo-logo-transparent.png"
-          alt="LenQredZo"
-          width={150}
-          height={100}
-          style={{ width: '150px', height: 'auto', objectFit: 'contain' }}
-          priority
-        />
-      </div>
-
-      {/* Nav */}
-      <nav style={{ flex: 1, overflowY: 'auto', padding: '12px 10px' }}>
-        {menu.map(item => {
-          const active = path === item.href || (item.href !== '/dashboard' && path.startsWith(item.href));
-          return (
-            <a key={item.name} href={item.href} style={{
-              display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px',
-              borderRadius: 8, marginBottom: 2, textDecoration: 'none', fontSize: 13,
-              fontWeight: active ? 600 : 400,
-              background: active ? '#1e40af' : 'transparent',
-              color: active ? 'white' : '#94a3b8',
-              transition: 'all 0.15s'
-            }}>
-              <span style={{ fontSize: 15 }}>{item.icon}</span>
-              <span>{item.name}</span>
-              {active && <span style={{ marginLeft: 'auto', width: 4, height: 4, borderRadius: '50%', background: 'white' }} />}
-            </a>
-          );
-        })}
-      </nav>
-
-      {/* User */}
-      <div style={{ padding: '14px 16px', borderTop: '1px solid #1e293b' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <div style={{ width: 34, height: 34, background: 'linear-gradient(135deg, #1e40af, #7c3aed)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 13, fontWeight: 700 }}>
-            {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-          </div>
-          <div>
-            <p style={{ fontSize: 12, fontWeight: 600, margin: 0, color: 'white' }}>{user?.name || 'User'}</p>
-            <p style={{ fontSize: 10, color: '#64748b', margin: 0 }}>{roleLabel}</p>
-          </div>
-        </div>
-        <button onClick={() => { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/login'; }}
-          style={{ width: '100%', padding: '7px', background: 'transparent', color: '#ef4444', border: '1px solid #3f172a', borderRadius: 7, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-          🚪 Logout
-        </button>
-      </div>
-    </div>
-  );
-}
 
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function Dashboard() {
@@ -236,7 +167,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
-      <Sidebar user={user} />
+      <Sidebar />
 
       {/* Search overlay */}
       {searchOpen && (
