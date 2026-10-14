@@ -95,44 +95,66 @@ class AnalyzeRequest(BaseModel):
 
 def build_prompt(prompt_type: str, stats: PortfolioStats, question: str) -> str:
     facts = (
-        "Here are anonymized summary numbers for a small lending business:\n"
-        f"- Total disbursed: INR {stats.total_disbursed:,.0f}\n"
-        f"- Total collected: INR {stats.total_collected:,.0f}\n"
-        f"- Active loans: {stats.active_loans}\n"
-        f"- Total customers: {stats.total_customers}\n"
-        f"- Overdue EMIs: {stats.overdue_emis}\n"
-        f"- Overdue amount: INR {stats.overdue_amount:,.0f}\n"
-        f"- NPA (non-performing assets): {stats.npa_percentage}%\n"
-        f"- Collection efficiency: {stats.collection_efficiency}%\n"
-        f"- High-risk customers: {stats.high_risk_customers}\n"
+        "LOAN PORTFOLIO FINANCIAL METRICS:\n"
+        f"• Cumulative Capital Disbursed: INR {stats.total_disbursed:,.0f}\n"
+        f"• Total Repayments Collected: INR {stats.total_collected:,.0f}\n"
+        f"• Active Loan Accounts: {stats.active_loans}\n"
+        f"• Total Customer Base: {stats.total_customers}\n"
+        f"• Overdue EMIs: {stats.overdue_emis}\n"
+        f"• Outstanding Delinquent Exposure: INR {stats.overdue_amount:,.0f}\n"
+        f"• Non-Performing Assets Ratio (NPA %): {stats.npa_percentage}%\n"
+        f"• Collection Efficiency Rate: {stats.collection_efficiency}%\n"
+        f"• High-Risk Borrowers (≥2 missed EMIs): {stats.high_risk_customers}\n"
     )
 
     presets = {
         "portfolio_health": (
-            "You are a financial analyst. Based ONLY on the numbers below, write a short, "
-            "plain-language health check of this loan portfolio for a non-expert owner. "
-            "Cover what looks good, what looks risky, and 2-3 practical next steps. "
-            "Keep it under 200 words. Do not invent numbers that are not given.\n\n" + facts
+            "You are a Senior Institutional Credit & Portfolio Risk Analyst. "
+            "Conduct a comprehensive, executive-grade Portfolio Health Assessment based strictly on the figures below. "
+            "Present your analysis in an authoritative, structured, and polished corporate format with these exact sections:\n\n"
+            "### Executive Summary\n"
+            "Provide a high-level strategic evaluation of the firm's capital deployment, solvency, and current momentum.\n\n"
+            "### Portfolio Strengths & Capital Health\n"
+            "Detail the positive operational indicators, asset recovery discipline, and risk containment demonstrated by the numbers.\n\n"
+            "### Risk Factors & Vigilance Areas\n"
+            "Examine capital concentration, active loan ratios versus customer base, and growth bottlenecks. Note that a 0% NPA and 0 overdue EMIs represents optimal borrower compliance, not a data anomaly.\n\n"
+            "### Strategic Action Plan & Growth Roadmap\n"
+            "Outline 3 to 4 actionable, high-yield tactical directives for executive leadership to scale lending volume while sustaining prime portfolio quality.\n\n"
+            "Tone: Executive, analytical, precise, and professional. Avoid conversational fluff. Format cleanly.\n\n" + facts
         ),
         "risk_assessment": (
-            "You are a credit-risk analyst. Based ONLY on the numbers below, summarize the "
-            "main risks in this loan portfolio and explain in simple terms what they mean. "
-            "Keep it under 200 words. Do not invent data.\n\n" + facts
+            "You are a Chief Risk Officer (CRO) evaluating a credit book. "
+            "Deliver an institutional Credit Risk & Delinquency Diagnostic based on the data below. "
+            "Format your report with the following sections:\n\n"
+            "### Credit Risk Classification\n"
+            "Assess the portfolio's aggregate risk tier (Prime, Moderate, or High Risk) evaluating NPA and delinquency volume.\n\n"
+            "### Default Probability & Exposure Diagnostic\n"
+            "Analyze borrower concentration, high-risk account exposure, and repayment continuity.\n\n"
+            "### Capital Preservation Safeguards\n"
+            "Provide 3 to 4 concrete underwriting, collateralization, and monitoring protocols to safeguard balance sheet liquidity.\n\n"
+            "Tone: Rigorous, institutional, financial risk advisory.\n\n" + facts
         ),
         "collection_strategy": (
-            "You are a collections advisor. Based ONLY on the numbers below, suggest 3-5 "
-            "practical, ethical steps a small lender could take to improve collections and "
-            "reduce overdue amounts. Keep it under 200 words. Do not invent data.\n\n" + facts
+            "You are a Senior Debt Recovery & Liquidity Optimization Strategist. "
+            "Formulate an institutional Collection & Recovery Blueprint using the portfolio performance figures below. "
+            "Format your strategy into:\n\n"
+            "### Cash Velocity & Recovery Assessment\n"
+            "Analyze current collection efficiency and capital turnover relative to total principal disbursed.\n\n"
+            "### Liquidity Optimization Levers\n"
+            "Pinpoint operational levers to accelerate EMI collection velocity and minimize future delinquency probability.\n\n"
+            "### Actionable Recovery Protocols\n"
+            "Provide 3 to 5 tactical protocols (e.g., early-warning SMS triggers, automated mandate reconciliations, field incentives, structured pre-closure options).\n\n"
+            "Tone: Action-oriented, commercially astute, and executive-ready.\n\n" + facts
         ),
     }
 
     if prompt_type == "custom":
-        safe_q = question.strip() or "Give a brief overview of this portfolio."
+        safe_q = question.strip() or "Provide an executive assessment of this portfolio."
         return (
-            "You are a financial analyst. Answer the owner's question using ONLY the numbers "
-            "below. If the numbers cannot answer it, say so honestly. Keep it under 200 words. "
-            "Do not invent data.\n\n"
-            f"Owner's question: {safe_q}\n\n" + facts
+            "You are a Senior Credit & Financial Risk Analyst. Provide an institutional, deeply analytical, and actionable response "
+            "to the management inquiry below, utilizing the verified financial metrics provided. "
+            "Structure your output cleanly with relevant headers (###) and clear bullet points.\n\n"
+            f"Management Inquiry: {safe_q}\n\n" + facts
         )
 
     return presets.get(prompt_type, presets["portfolio_health"])

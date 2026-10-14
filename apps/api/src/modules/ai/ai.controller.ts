@@ -45,10 +45,10 @@ export const analyzePortfolio = async (req: any, res: Response) => {
     });
     const high_risk_customers = Object.values(customerOverdue).filter(v => v >= 2).length;
 
-    const dueEmis = emis.filter(e => new Date(e.dueDate) <= istNow);
-    const collection_efficiency = dueEmis.length > 0
-      ? Number(((dueEmis.filter(e => e.status === 'paid').length / dueEmis.length) * 100).toFixed(1))
-      : 0;
+    const payableOrCollectedEmis = emis.filter(e => new Date(e.dueDate) <= istNow || e.status === 'paid');
+    const collection_efficiency = payableOrCollectedEmis.length > 0
+      ? Number(((payableOrCollectedEmis.filter(e => e.status === 'paid').length / payableOrCollectedEmis.length) * 100).toFixed(1))
+      : (total_collected > 0 ? 100.0 : 0.0);
     const npa_percentage = total_disbursed > 0
       ? Number(((overdue_amount / total_disbursed) * 100).toFixed(2))
       : 0;
