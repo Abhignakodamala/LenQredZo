@@ -6,7 +6,9 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
-    "check-types": "npm --prefix ./apps/web run check-types"
+    "check-types": "npm --prefix ./apps/web run check-types",
+    "mobile": "npm --prefix ./apps/mobile run start",
+    "mobile:android": "npm --prefix ./apps/mobile run android"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
