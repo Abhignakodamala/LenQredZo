@@ -9,15 +9,19 @@ import {
   Image,
   ActivityIndicator,
   Alert,
-  ScrollView
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { EMIItem, PaymentMethod } from '../types';
+import { EMIItem, PaymentMethod, User } from '../types';
 import { submitEmiCollection } from '../services/collections';
 
 interface CollectModalProps {
   visible: boolean;
   emi: EMIItem | null;
+  user?: User;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -103,10 +107,15 @@ export default function CollectModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={styles.sheet}>
-          <ScrollView contentContainerStyle={styles.scrollContent}>
-            
+          {/* Grab Handle */}
+          <View style={styles.handleBar} />
+
+          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
             {/* Header */}
             <View style={styles.header}>
               <View style={{ flex: 1 }}>
@@ -115,82 +124,143 @@ export default function CollectModal({
                   Loan #{1000 + emi.loanId} · {emi.loan?.customer?.name}
                 </Text>
               </View>
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <Text style={styles.closeText}>✕</Text>
+              <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+                <Ionicons name="close" size={20} color="#64748b" />
               </TouchableOpacity>
             </View>
 
-            {/* Amount Due Card */}
+            {/* Outstanding Due Card */}
             <View style={styles.dueCard}>
-              <Text style={styles.dueLabel}>Outstanding EMI Due</Text>
-              <Text style={styles.dueValue}>₹{dueAmount.toLocaleString('en-IN')}</Text>
-              <Text style={styles.dueSub}>
-                Due Date: {new Date(emi.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-              </Text>
+              <View>
+                <Text style={styles.dueLabel}>Outstanding EMI Due</Text>
+                <Text style={styles.dueValue}>₹{dueAmount.toLocaleString('en-IN')}</Text>
+              </View>
+              <View style={styles.dueDateBadge}>
+                <Ionicons name="calendar-outline" size={13} color="#2563eb" />
+                <Text style={styles.dueDateText}>
+                  {new Date(emi.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                </Text>
+              </View>
             </View>
 
-            {/* Amount Received Input */}
+            {/* Amount Received Input & Quick Chips */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Amount Received (₹)</Text>
-              <TextInput
-                keyboardType="numeric"
-                value={payAmount}
-                onChangeText={setPayAmount}
-                placeholder="Enter amount"
-                style={styles.textInput}
-              />
+              <View style={styles.amountInputBox}>
+                <Text style={styles.rupeeSymbol}>₹</Text>
+                <TextInput
+                  keyboardType="numeric"
+                  value={payAmount}
+                  onChangeText={setPayAmount}
+                  placeholder="0"
+                  placeholderTextColor="#94a3b8"
+                  style={styles.amountInput}
+                />
+              </View>
+              {/* Quick amount shortcuts */}
+              <View style={styles.chipRow}>
+                <TouchableOpacity
+                  style={[styles.chip, payAmount === String(dueAmount) && styles.chipActive]}
+                  onPress={() => setPayAmount(String(dueAmount))}
+                >
+                  <Text style={[styles.chipText, payAmount === String(dueAmount) && styles.chipTextActive]}>
+                    Full: ₹{dueAmount.toLocaleString('en-IN')}
+                  </Text>
+                </TouchableOpacity>
+
+                {dueAmount > 500 && (
+                  <TouchableOpacity
+                    style={[styles.chip, payAmount === String(Math.round(dueAmount / 2)) && styles.chipActive]}
+                    onPress={() => setPayAmount(String(Math.round(dueAmount / 2)))}
+                  >
+                    <Text style={[styles.chipText, payAmount === String(Math.round(dueAmount / 2)) && styles.chipTextActive]}>
+                      50%: ₹{Math.round(dueAmount / 2).toLocaleString('en-IN')}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
 
             {/* Payment Method Selector */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Payment Mode</Text>
               <View style={styles.methodRow}>
-                {(['cash', 'upi', 'bank_transfer'] as PaymentMethod[]).map(m => (
-                  <TouchableOpacity
-                    key={m}
-                    style={[styles.methodBtn, method === m && styles.methodBtnActive]}
-                    onPress={() => setMethod(m)}
-                  >
-                    <Text style={styles.methodIcon}>
-                      {m === 'cash' ? '💵' : m === 'upi' ? '📲' : '🏦'}
-                    </Text>
-                    <Text style={[styles.methodText, method === m && styles.methodTextActive]}>
-                      {m === 'cash' ? 'Cash' : m === 'upi' ? 'UPI / QR' : 'Bank'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {[
+                  { id: 'cash', label: 'Cash', icon: 'cash-outline' },
+                  { id: 'upi', label: 'UPI / QR', icon: 'qr-code-outline' },
+                  { id: 'bank_transfer', label: 'Bank', icon: 'business-outline' }
+                ].map(m => {
+                  const isActive = method === m.id;
+                  return (
+                    <TouchableOpacity
+                      key={m.id}
+                      style={[styles.methodBtn, isActive && styles.methodBtnActive]}
+                      onPress={() => setMethod(m.id as PaymentMethod)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={m.icon as any}
+                        size={20}
+                        color={isActive ? '#2563eb' : '#64748b'}
+                        style={{ marginBottom: 4 }}
+                      />
+                      <Text style={[styles.methodText, isActive && styles.methodTextActive]}>
+                        {m.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
 
-            {/* Reference Number */}
+            {/* Reference Number / Notes */}
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>
-                {method === 'upi' ? 'UPI UTR / Reference No.' : 'Receipt / Reference No. (Optional)'}
-              </Text>
+              <Text style={styles.inputLabel}>Reference / Receipt Note (Optional)</Text>
               <TextInput
                 value={reference}
                 onChangeText={setReference}
-                placeholder={method === 'upi' ? 'e.g. 12-digit UTR' : 'e.g. Book receipt #'}
+                placeholder={method === 'upi' ? 'UPI UTR / Transaction ID' : 'Receipt number or remarks'}
+                placeholderTextColor="#94a3b8"
                 style={styles.textInput}
               />
             </View>
 
-            {/* Photo Proof Upload */}
+            {/* Photo Proof Section (Mandatory) */}
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>📸 Payment Receipt / Cash Photo Proof (Mandatory)</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <Text style={styles.inputLabel}>
+                  Camera Proof <Text style={{ color: '#dc2626' }}>*</Text>
+                </Text>
+                <Text style={styles.requiredTag}>Mandatory</Text>
+              </View>
+
               {proofUri ? (
-                <View style={styles.proofPreviewRow}>
-                  <Image source={{ uri: proofUri }} style={styles.proofThumb} />
+                <View style={styles.proofPreviewCard}>
+                  <Image source={{ uri: proofUri }} style={styles.proofThumbnail} />
                   <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.proofSuccessText}>✓ Proof Photo Attached</Text>
-                    <TouchableOpacity onPress={takeProofPhoto} style={styles.retakeBtn}>
-                      <Text style={styles.retakeBtnText}>Retake Photo</Text>
-                    </TouchableOpacity>
+                    <View style={styles.proofVerifiedPill}>
+                      <Ionicons name="checkmark-circle" size={14} color="#16a34a" />
+                      <Text style={styles.proofVerifiedText}>Photo Verified</Text>
+                    </View>
+                    <Text style={styles.proofSubText}>Cash/Receipt image attached</Text>
                   </View>
+                  <TouchableOpacity style={styles.retakeIconBtn} onPress={takeProofPhoto}>
+                    <Ionicons name="camera-reverse" size={20} color="#2563eb" />
+                  </TouchableOpacity>
                 </View>
               ) : (
-                <TouchableOpacity style={styles.snapPhotoBtn} onPress={takeProofPhoto}>
-                  <Text style={styles.snapPhotoText}>📷 Snap Receipt / Cash Photo</Text>
+                <TouchableOpacity
+                  style={styles.cameraBox}
+                  onPress={takeProofPhoto}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.cameraCircle}>
+                    <Ionicons name="camera" size={26} color="#2563eb" />
+                  </View>
+                  <Text style={styles.cameraTitle}>Take Cash / Receipt Photo</Text>
+                  <Text style={styles.cameraDesc}>
+                    Snap currency bundle or UPI confirmation screen
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -200,21 +270,26 @@ export default function CollectModal({
               style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
               onPress={handleSubmit}
               disabled={submitting}
+              activeOpacity={0.85}
             >
               {submitting ? (
                 <ActivityIndicator color="#ffffff" />
               ) : (
-                <Text style={styles.submitBtnText}>✓ Confirm & Record Collection</Text>
+                <View style={styles.btnInner}>
+                  <Ionicons name="checkmark-done" size={20} color="#ffffff" style={{ marginRight: 8 }} />
+                  <Text style={styles.submitBtnText}>
+                    Confirm Collection ₹{parseFloat(payAmount || '0').toLocaleString('en-IN')}
+                  </Text>
+                </View>
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.cancelBtn} onPress={onClose} disabled={submitting}>
-              <Text style={styles.cancelBtnText}>Cancel</Text>
+            <TouchableOpacity style={styles.cancelLink} onPress={onClose}>
+              <Text style={styles.cancelLinkText}>Discard and Go Back</Text>
             </TouchableOpacity>
-
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -222,88 +297,159 @@ export default function CollectModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    backgroundColor: 'rgba(10, 15, 29, 0.75)',
     justifyContent: 'flex-end'
   },
   sheet: {
     backgroundColor: '#ffffff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
-    padding: 24
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '92%',
+    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 20
+  },
+  handleBar: {
+    width: 44,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#cbd5e1',
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 6
   },
   scrollContent: {
-    paddingBottom: 20
+    padding: 20
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 16
   },
   title: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '800',
     color: '#0f172a'
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 12.5,
     color: '#64748b',
     marginTop: 2
   },
   closeBtn: {
-    padding: 6
-  },
-  closeText: {
-    fontSize: 18,
-    color: '#94a3b8',
-    fontWeight: '700'
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   dueCard: {
-    backgroundColor: '#eff6ff',
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
-    borderRadius: 14,
-    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 18
+    backgroundColor: '#eff6ff',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: '#dbeafe'
   },
   dueLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1e40af',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5
+    fontSize: 11,
+    color: '#3b82f6',
+    fontWeight: '700',
+    letterSpacing: 0.3
   },
   dueValue: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#1e3a8a',
-    marginVertical: 4
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1e40af',
+    marginTop: 2
   },
-  dueSub: {
+  dueDateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    gap: 4
+  },
+  dueDateText: {
     fontSize: 12,
-    color: '#60a5fa',
-    fontWeight: '500'
+    fontWeight: '700',
+    color: '#1e40af'
   },
   inputGroup: {
     marginBottom: 16
   },
   inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12.5,
+    fontWeight: '700',
     color: '#334155',
     marginBottom: 6
   },
-  textInput: {
+  requiredTag: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#dc2626',
+    backgroundColor: '#fef2f2',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6
+  },
+  amountInputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#f8fafc',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#cbd5e1',
-    borderRadius: 10,
+    borderRadius: 14,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: '#0f172a'
+    height: 52
+  },
+  rupeeSymbol: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#64748b',
+    marginRight: 6
+  },
+  amountInput: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0f172a',
+    height: '100%'
+  },
+  chipRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0'
+  },
+  chipActive: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#2563eb'
+  },
+  chipText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#475569'
+  },
+  chipTextActive: {
+    color: '#2563eb',
+    fontWeight: '700'
   },
   methodRow: {
     flexDirection: 'row',
@@ -311,20 +457,17 @@ const styles = StyleSheet.create({
   },
   methodBtn: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#f8fafc',
-    alignItems: 'center'
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    borderRadius: 14,
+    paddingVertical: 12
   },
   methodBtnActive: {
-    borderColor: '#1e40af',
-    backgroundColor: '#eff6ff'
-  },
-  methodIcon: {
-    fontSize: 18,
-    marginBottom: 2
+    backgroundColor: '#eff6ff',
+    borderColor: '#2563eb'
   },
   methodText: {
     fontSize: 12,
@@ -332,72 +475,121 @@ const styles = StyleSheet.create({
     color: '#475569'
   },
   methodTextActive: {
-    color: '#1e40af',
+    color: '#2563eb',
     fontWeight: '700'
   },
-  snapPhotoBtn: {
-    backgroundColor: '#f1f5f9',
-    borderWidth: 1.5,
-    borderColor: '#94a3b8',
-    borderStyle: 'dashed',
+  textInput: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
     borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center'
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 13,
+    color: '#0f172a'
   },
-  snapPhotoText: {
+  cameraBox: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1.5,
+    borderColor: '#cbd5e1',
+    borderStyle: 'dashed',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  cameraCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#eff6ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8
+  },
+  cameraTitle: {
     fontSize: 13.5,
-    fontWeight: '600',
-    color: '#1e40af'
+    fontWeight: '700',
+    color: '#1e293b'
   },
-  proofPreviewRow: {
+  cameraDesc: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 2
+  },
+  proofPreviewCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f0fdf4',
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#bbf7d0',
-    borderRadius: 12,
+    borderColor: '#dcfce7',
+    borderRadius: 14,
     padding: 10
   },
-  proofThumb: {
+  proofThumbnail: {
     width: 60,
     height: 60,
-    borderRadius: 8
+    borderRadius: 10
   },
-  proofSuccessText: {
-    fontSize: 13,
+  proofVerifiedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ecfdf5',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    gap: 4
+  },
+  proofVerifiedText: {
+    fontSize: 11,
     fontWeight: '700',
-    color: '#166534'
+    color: '#15803d'
   },
-  retakeBtn: {
+  proofSubText: {
+    fontSize: 11,
+    color: '#64748b',
     marginTop: 4
   },
-  retakeBtnText: {
-    fontSize: 12,
-    color: '#2563eb',
-    fontWeight: '600',
-    textDecorationLine: 'underline'
+  retakeIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#eff6ff',
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   submitBtn: {
-    backgroundColor: '#16a34a',
-    paddingVertical: 14,
-    borderRadius: 12,
+    backgroundColor: '#2563eb',
+    height: 50,
+    borderRadius: 14,
     alignItems: 'center',
-    marginTop: 8
+    justifyContent: 'center',
+    marginTop: 6,
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4
+  },
+  btnInner: {
+    flexDirection: 'row',
+    alignItems: 'center'
   },
   submitBtnDisabled: {
-    opacity: 0.6
+    opacity: 0.7
   },
   submitBtnText: {
     color: '#ffffff',
     fontSize: 15,
     fontWeight: '700'
   },
-  cancelBtn: {
-    alignItems: 'center',
-    paddingVertical: 12
+  cancelLink: {
+    paddingVertical: 12,
+    alignItems: 'center'
   },
-  cancelBtnText: {
-    color: '#64748b',
+  cancelLinkText: {
+    color: '#94a3b8',
     fontSize: 13,
     fontWeight: '600'
   }

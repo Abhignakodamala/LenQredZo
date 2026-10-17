@@ -8,6 +8,7 @@ import {
   Alert,
   ScrollView
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { User } from '../types';
 import { getApiUrl, setApiUrl, DEFAULT_API_URL } from '../config';
 
@@ -47,7 +48,8 @@ export default function ProfileScreen({ user, onLogout }: ProfileScreenProps) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Agent Profile</Text>
         <Text style={styles.headerSub}>LenQredzo Mobile Collection Portal</Text>
@@ -61,48 +63,73 @@ export default function ProfileScreen({ user, onLogout }: ProfileScreenProps) {
         <Text style={styles.userName}>{user.name}</Text>
         <Text style={styles.userEmail}>{user.email}</Text>
         <View style={styles.roleBadge}>
+          <Ionicons name="shield-checkmark" size={13} color="#2563eb" style={{ marginRight: 4 }} />
           <Text style={styles.roleText}>{user.role.toUpperCase()}</Text>
         </View>
       </View>
 
-      {/* Branch & Details Card */}
+      {/* Shift & Details Card */}
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Shift & Assignment Details</Text>
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>Company ID</Text>
-          <Text style={styles.rowValue}>#{user.companyId}</Text>
+
+        <View style={styles.detailRow}>
+          <View style={styles.iconCircle}>
+            <Ionicons name="business-outline" size={16} color="#2563eb" />
+          </View>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={styles.detailLabel}>Company Reference</Text>
+            <Text style={styles.detailValue}>Company #{user.companyId}</Text>
+          </View>
         </View>
+
         <View style={styles.divider} />
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>Designation</Text>
-          <Text style={styles.rowValue}>Field Collection Agent</Text>
+
+        <View style={styles.detailRow}>
+          <View style={styles.iconCircle}>
+            <Ionicons name="briefcase-outline" size={16} color="#2563eb" />
+          </View>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={styles.detailLabel}>Designation</Text>
+            <Text style={styles.detailValue}>Field Collection Agent</Text>
+          </View>
         </View>
+
         <View style={styles.divider} />
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>Attendance Status</Text>
-          <Text style={[styles.rowValue, { color: '#16a34a' }]}>✓ Logged In (Photo Verified)</Text>
+
+        <View style={styles.detailRow}>
+          <View style={[styles.iconCircle, { backgroundColor: '#ecfdf5' }]}>
+            <Ionicons name="checkmark-circle" size={16} color="#16a34a" />
+          </View>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={styles.detailLabel}>Attendance Status</Text>
+            <Text style={[styles.detailValue, { color: '#15803d' }]}>Shift Active · Photo Logged</Text>
+          </View>
         </View>
       </View>
 
       {/* Server API URL Config */}
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>⚙️ Backend Server Endpoint</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+          <Ionicons name="server-outline" size={17} color="#0f172a" style={{ marginRight: 6 }} />
+          <Text style={styles.sectionTitle}>Backend Server Endpoint</Text>
+        </View>
         <Text style={styles.configDesc}>
-          Set this to your laptop's local IP (e.g. http://192.168.x.x:5000) or public API endpoint.
+          Endpoint used for logging collections & selfie uploads.
         </Text>
         <TextInput
           value={apiUrl}
           onChangeText={setApiUrlState}
           placeholder="http://192.168.0.186:5000"
+          placeholderTextColor="#94a3b8"
           autoCapitalize="none"
           autoCorrect={false}
           style={styles.input}
         />
         <View style={styles.btnRow}>
-          <TouchableOpacity style={styles.saveBtn} onPress={handleSaveApiUrl} disabled={savingUrl}>
-            <Text style={styles.saveBtnText}>Save URL</Text>
+          <TouchableOpacity style={styles.saveBtn} onPress={handleSaveApiUrl} disabled={savingUrl} activeOpacity={0.7}>
+            <Text style={styles.saveBtnText}>Save Endpoint</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.resetBtn} onPress={handleResetApiUrl}>
+          <TouchableOpacity style={styles.resetBtn} onPress={handleResetApiUrl} activeOpacity={0.7}>
             <Text style={styles.resetBtnText}>Reset Default</Text>
           </TouchableOpacity>
         </View>
@@ -111,6 +138,7 @@ export default function ProfileScreen({ user, onLogout }: ProfileScreenProps) {
       {/* Logout Action */}
       <TouchableOpacity
         style={styles.logoutBtn}
+        activeOpacity={0.85}
         onPress={() => {
           Alert.alert(
             'Confirm Sign Out',
@@ -122,7 +150,8 @@ export default function ProfileScreen({ user, onLogout }: ProfileScreenProps) {
           );
         }}
       >
-        <Text style={styles.logoutText}>🚪 End Shift & Log Out</Text>
+        <Ionicons name="log-out-outline" size={18} color="#dc2626" style={{ marginRight: 8 }} />
+        <Text style={styles.logoutText}>End Shift & Sign Out</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -142,7 +171,7 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderColor: '#e2e8f0'
+    borderColor: '#f1f5f9'
   },
   headerTitle: {
     fontSize: 18,
@@ -158,111 +187,123 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     marginHorizontal: 16,
     marginTop: 14,
-    borderRadius: 14,
+    borderRadius: 20,
     padding: 18,
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
-    alignItems: 'center'
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2
   },
   avatar: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#1e40af',
+    backgroundColor: '#eff6ff',
+    alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10
+    marginBottom: 10,
+    borderWidth: 2,
+    borderColor: '#dbeafe'
   },
   avatarText: {
-    color: '#ffffff',
-    fontSize: 24,
-    fontWeight: '800'
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#2563eb'
   },
   userName: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a'
+    color: '#0f172a',
+    textAlign: 'center'
   },
   userEmail: {
-    fontSize: 13,
+    fontSize: 12.5,
     color: '#64748b',
+    textAlign: 'center',
     marginTop: 2
   },
   roleBadge: {
-    marginTop: 10,
+    flexDirection: 'row',
+    alignSelf: 'center',
     backgroundColor: '#eff6ff',
     paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 14,
+    marginTop: 8,
     borderWidth: 1,
-    borderColor: '#bfdbfe'
+    borderColor: '#dbeafe',
+    alignItems: 'center'
   },
   roleText: {
+    color: '#2563eb',
     fontSize: 11,
-    fontWeight: '700',
-    color: '#1d4ed8'
+    fontWeight: '800',
+    letterSpacing: 0.5
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0f172a',
-    alignSelf: 'flex-start',
-    marginBottom: 12
+    color: '#0f172a'
   },
-  row: {
+  detailRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    paddingVertical: 8
+    alignItems: 'center',
+    paddingVertical: 6
   },
-  rowLabel: {
-    fontSize: 13,
-    color: '#64748b'
+  iconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#eff6ff',
+    alignItems: 'center',
+    justifyContent: 'center'
   },
-  rowValue: {
+  detailLabel: {
+    fontSize: 11,
+    color: '#64748b',
+    fontWeight: '500'
+  },
+  detailValue: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0f172a'
+    color: '#0f172a',
+    marginTop: 1
   },
   divider: {
     height: 1,
     backgroundColor: '#f1f5f9',
-    width: '100%'
+    marginVertical: 8
   },
   configDesc: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: '#64748b',
-    lineHeight: 16,
     marginBottom: 10,
-    alignSelf: 'flex-start'
+    lineHeight: 16
   },
   input: {
-    width: '100%',
     backgroundColor: '#f8fafc',
     borderWidth: 1,
     borderColor: '#cbd5e1',
-    borderRadius: 8,
+    borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     fontSize: 13,
-    color: '#0f172a',
-    marginBottom: 10
+    color: '#0f172a'
   },
   btnRow: {
     flexDirection: 'row',
     gap: 8,
-    width: '100%'
+    marginTop: 10
   },
   saveBtn: {
     flex: 1,
-    backgroundColor: '#1e40af',
-    paddingVertical: 9,
-    borderRadius: 8,
+    backgroundColor: '#2563eb',
+    paddingVertical: 10,
+    borderRadius: 10,
     alignItems: 'center'
   },
   saveBtnText: {
@@ -272,10 +313,9 @@ const styles = StyleSheet.create({
   },
   resetBtn: {
     paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#f1f5f9',
     alignItems: 'center'
   },
   resetBtnText: {
@@ -284,14 +324,16 @@ const styles = StyleSheet.create({
     fontWeight: '600'
   },
   logoutBtn: {
-    backgroundColor: '#fef2f2',
-    borderWidth: 1,
-    borderColor: '#fecaca',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginHorizontal: 16,
     marginTop: 20,
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fee2e2',
     paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center'
+    borderRadius: 16
   },
   logoutText: {
     color: '#dc2626',

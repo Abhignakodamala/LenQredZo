@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Alert
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { EMIItem, User } from '../types';
 import { fetchAllCollections, isDateToday, isDateOverdue } from '../services/collections';
 import CollectModal from './CollectModal';
@@ -77,6 +78,24 @@ export default function TodayDuesScreen({ user }: TodayDuesScreenProps) {
     });
   }, [emis, activeTab, search]);
 
+  // Tab counts
+  const tabCounts = useMemo(() => {
+    let today = 0;
+    let overdue = 0;
+    let collected = 0;
+    let all = emis.length;
+
+    emis.forEach(e => {
+      const isToday = isDateToday(e.dueDate);
+      const isOver = isDateOverdue(e.dueDate, e.status);
+      if ((isToday || isOver) && e.status !== 'paid') today += 1;
+      if (isOver) overdue += 1;
+      if (e.status === 'paid') collected += 1;
+    });
+
+    return { today, overdue, collected, all };
+  }, [emis]);
+
   // Summary Metrics
   const stats = useMemo(() => {
     let todayTarget = 0;
@@ -130,42 +149,79 @@ export default function TodayDuesScreen({ user }: TodayDuesScreenProps) {
       <View style={styles.card}>
         {/* Top Card Row */}
         <View style={styles.cardTopRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.customerName}>{customer?.name || 'Borrower'}</Text>
-            <Text style={styles.loanIdText}>Loan #LN{1000 + item.loanId}</Text>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{(customer?.name || 'B').charAt(0).toUpperCase()}</Text>
           </View>
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.customerName}>{customer?.name || 'Borrower'}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <View style={styles.loanBadge}>
+                <Text style={styles.loanBadgeText}>#LN{1000 + item.loanId}</Text>
+              </View>
+              {customer?.phone && (
+                <Text style={styles.phoneSub}>{customer.phone}</Text>
+              )}
+            </View>
+          </View>
+
+          {/* Status Badge */}
           <View style={[styles.statusBadge, isPaid ? styles.statusPaid : isOver ? styles.statusOverdue : styles.statusDue]}>
+            <View style={[styles.statusDot, isPaid ? styles.dotPaid : isOver ? styles.dotOverdue : styles.dotDue]} />
             <Text style={[styles.statusBadgeText, isPaid ? styles.statusPaidText : isOver ? styles.statusOverdueText : styles.statusDueText]}>
-              {isPaid ? '✓ Paid' : isOver ? '⚠ Overdue' : 'Due Today'}
+              {isPaid ? 'Paid' : isOver ? 'Overdue' : 'Due Today'}
             </Text>
           </View>
         </View>
 
-        {/* Due & Date Details */}
-        <View style={styles.amountRow}>
+        {/* Due & Date Block */}
+        <View style={styles.amountBox}>
           <View>
-            <Text style={styles.amountLabel}>Due Amount</Text>
+            <Text style={styles.amountLabel}>Outstanding Due</Text>
             <Text style={styles.amountValue}>₹{dueAmount.toLocaleString('en-IN')}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={styles.dateLabel}>Due Date</Text>
-            <Text style={styles.dateValue}>
-              {new Date(item.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+              <Ionicons name="calendar-outline" size={13} color="#64748b" />
+              <Text style={styles.dateValue}>
+                {new Date(item.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+              </Text>
+            </View>
           </View>
         </View>
+
+        {/* Address if available */}
+        {customer?.address ? (
+          <View style={styles.addressRow}>
+            <Ionicons name="location-outline" size={13} color="#94a3b8" />
+            <Text style={styles.addressText} numberOfLines={1}>
+              {customer.address}{customer.city ? `, ${customer.city}` : ''}
+            </Text>
+          </View>
+        ) : null}
 
         {/* Action Buttons Row */}
         <View style={styles.actionRow}>
           {customer?.phone && (
             <>
-              <TouchableOpacity style={styles.iconBtn} onPress={() => handleCall(customer.phone)}>
-                <Text style={styles.btnIcon}>📞</Text>
-                <Text style={styles.iconBtnText}>Call</Text>
+              <TouchableOpacity
+                style={styles.actionPill}
+                onPress={() => handleCall(customer.phone)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="call" size={14} color="#2563eb" />
+                <Text style={styles.actionPillText}>Call</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.iconBtn, styles.waBtn]} onPress={() => handleWhatsApp(customer.phone, customer.name, dueAmount)}>
-                <Text style={styles.btnIcon}>💬</Text>
-                <Text style={[styles.iconBtnText, { color: '#059669' }]}>WhatsApp</Text>
+
+              <TouchableOpacity
+                style={[styles.actionPill, styles.waPill]}
+                onPress={() => handleWhatsApp(customer.phone, customer.name, dueAmount)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="logo-whatsapp" size={14} color="#16a34a" />
+                <Text style={[styles.actionPillText, { color: '#16a34a' }]}>WhatsApp</Text>
               </TouchableOpacity>
             </>
           )}
@@ -174,12 +230,15 @@ export default function TodayDuesScreen({ user }: TodayDuesScreenProps) {
             <TouchableOpacity
               style={styles.collectBtn}
               onPress={() => setSelectedEmi(item)}
+              activeOpacity={0.85}
             >
-              <Text style={styles.collectBtnText}>💵 Collect EMI</Text>
+              <Ionicons name="wallet-outline" size={15} color="#ffffff" style={{ marginRight: 6 }} />
+              <Text style={styles.collectBtnText}>Collect ₹{dueAmount.toLocaleString('en-IN')}</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.clearedBadge}>
-              <Text style={styles.clearedText}>✓ Collected</Text>
+              <Ionicons name="checkmark-circle" size={15} color="#16a34a" style={{ marginRight: 4 }} />
+              <Text style={styles.clearedText}>Collected</Text>
             </View>
           )}
         </View>
@@ -189,69 +248,96 @@ export default function TodayDuesScreen({ user }: TodayDuesScreenProps) {
 
   return (
     <View style={styles.container}>
-      {/* Header Banner */}
+      {/* Top Header */}
       <View style={styles.topHeader}>
-        <View>
-          <Text style={styles.greeting}>Hello, {user.name} 👋</Text>
-          <Text style={styles.shiftText}>
-            {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' })}
-          </Text>
-        </View>
-        <View style={styles.branchPill}>
-          <Text style={styles.branchPillText}>Field Agent</Text>
-        </View>
-      </View>
-
-      {/* Summary KPI Strip */}
-      <View style={styles.kpiContainer}>
-        <View style={styles.kpiItem}>
-          <Text style={styles.kpiLabel}>Today's Target</Text>
-          <Text style={styles.kpiValue}>₹{stats.todayTarget.toLocaleString('en-IN')}</Text>
-        </View>
-        <View style={styles.kpiDivider} />
-        <View style={styles.kpiItem}>
-          <Text style={[styles.kpiLabel, { color: '#16a34a' }]}>Collected</Text>
-          <Text style={[styles.kpiValue, { color: '#15803d' }]}>₹{stats.todayCollected.toLocaleString('en-IN')}</Text>
-        </View>
-        <View style={styles.kpiDivider} />
-        <View style={styles.kpiItem}>
-          <Text style={[styles.kpiLabel, { color: '#dc2626' }]}>Pending</Text>
-          <Text style={[styles.kpiValue, { color: '#b91c1c' }]}>{stats.pendingCount}</Text>
-        </View>
-      </View>
-
-      {/* Filter Tabs */}
-      <View style={styles.tabsRow}>
-        {[
-          { id: 'today', label: 'Due Today' },
-          { id: 'overdue', label: 'Overdue' },
-          { id: 'collected', label: 'Collected' },
-          { id: 'all', label: 'All' }
-        ].map(t => (
-          <TouchableOpacity
-            key={t.id}
-            style={[styles.tabBtn, activeTab === t.id && styles.tabBtnActive]}
-            onPress={() => setActiveTab(t.id as TabType)}
-          >
-            <Text style={[styles.tabText, activeTab === t.id && styles.tabTextActive]}>
-              {t.label}
+        <View style={styles.agentInfoRow}>
+          <View style={styles.agentAvatar}>
+            <Text style={styles.agentAvatarText}>{(user.name || 'A').charAt(0).toUpperCase()}</Text>
+          </View>
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={styles.greeting}>Hello, {user.name} 👋</Text>
+            <Text style={styles.shiftText}>
+              {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' })} · Field Shift
             </Text>
-          </TouchableOpacity>
-        ))}
+          </View>
+          <View style={styles.shiftBadge}>
+            <View style={styles.liveDot} />
+            <Text style={styles.shiftBadgeText}>Active</Text>
+          </View>
+        </View>
+
+        {/* 3 Metrics KPI Cards */}
+        <View style={styles.kpiRow}>
+          <View style={styles.kpiCard}>
+            <View style={[styles.kpiIconCircle, { backgroundColor: '#eff6ff' }]}>
+              <Ionicons name="flag" size={14} color="#2563eb" />
+            </View>
+            <Text style={styles.kpiLabel}>TARGET</Text>
+            <Text style={styles.kpiValue}>₹{stats.todayTarget.toLocaleString('en-IN')}</Text>
+          </View>
+
+          <View style={styles.kpiCard}>
+            <View style={[styles.kpiIconCircle, { backgroundColor: '#ecfdf5' }]}>
+              <Ionicons name="checkmark-circle" size={14} color="#16a34a" />
+            </View>
+            <Text style={[styles.kpiLabel, { color: '#16a34a' }]}>COLLECTED</Text>
+            <Text style={[styles.kpiValue, { color: '#15803d' }]}>₹{stats.todayCollected.toLocaleString('en-IN')}</Text>
+          </View>
+
+          <View style={styles.kpiCard}>
+            <View style={[styles.kpiIconCircle, { backgroundColor: '#fef2f2' }]}>
+              <Ionicons name="time" size={14} color="#dc2626" />
+            </View>
+            <Text style={[styles.kpiLabel, { color: '#dc2626' }]}>PENDING</Text>
+            <Text style={[styles.kpiValue, { color: '#b91c1c' }]}>{stats.pendingCount}</Text>
+          </View>
+        </View>
       </View>
 
-      {/* Search Input */}
+      {/* Filter Segment Tabs */}
+      <View style={styles.tabsContainer}>
+        {[
+          { id: 'today', label: 'Due Today', count: tabCounts.today },
+          { id: 'overdue', label: 'Overdue', count: tabCounts.overdue },
+          { id: 'collected', label: 'Collected', count: tabCounts.collected },
+          { id: 'all', label: 'All', count: tabCounts.all }
+        ].map(t => {
+          const isActive = activeTab === t.id;
+          return (
+            <TouchableOpacity
+              key={t.id}
+              style={[styles.tabChip, isActive && styles.tabChipActive]}
+              onPress={() => setActiveTab(t.id as TabType)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.tabChipText, isActive && styles.tabChipTextActive]}>
+                {t.label}
+              </Text>
+              {t.count > 0 && (
+                <View style={[styles.tabBadge, isActive && styles.tabBadgeActive]}>
+                  <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
+                    {t.count}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Modern Search Bar */}
       <View style={styles.searchBox}>
-        <Text style={styles.searchIcon}>🔍</Text>
+        <Ionicons name="search-outline" size={16} color="#94a3b8" style={{ marginRight: 8 }} />
         <TextInput
           value={search}
           onChangeText={setSearch}
-          placeholder="Search borrower by name, phone or loan ID..."
+          placeholder="Search by borrower, phone or loan ID..."
+          placeholderTextColor="#94a3b8"
           style={styles.searchInput}
         />
         {search ? (
-          <TouchableOpacity onPress={() => setSearch('')}>
-            <Text style={styles.clearSearch}>✕</Text>
+          <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.7}>
+            <Ionicons name="close-circle" size={16} color="#94a3b8" />
           </TouchableOpacity>
         ) : null}
       </View>
@@ -259,8 +345,8 @@ export default function TodayDuesScreen({ user }: TodayDuesScreenProps) {
       {/* Dues List */}
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#1e40af" />
-          <Text style={styles.loadingText}>Loading assigned dues...</Text>
+          <ActivityIndicator size="large" color="#2563eb" />
+          <Text style={styles.loadingText}>Loading assigned collection dues...</Text>
         </View>
       ) : (
         <FlatList
@@ -268,26 +354,33 @@ export default function TodayDuesScreen({ user }: TodayDuesScreenProps) {
           keyExtractor={item => String(item.id)}
           renderItem={renderEmiCard}
           contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={{ fontSize: 36, marginBottom: 8 }}>🎉</Text>
-              <Text style={styles.emptyTitle}>No pending dues found</Text>
+              <View style={styles.emptyIconCircle}>
+                <Ionicons name="checkmark-done-circle-outline" size={42} color="#16a34a" />
+              </View>
+              <Text style={styles.emptyTitle}>All Caught Up!</Text>
               <Text style={styles.emptySub}>
-                {search ? 'Try adjusting your search criteria.' : 'All collections for this filter are complete.'}
+                {search ? 'No matching borrowers found for your search.' : 'No pending collections in this category.'}
               </Text>
             </View>
           }
         />
       )}
 
-      {/* Payment Collection Sheet Modal */}
+      {/* Payment Collection Bottom Sheet */}
       {selectedEmi && (
         <CollectModal
           visible={!!selectedEmi}
           emi={selectedEmi}
+          user={user}
           onClose={() => setSelectedEmi(null)}
-          onSuccess={loadData}
+          onSuccess={() => {
+            setSelectedEmi(null);
+            loadData();
+          }}
         />
       )}
     </View>
@@ -300,302 +393,383 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc'
   },
   topHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 14,
     backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 14,
     borderBottomWidth: 1,
-    borderColor: '#e2e8f0'
+    borderColor: '#f1f5f9'
+  },
+  agentInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14
+  },
+  agentAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#2563eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3
+  },
+  agentAvatarText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '800'
   },
   greeting: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
     color: '#0f172a'
   },
   shiftText: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: '#64748b',
-    marginTop: 2
+    marginTop: 1,
+    fontWeight: '500'
   },
-  branchPill: {
-    backgroundColor: '#eff6ff',
+  shiftBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ecfdf5',
     paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#bfdbfe'
+    borderColor: '#d1fae5',
+    gap: 5
   },
-  branchPillText: {
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#16a34a'
+  },
+  shiftBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#1d4ed8'
+    color: '#15803d'
   },
-  kpiContainer: {
+  kpiRow: {
     flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    marginHorizontal: 16,
-    marginTop: 14,
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2
-  },
-  kpiItem: {
-    flex: 1,
-    alignItems: 'center'
-  },
-  kpiDivider: {
-    width: 1,
-    backgroundColor: '#e2e8f0'
-  },
-  kpiLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748b',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4
-  },
-  kpiValue: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0f172a',
-    marginTop: 4
-  },
-  tabsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    marginTop: 12,
     gap: 8
   },
-  tabBtn: {
+  kpiCard: {
     flex: 1,
-    paddingVertical: 8,
-    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderRadius: 14,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0'
+  },
+  kpiIconCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4
+  },
+  kpiLabel: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#64748b',
+    letterSpacing: 0.5
+  },
+  kpiValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginTop: 2
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+    gap: 6
+  },
+  tabChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    alignItems: 'center'
+    gap: 4
   },
-  tabBtnActive: {
-    backgroundColor: '#1e40af',
-    borderColor: '#1e40af'
+  tabChipActive: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb'
   },
-  tabText: {
+  tabChipText: {
     fontSize: 12,
     fontWeight: '600',
     color: '#475569'
   },
-  tabTextActive: {
+  tabChipTextActive: {
     color: '#ffffff',
     fontWeight: '700'
+  },
+  tabBadge: {
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 8
+  },
+  tabBadgeActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)'
+  },
+  tabBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569'
+  },
+  tabBadgeTextActive: {
+    color: '#ffffff'
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ffffff',
     marginHorizontal: 16,
-    marginTop: 10,
-    marginBottom: 6,
+    marginTop: 8,
+    marginBottom: 8,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    height: 42,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e2e8f0'
-  },
-  searchIcon: {
-    fontSize: 14,
-    marginRight: 8
   },
   searchInput: {
     flex: 1,
     fontSize: 13,
-    color: '#0f172a'
-  },
-  clearSearch: {
-    fontSize: 14,
-    color: '#94a3b8',
-    padding: 4
+    color: '#0f172a',
+    height: '100%'
   },
   listContent: {
     padding: 16,
-    paddingTop: 8,
+    paddingTop: 4,
     gap: 12
   },
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: 14,
-    padding: 16,
+    borderRadius: 18,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2
   },
   cardTopRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12
+    alignItems: 'center',
+    marginBottom: 10
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#eff6ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#dbeafe'
+  },
+  avatarText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#2563eb'
   },
   customerName: {
     fontSize: 15,
     fontWeight: '700',
     color: '#0f172a'
   },
-  loanIdText: {
-    fontSize: 12,
-    color: '#64748b',
-    marginTop: 2
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+  loanBadge: {
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 6
   },
-  statusBadgeText: {
+  loanBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569'
+  },
+  phoneSub: {
     fontSize: 11,
-    fontWeight: '700'
+    color: '#64748b'
   },
-  statusPaid: {
-    backgroundColor: '#dcfce7'
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    gap: 4
   },
-  statusPaidText: {
-    color: '#15803d',
-    fontSize: 11,
-    fontWeight: '700'
+  statusDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5
   },
-  statusOverdue: {
-    backgroundColor: '#fee2e2'
-  },
-  statusOverdueText: {
-    color: '#b91c1c',
-    fontSize: 11,
-    fontWeight: '700'
-  },
-  statusDue: {
-    backgroundColor: '#fef3c7'
-  },
-  statusDueText: {
-    color: '#92400e',
-    fontSize: 11,
-    fontWeight: '700'
-  },
-  amountRow: {
+  dotPaid: { backgroundColor: '#16a34a' },
+  dotOverdue: { backgroundColor: '#dc2626' },
+  dotDue: { backgroundColor: '#d97706' },
+  statusPaid: { backgroundColor: '#ecfdf5' },
+  statusPaidText: { color: '#15803d', fontSize: 11, fontWeight: '700' },
+  statusOverdue: { backgroundColor: '#fef2f2' },
+  statusOverdueText: { color: '#b91c1c', fontSize: 11, fontWeight: '700' },
+  statusDue: { backgroundColor: '#fffbeb' },
+  statusDueText: { color: '#b45309', fontSize: 11, fontWeight: '700' },
+  statusBadgeText: { fontSize: 11, fontWeight: '700' },
+  amountBox: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     backgroundColor: '#f8fafc',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 12
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#f1f5f9'
   },
   amountLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: '#64748b',
     fontWeight: '600'
   },
   amountValue: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#1e3a8a',
-    marginTop: 2
+    marginTop: 1
   },
   dateLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: '#64748b',
     fontWeight: '600'
   },
   dateValue: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
-    color: '#334155',
-    marginTop: 2
+    color: '#334155'
+  },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 10,
+    paddingHorizontal: 2
+  },
+  addressText: {
+    fontSize: 11.5,
+    color: '#64748b',
+    flex: 1
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8
+    gap: 6,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderColor: '#f1f5f9'
   },
-  iconBtn: {
+  actionPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 8
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    gap: 4
   },
-  waBtn: {
+  waPill: {
     backgroundColor: '#ecfdf5'
   },
-  btnIcon: {
-    fontSize: 13
-  },
-  iconBtnText: {
-    fontSize: 12,
+  actionPillText: {
+    fontSize: 11.5,
     fontWeight: '700',
-    color: '#334155'
+    color: '#2563eb'
   },
   collectBtn: {
     flex: 1,
-    backgroundColor: '#1e40af',
-    paddingVertical: 9,
-    borderRadius: 8,
-    alignItems: 'center'
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563eb',
+    paddingVertical: 8,
+    borderRadius: 10,
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2
   },
   collectBtnText: {
     color: '#ffffff',
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700'
   },
   clearedBadge: {
     flex: 1,
-    backgroundColor: '#f0fdf4',
-    borderWidth: 1,
-    borderColor: '#bbf7d0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f1f5f9',
     paddingVertical: 8,
-    borderRadius: 8,
-    alignItems: 'center'
+    borderRadius: 10
   },
   clearedText: {
-    color: '#166534',
+    color: '#16a34a',
     fontSize: 12,
     fontWeight: '700'
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32
+    alignItems: 'center'
   },
   loadingText: {
     marginTop: 10,
-    fontSize: 13,
-    color: '#64748b'
+    color: '#64748b',
+    fontSize: 13
   },
   emptyContainer: {
     alignItems: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 24
+  },
+  emptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#ecfdf5',
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48
+    marginBottom: 12
   },
   emptyTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 4
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0f172a'
   },
   emptySub: {
-    fontSize: 12,
+    fontSize: 12.5,
     color: '#64748b',
-    textAlign: 'center'
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 17
   }
 });

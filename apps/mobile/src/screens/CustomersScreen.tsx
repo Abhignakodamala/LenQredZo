@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Alert
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Customer } from '../types';
 import { fetchAllCustomers } from '../services/collections';
 
@@ -44,17 +45,16 @@ export default function CustomersScreen() {
   const filteredCustomers = useMemo(() => {
     if (!search.trim()) return customers;
     const q = search.toLowerCase();
-    return customers.filter(c => {
-      const name = (c.name || '').toLowerCase();
-      const phone = (c.phone || '').toLowerCase();
-      const city = (c.city || '').toLowerCase();
-      return name.includes(q) || phone.includes(q) || city.includes(q);
-    });
+    return customers.filter(c =>
+      (c.name || '').toLowerCase().includes(q) ||
+      (c.phone || '').toLowerCase().includes(q) ||
+      (c.city || '').toLowerCase().includes(q)
+    );
   }, [customers, search]);
 
   const handleCall = (phone: string) => {
     if (!phone) {
-      Alert.alert('No Phone', 'No contact number available.');
+      Alert.alert('No Phone', 'No contact number registered for this customer.');
       return;
     }
     Linking.openURL(`tel:${phone}`);
@@ -62,17 +62,18 @@ export default function CustomersScreen() {
 
   const handleWhatsApp = (phone: string, name: string) => {
     if (!phone) {
-      Alert.alert('No Phone', 'No contact number available.');
+      Alert.alert('No Phone', 'No contact number registered for this customer.');
       return;
     }
-    const clean = phone.replace(/\D/g, '');
-    const full = clean.length === 10 ? `91${clean}` : clean;
-    const msg = encodeURIComponent(`Hello ${name}, this is your LenQredzo loan officer.`);
-    Linking.openURL(`https://wa.me/${full}?text=${msg}`);
+    const cleanPhone = phone.replace(/\D/g, '');
+    const fullPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+    const msg = encodeURIComponent(`Hello ${name}, this is your loan collection agent from LenQredzo.`);
+    Linking.openURL(`https://wa.me/${fullPhone}?text=${msg}`);
   };
 
   const renderItem = ({ item }: { item: Customer }) => {
     const kyc = item.kycStatus || 'pending';
+    const isVerified = kyc === 'verified';
 
     return (
       <View style={styles.card}>
@@ -84,27 +85,44 @@ export default function CustomersScreen() {
             <Text style={styles.name}>{item.name}</Text>
             <Text style={styles.phone}>{item.phone}</Text>
           </View>
-          <View style={[styles.kycBadge, kyc === 'verified' ? styles.kycVerified : styles.kycPending]}>
-            <Text style={[styles.kycText, kyc === 'verified' ? styles.kycVerifiedText : styles.kycPendingText]}>
-              {kyc === 'verified' ? '✓ KYC' : 'KYC Pending'}
+          <View style={[styles.kycBadge, isVerified ? styles.kycVerified : styles.kycPending]}>
+            <Ionicons
+              name={isVerified ? 'checkmark-circle' : 'time-outline'}
+              size={12}
+              color={isVerified ? '#15803d' : '#92400e'}
+              style={{ marginRight: 3 }}
+            />
+            <Text style={[styles.kycText, isVerified ? styles.kycVerifiedText : styles.kycPendingText]}>
+              {isVerified ? 'KYC Done' : 'Pending'}
             </Text>
           </View>
         </View>
 
         {item.address ? (
-          <Text style={styles.addressText} numberOfLines={2}>
-            📍 {item.address}{item.city ? `, ${item.city}` : ''}
-          </Text>
+          <View style={styles.addressRow}>
+            <Ionicons name="location-outline" size={13} color="#94a3b8" />
+            <Text style={styles.addressText} numberOfLines={1}>
+              {item.address}{item.city ? `, ${item.city}` : ''}
+            </Text>
+          </View>
         ) : null}
 
         <View style={styles.btnRow}>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => handleCall(item.phone)}>
-            <Text style={styles.actionIcon}>📞</Text>
-            <Text style={styles.actionText}>Call</Text>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => handleCall(item.phone)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="call" size={14} color="#2563eb" />
+            <Text style={styles.actionText}>Call Borrower</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionBtn, styles.waBtn]} onPress={() => handleWhatsApp(item.phone, item.name)}>
-            <Text style={styles.actionIcon}>💬</Text>
-            <Text style={[styles.actionText, { color: '#059669' }]}>WhatsApp</Text>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.waBtn]}
+            onPress={() => handleWhatsApp(item.phone, item.name)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="logo-whatsapp" size={14} color="#16a34a" />
+            <Text style={[styles.actionText, { color: '#16a34a' }]}>WhatsApp</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -113,29 +131,34 @@ export default function CustomersScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Borrower Directory</Text>
-        <Text style={styles.sub}>{customers.length} registered borrowers</Text>
+        <View>
+          <Text style={styles.title}>Borrower Directory</Text>
+          <Text style={styles.sub}>{customers.length} registered borrowers in your branch</Text>
+        </View>
       </View>
 
+      {/* Search Input */}
       <View style={styles.searchBox}>
-        <Text style={styles.searchIcon}>🔍</Text>
+        <Ionicons name="search-outline" size={16} color="#94a3b8" style={{ marginRight: 8 }} />
         <TextInput
           value={search}
           onChangeText={setSearch}
           placeholder="Search by name, phone or city..."
+          placeholderTextColor="#94a3b8"
           style={styles.input}
         />
         {search ? (
-          <TouchableOpacity onPress={() => setSearch('')}>
-            <Text style={styles.clear}>✕</Text>
+          <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.7}>
+            <Ionicons name="close-circle" size={16} color="#94a3b8" />
           </TouchableOpacity>
         ) : null}
       </View>
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#1e40af" />
+          <ActivityIndicator size="large" color="#2563eb" />
           <Text style={styles.loadText}>Loading borrowers...</Text>
         </View>
       ) : (
@@ -144,11 +167,15 @@ export default function CustomersScreen() {
           keyExtractor={item => String(item.id)}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={{ fontSize: 32, marginBottom: 8 }}>👥</Text>
-              <Text style={styles.emptyText}>No customers found</Text>
+              <View style={styles.emptyIconCircle}>
+                <Ionicons name="people-outline" size={38} color="#94a3b8" />
+              </View>
+              <Text style={styles.emptyText}>No borrowers found</Text>
+              <Text style={styles.emptySub}>Try adjusting your search criteria</Text>
             </View>
           }
         />
@@ -168,7 +195,7 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderColor: '#e2e8f0'
+    borderColor: '#f1f5f9'
   },
   title: {
     fontSize: 18,
@@ -186,59 +213,54 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     marginHorizontal: 16,
     marginTop: 12,
-    marginBottom: 8,
+    marginBottom: 6,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    height: 42,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#cbd5e1'
-  },
-  searchIcon: {
-    fontSize: 14,
-    marginRight: 8
+    borderColor: '#e2e8f0'
   },
   input: {
     flex: 1,
     fontSize: 13,
-    color: '#0f172a'
-  },
-  clear: {
-    fontSize: 14,
-    color: '#94a3b8',
-    padding: 4
+    color: '#0f172a',
+    height: '100%'
   },
   list: {
     padding: 16,
+    paddingTop: 8,
     gap: 12
   },
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: 14,
+    borderRadius: 18,
     padding: 16,
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center'
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#1e40af',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#dbeafe',
     justifyContent: 'center',
     alignItems: 'center'
   },
   avatarText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700'
+    color: '#2563eb',
+    fontSize: 16,
+    fontWeight: '800'
   },
   name: {
     fontSize: 15,
@@ -251,35 +273,39 @@ const styles = StyleSheet.create({
     marginTop: 2
   },
   kycBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 6
+    borderRadius: 8
+  },
+  kycVerified: {
+    backgroundColor: '#ecfdf5'
+  },
+  kycVerifiedText: {
+    color: '#15803d'
+  },
+  kycPending: {
+    backgroundColor: '#fffbeb'
+  },
+  kycPendingText: {
+    color: '#92400e'
   },
   kycText: {
     fontSize: 11,
     fontWeight: '700'
   },
-  kycVerified: {
-    backgroundColor: '#dcfce7'
-  },
-  kycVerifiedText: {
-    color: '#15803d',
-    fontSize: 11,
-    fontWeight: '700'
-  },
-  kycPending: {
-    backgroundColor: '#fef3c7'
-  },
-  kycPendingText: {
-    color: '#92400e',
-    fontSize: 11,
-    fontWeight: '700'
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 10,
+    paddingHorizontal: 2
   },
   addressText: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: '#64748b',
-    marginTop: 10,
-    lineHeight: 16
+    flex: 1
   },
   btnRow: {
     flexDirection: 'row',
@@ -295,20 +321,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#eff6ff',
     paddingVertical: 8,
-    borderRadius: 8
+    borderRadius: 10
   },
   waBtn: {
     backgroundColor: '#ecfdf5'
   },
-  actionIcon: {
-    fontSize: 13
-  },
   actionText: {
-    fontSize: 12.5,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#334155'
+    color: '#2563eb'
   },
   center: {
     flex: 1,
@@ -322,11 +345,25 @@ const styles = StyleSheet.create({
   },
   empty: {
     alignItems: 'center',
-    paddingVertical: 40
+    paddingVertical: 48
+  },
+  emptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12
   },
   emptyText: {
-    color: '#64748b',
-    fontSize: 14,
-    fontWeight: '600'
+    color: '#0f172a',
+    fontSize: 15,
+    fontWeight: '700'
+  },
+  emptySub: {
+    color: '#94a3b8',
+    fontSize: 12,
+    marginTop: 2
   }
 });

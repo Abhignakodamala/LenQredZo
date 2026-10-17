@@ -11,6 +11,7 @@ import {
   Platform,
   ScrollView
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { loginWithCredentials, uploadAttendancePhoto, saveActiveSession } from '../services/auth';
 import { User } from '../types';
 import AttendanceModal from '../components/AttendanceModal';
@@ -74,62 +75,86 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         {/* Brand Banner */}
         <View style={styles.brandBox}>
-          <View style={styles.logoBadge}>
-            <Text style={styles.logoBadgeText}>LQ</Text>
+          <View style={styles.logoBadgeContainer}>
+            <View style={styles.logoBadge}>
+              <Ionicons name="shield-checkmark" size={32} color="#ffffff" />
+            </View>
           </View>
-          <Text style={styles.brandName}>LenQredzo Agent</Text>
-          <Text style={styles.brandTagline}>Field Loan & Collection Portal</Text>
+          <Text style={styles.brandName}>LenQredzo</Text>
+          <View style={styles.badgePill}>
+            <Text style={styles.badgePillText}>FIELD AGENT APP</Text>
+          </View>
+          <Text style={styles.brandTagline}>Daily Route & EMI Collections Portal</Text>
         </View>
 
         {/* Login Form Card */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Agent Sign In</Text>
-          <Text style={styles.cardSub}>Sign in to access today's assigned dues</Text>
+          <Text style={styles.cardSub}>Sign in to view today's route & assigned dues</Text>
 
-          {/* Email */}
+          {/* Email Input */}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Agent Email</Text>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="agent@company.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={styles.input}
-            />
+            <View style={styles.inputBox}>
+              <Ionicons name="mail-outline" size={18} color="#94a3b8" style={styles.fieldIcon} />
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                placeholder="agent@company.com"
+                placeholderTextColor="#94a3b8"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={styles.input}
+              />
+            </View>
           </View>
 
-          {/* Password */}
+          {/* Password Input */}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Password</Text>
-            <View style={styles.passwordRow}>
+            <View style={styles.inputBox}>
+              <Ionicons name="lock-closed-outline" size={18} color="#94a3b8" style={styles.fieldIcon} />
               <TextInput
                 value={password}
                 onChangeText={setPassword}
                 placeholder="Enter password"
+                placeholderTextColor="#94a3b8"
                 secureTextEntry={!showPassword}
-                style={[styles.input, { flex: 1, borderWidth: 0 }]}
+                style={styles.input}
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(p => !p)}
                 style={styles.eyeBtn}
+                activeOpacity={0.7}
               >
-                <Text style={{ fontSize: 16 }}>{showPassword ? '🙈' : '👁️'}</Text>
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={18}
+                  color="#64748b"
+                />
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Attendance Notice */}
+          {/* Attendance Requirement Notice */}
           <View style={styles.noticeBox}>
-            <Text style={styles.noticeIcon}>📷</Text>
-            <Text style={styles.noticeText}>
-              Every sign-in requires an attendance selfie snapshot before entering.
-            </Text>
+            <View style={styles.noticeIconCircle}>
+              <Ionicons name="camera" size={16} color="#2563eb" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.noticeHeading}>Photo Attendance Verification</Text>
+              <Text style={styles.noticeText}>
+                A mandatory selfie snapshot is required after password verification to start your shift.
+              </Text>
+            </View>
           </View>
 
           {/* Submit Button */}
@@ -137,15 +162,23 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             style={[styles.loginBtn, loading && styles.loginBtnDisabled]}
             onPress={handleCredentialsSubmit}
             disabled={loading}
+            activeOpacity={0.85}
           >
             {loading ? (
               <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text style={styles.loginBtnText}>🔒 Sign In to Shift</Text>
+              <View style={styles.btnInner}>
+                <Ionicons name="log-in-outline" size={20} color="#ffffff" style={{ marginRight: 8 }} />
+                <Text style={styles.loginBtnText}>Sign In & Verify Selfie</Text>
+              </View>
             )}
           </TouchableOpacity>
         </View>
 
+        {/* Footer info */}
+        <View style={styles.footerBox}>
+          <Text style={styles.footerText}>Secure Banking Grade End-to-End Encryption</Text>
+        </View>
       </ScrollView>
 
       {/* Mandatory Attendance Selfie Modal */}
@@ -164,66 +197,82 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a'
+    backgroundColor: '#0a0f1d'
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 24
+    padding: 20
   },
   brandBox: {
     alignItems: 'center',
-    marginBottom: 28
+    marginBottom: 24
+  },
+  logoBadgeContainer: {
+    padding: 8,
+    borderRadius: 24,
+    backgroundColor: 'rgba(37, 99, 235, 0.15)',
+    marginBottom: 12
   },
   logoBadge: {
-    width: 64,
-    height: 64,
+    width: 60,
+    height: 60,
     borderRadius: 18,
-    backgroundColor: '#1e40af',
+    backgroundColor: '#2563eb',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
-    shadowColor: '#1e40af',
+    shadowColor: '#2563eb',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
     elevation: 8
   },
-  logoBadgeText: {
-    color: '#ffffff',
-    fontSize: 26,
-    fontWeight: '900',
-    letterSpacing: 1
-  },
   brandName: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '800',
-    color: '#ffffff'
+    color: '#ffffff',
+    letterSpacing: 0.5
+  },
+  badgePill: {
+    backgroundColor: 'rgba(59, 130, 246, 0.18)',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.3)'
+  },
+  badgePillText: {
+    color: '#60a5fa',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1
   },
   brandTagline: {
     fontSize: 13,
     color: '#94a3b8',
-    marginTop: 4
+    marginTop: 6,
+    fontWeight: '500'
   },
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-    elevation: 8
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     color: '#0f172a'
   },
   cardSub: {
-    fontSize: 12.5,
+    fontSize: 13,
     color: '#64748b',
-    marginTop: 2,
+    marginTop: 3,
     marginBottom: 20
   },
   inputGroup: {
@@ -235,53 +284,76 @@ const styles = StyleSheet.create({
     color: '#334155',
     marginBottom: 6
   },
-  input: {
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#0f172a'
-  },
-  passwordRow: {
+  inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 10
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 48
+  },
+  fieldIcon: {
+    marginRight: 8
+  },
+  input: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0f172a',
+    height: '100%'
   },
   eyeBtn: {
-    paddingHorizontal: 12
+    padding: 8
   },
   noticeBox: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     backgroundColor: '#eff6ff',
     borderWidth: 1,
-    borderColor: '#bfdbfe',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 20,
-    gap: 8
+    borderColor: '#dbeafe',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 22,
+    gap: 10
   },
-  noticeIcon: {
-    fontSize: 16
+  noticeIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#dbeafe',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1
+  },
+  noticeHeading: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1d4ed8',
+    marginBottom: 2
   },
   noticeText: {
-    flex: 1,
-    fontSize: 11.5,
-    color: '#1d4ed8',
-    lineHeight: 16,
+    fontSize: 11,
+    color: '#3b82f6',
+    lineHeight: 15,
     fontWeight: '500'
   },
   loginBtn: {
-    backgroundColor: '#1e40af',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center'
+    backgroundColor: '#2563eb',
+    height: 50,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4
+  },
+  btnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   loginBtnDisabled: {
     opacity: 0.7
@@ -289,6 +361,16 @@ const styles = StyleSheet.create({
   loginBtnText: {
     color: '#ffffff',
     fontSize: 15,
-    fontWeight: '700'
+    fontWeight: '700',
+    letterSpacing: 0.3
+  },
+  footerBox: {
+    marginTop: 24,
+    alignItems: 'center'
+  },
+  footerText: {
+    color: '#64748b',
+    fontSize: 11,
+    fontWeight: '500'
   }
 });
