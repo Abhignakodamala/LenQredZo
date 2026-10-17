@@ -230,14 +230,38 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div style={{ marginLeft: 220, flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <div className="dashboard-main-layout" style={{ marginLeft: 220, flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
 
         {/* Top Navbar */}
-        <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'white', borderBottom: '1px solid #e5e7eb', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div className="responsive-navbar" style={{ position: 'sticky', top: 0, zIndex: 50, background: 'white', borderBottom: '1px solid #e5e7eb', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+          {/* Mobile Menu Hamburger Button */}
+          <button
+            type="button"
+            className="mobile-menu-btn"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-mobile-sidebar'))}
+            aria-label="Open navigation menu"
+            style={{
+              display: 'none',
+              background: '#f1f5f9',
+              border: '1px solid #cbd5e1',
+              borderRadius: '8px',
+              width: '36px',
+              height: '36px',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '18px',
+              color: '#0f172a',
+              cursor: 'pointer',
+              flexShrink: 0
+            }}
+          >
+            ☰
+          </button>
+
           {/* Search */}
-          <button onClick={() => setSearchOpen(true)} style={{ flex: 1, maxWidth: 420, display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10, cursor: 'text', color: '#9ca3af', fontSize: 13 }}>
+          <button onClick={() => setSearchOpen(true)} className="responsive-search-box" style={{ flex: 1, maxWidth: 420, display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10, cursor: 'text', color: '#9ca3af', fontSize: 13 }}>
             <span>🔍</span>
-            <span>Search customers, loans, invoices...</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Search customers, loans, invoices...</span>
             <kbd style={{ marginLeft: 'auto', fontSize: 11, background: '#e5e7eb', padding: '1px 5px', borderRadius: 4 }}>Ctrl K</kbd>
           </button>
 
@@ -285,7 +309,7 @@ export default function Dashboard() {
           )}
 
           {/* KPI Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 20 }}>
+          <div className="responsive-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 20 }}>
             {kpiCards.map(c => (
               <div key={c.label} style={{ ...card, padding: '16px 18px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
@@ -304,7 +328,7 @@ export default function Dashboard() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#111827' }}>Quick Actions</p>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div className="responsive-actions-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
               {[
                 { icon: '👤', label: 'Add Customer', sub: 'Register new customer', href: '/dashboard/customers', bg: '#f0fdf4', color: '#16a34a' },
                 { icon: '➕', label: 'New Loan', sub: 'Create & disburse', href: '/dashboard/loans', bg: '#eff6ff', color: '#1e40af' },
@@ -323,7 +347,7 @@ export default function Dashboard() {
           </div>
 
           {/* Three column grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1.3fr 1fr', gap: 16, marginBottom: 20 }}>
+          <div className="responsive-three-col-grid" style={{ display: 'grid', gridTemplateColumns: '1.3fr 1.3fr 1fr', gap: 16, marginBottom: 20 }}>
 
             {/* Today's Collections Due */}
             <div style={card}>

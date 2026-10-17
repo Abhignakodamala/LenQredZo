@@ -21,7 +21,6 @@ const baseMenuItems = [
   { name: 'Settings', icon: '⚙️', href: '/dashboard/settings' },
 ];
 
-// Only owner-level roles can manage staff.
 const OWNER_ROLES = ['owner', 'admin', 'Super Admin'];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -39,9 +38,11 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [logoError, setLogoError] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   useEffect(() => {
+    // 1. Load user from storage
     const stored = localStorage.getItem('user');
     if (stored) {
       try {
@@ -51,29 +52,62 @@ export default function Sidebar() {
       }
     }
 
-    const loadCompany = () => {
+    // 2. Load company from storage and fresh from API
+    const loadCompany = async () => {
       const storedComp = localStorage.getItem('company');
       if (storedComp) {
         try {
-          setCompany(JSON.parse(storedComp));
+          const parsed = JSON.parse(storedComp);
+          if (parsed && typeof parsed === 'object') {
+            setCompany(parsed);
+          }
         } catch {
-          setCompany(null);
+          // ignore
+        }
+      }
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const res = await fetch(`${API_URL}/api/settings`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.company) {
+              setCompany(data.company);
+              localStorage.setItem('company', JSON.stringify(data.company));
+            }
+          }
+        } catch {
+          // ignore network failure
         }
       }
     };
+
     loadCompany();
     window.addEventListener('company:updated', loadCompany);
-    return () => window.removeEventListener('company:updated', loadCompany);
+
+    // Event listener for mobile toggle
+    const handleOpenMobile = () => setMobileDrawerOpen(true);
+    const handleCloseMobile = () => setMobileDrawerOpen(false);
+    window.addEventListener('open-mobile-sidebar', handleOpenMobile);
+    window.addEventListener('close-mobile-sidebar', handleCloseMobile);
+
+    return () => {
+      window.removeEventListener('company:updated', loadCompany);
+      window.removeEventListener('open-mobile-sidebar', handleOpenMobile);
+      window.removeEventListener('close-mobile-sidebar', handleCloseMobile);
+    };
   }, []);
 
   // Close mobile drawer on route change
   useEffect(() => {
-    setMobileOpen(false);
+    setMobileDrawerOpen(false);
   }, [pathname]);
 
   const isOwner = OWNER_ROLES.includes(user?.role || '');
 
-  // Staff link is shown only to owners; insert it just before Settings.
   const menuItems = [...baseMenuItems];
   if (isOwner) {
     const settingsIdx = menuItems.findIndex(m => m.name === 'Settings');
@@ -87,6 +121,64 @@ export default function Sidebar() {
 
   const roleLabel = ROLE_LABELS[user?.role || ''] || user?.role || 'User';
 
+  const renderLogo = () => {
+    const customLogoUrl = company?.logo && !logoError
+      ? (company.logo.startsWith('http') ? company.logo : `${API_URL}${company.logo}`)
+      : null;
+
+    return (
+      <div style={{ padding: '16px 20px', borderBottom: '1px solid #1e293b' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {customLogoUrl ? (
+            <img
+              src={customLogoUrl}
+              alt={company?.name || 'Company Logo'}
+              onError={() => setLogoError(true)}
+              style={{
+                maxHeight: '44px',
+                maxWidth: '170px',
+                objectFit: 'contain',
+                display: 'block'
+              }}
+            />
+          ) : (
+            <Image
+              src="/lenqredzo-logo-transparent.png"
+              alt="LenQredzo"
+              width={140}
+              height={44}
+              priority
+              style={{
+                width: '140px',
+                height: 'auto',
+                maxHeight: '44px',
+                objectFit: 'contain',
+                display: 'block'
+              }}
+            />
+          )}
+
+          {company?.name && (
+            <span
+              style={{
+                fontSize: '11px',
+                color: '#94a3b8',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}
+            >
+              {company.name}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderNavLinks = () => (
     <nav style={{ padding: '12px 8px', flex: 1, overflowY: 'auto' }}>
       {menuItems.map((item) => {
@@ -95,7 +187,7 @@ export default function Sidebar() {
           <Link
             key={item.name}
             href={item.href}
-            onClick={() => setMobileOpen(false)}
+            onClick={() => setMobileDrawerOpen(false)}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -138,121 +230,28 @@ export default function Sidebar() {
           localStorage.removeItem('user');
           window.location.href = '/login';
         }}
-        style={{ width: '100%', padding: '8px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', fontWeight: 600 }}
+        style={{
+          width: '100%',
+          padding: '8px',
+          background: '#fef2f2',
+          color: '#dc2626',
+          border: '1px solid #fecaca',
+          borderRadius: '8px',
+          fontSize: '13px',
+          cursor: 'pointer',
+          fontWeight: 600
+        }}
       >
-        Sign Out
+        Logout
       </button>
     </div>
   );
 
   return (
     <>
-      {/* Mobile Top Header (Visible on screen <= 768px) */}
-      <div
-        className="mobile-top-bar"
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: '56px',
-          background: '#0f172a',
-          borderBottom: '1px solid #1e293b',
-          zIndex: 998,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 16px'
-        }}
-      >
-        <button
-          onClick={() => setMobileOpen(prev => !prev)}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#ffffff',
-            fontSize: '22px',
-            cursor: 'pointer',
-            padding: '4px 8px',
-            borderRadius: '6px'
-          }}
-          aria-label="Toggle Menu"
-        >
-          {mobileOpen ? '✕' : '☰'}
-        </button>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Image
-            src="/lenqredzo-logo-transparent.png"
-            alt="LenQredzo"
-            width={110}
-            height={32}
-            priority
-            style={{ width: '110px', height: 'auto', objectFit: 'contain' }}
-          />
-        </div>
-
-        <div style={{ width: '28px', height: '28px', background: '#1e40af', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '11px', fontWeight: 'bold' }}>
-          {user?.name?.charAt(0) || 'U'}
-        </div>
-      </div>
-
-      {/* Mobile Backdrop */}
-      {mobileOpen && (
-        <div
-          className="mobile-drawer-backdrop"
-          onClick={() => setMobileOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.6)',
-            zIndex: 999,
-            backdropFilter: 'blur(2px)'
-          }}
-        />
-      )}
-
-      {/* Mobile Sliding Drawer */}
-      <div
-        className="mobile-drawer"
-        style={{
-          position: 'fixed',
-          top: 0,
-          bottom: 0,
-          left: 0,
-          width: '260px',
-          background: '#0f172a',
-          zIndex: 1000,
-          display: 'flex',
-          flexDirection: 'column',
-          transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)',
-          transition: 'transform 0.25s ease-in-out',
-          boxShadow: '4px 0 24px rgba(0,0,0,0.5)',
-          borderRight: '1px solid #1e293b'
-        }}
-      >
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid #1e293b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Image
-            src="/lenqredzo-logo-transparent.png"
-            alt="LenQredzo"
-            width={130}
-            height={36}
-            style={{ width: '130px', height: 'auto', objectFit: 'contain' }}
-          />
-          <button
-            onClick={() => setMobileOpen(false)}
-            style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '18px', cursor: 'pointer' }}
-          >
-            ✕
-          </button>
-        </div>
-        {renderNavLinks()}
-        {renderUserBlock()}
-      </div>
-
-      {/* Desktop Fixed Sidebar (Visible on screen > 768px) */}
-      <div
-        className="desktop-sidebar"
+      {/* 1. DESKTOP PERMANENT SIDEBAR */}
+      <aside
+        className="desktop-only-sidebar"
         style={{
           width: '220px',
           background: '#0f172a',
@@ -266,47 +265,67 @@ export default function Sidebar() {
           zIndex: 40
         }}
       >
-        {/* Logo */}
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid #1e293b' }}>
-          {company?.logo ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <img
-                src={company.logo.startsWith('http') ? company.logo : `${API_URL}${company.logo}`}
-                alt={company.name || 'Company Logo'}
-                style={{
-                  maxHeight: '44px',
-                  maxWidth: '170px',
-                  objectFit: 'contain',
-                  display: 'block'
-                }}
-              />
-              {company.name && (
-                <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {company.name}
-                </span>
-              )}
-            </div>
-          ) : (
-            <Image
-              src="/lenqredzo-logo-transparent.png"
-              alt="LenQredzo"
-              width={150}
-              height={99}
-              priority
-              style={{
-                width: '150px',
-                height: 'auto',
-                objectFit: 'contain',
-                display: 'block'
-              }}
-            />
-          )}
-        </div>
-
-        {/* Nav Links */}
+        {renderLogo()}
         {renderNavLinks()}
+        {renderUserBlock()}
+      </aside>
 
-        {/* User + Logout */}
+      {/* 2. MOBILE SLIDING DRAWER BACKDROP */}
+      {mobileDrawerOpen && (
+        <div
+          className="mobile-drawer-overlay"
+          onClick={() => setMobileDrawerOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.65)',
+            zIndex: 9998,
+            backdropFilter: 'blur(3px)'
+          }}
+        />
+      )}
+
+      {/* 3. MOBILE SLIDING DRAWER */}
+      <div
+        className="mobile-drawer-container"
+        style={{
+          position: 'fixed',
+          top: 0,
+          bottom: 0,
+          left: 0,
+          width: '270px',
+          background: '#0f172a',
+          zIndex: 9999,
+          display: 'flex',
+          flexDirection: 'column',
+          transform: mobileDrawerOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+          boxShadow: '4px 0 25px rgba(0, 0, 0, 0.5)',
+          borderRight: '1px solid #1e293b'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: '12px' }}>
+          <div style={{ flex: 1 }}>{renderLogo()}</div>
+          <button
+            onClick={() => setMobileDrawerOpen(false)}
+            style={{
+              background: '#1e293b',
+              border: 'none',
+              color: '#94a3b8',
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              fontSize: '16px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            ✕
+          </button>
+        </div>
+        {renderNavLinks()}
         {renderUserBlock()}
       </div>
     </>

@@ -128,28 +128,66 @@
     }
 }
 
-/* Mobile responsive synchronization */
+/* Responsive Mobile & Desktop Layout Synchronization */
 @media (max-width: 768px) {
-  .dashboard-main-content,
-  div[style*="marginLeft: 220"],
+  .dashboard-main-layout,
+  main.dashboard-main-layout,
   div[style*="margin-left: 220px"],
-  div[style*="marginLeft: '220px'"] {
+  div[style*="marginLeft: 220"] {
     margin-left: 0 !important;
-    padding-top: 60px !important;
     width: 100% !important;
     max-width: 100vw !important;
-    overflow-x: hidden !important;
   }
 
-  .desktop-sidebar {
+  .desktop-only-sidebar {
     display: none !important;
+  }
+
+  .mobile-menu-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .responsive-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .responsive-actions-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .responsive-three-col-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  .responsive-navbar {
+    padding: 10px 14px !important;
+    gap: 8px !important;
+  }
+
+  .responsive-search-box {
+    max-width: 100% !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .responsive-kpi-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .responsive-actions-grid {
+    grid-template-columns: 1fr !important;
   }
 }
 
 @media (min-width: 769px) {
-  .mobile-top-bar,
-  .mobile-drawer,
-  .mobile-drawer-backdrop {
+  .mobile-menu-btn,
+  .mobile-drawer-overlay,
+  .mobile-drawer-container {
     display: none !important;
   }
 }
