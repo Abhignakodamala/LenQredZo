@@ -71,8 +71,8 @@ export default function TodayDuesScreen({ user }: TodayDuesScreenProps) {
       // Search filter
       if (!search.trim()) return true;
       const q = search.toLowerCase();
-      const name = (item.loan?.customer?.name || '').toLowerCase();
-      const phone = (item.loan?.customer?.phone || '').toLowerCase();
+      const name = (item.customerName || item.loan?.customer?.name || '').toLowerCase();
+      const phone = (item.customerPhone || item.loan?.customer?.phone || '').toLowerCase();
       const loanId = `ln${1000 + item.loanId}`;
       return name.includes(q) || phone.includes(q) || loanId.includes(q);
     });
@@ -143,26 +143,29 @@ export default function TodayDuesScreen({ user }: TodayDuesScreenProps) {
     const isPaid = item.status === 'paid';
     const isOver = isDateOverdue(item.dueDate, item.status);
     const customer = item.loan?.customer;
-    const dueAmount = item.amount - (item.paidAmount || 0);
+    const borrowerName = item.customerName || customer?.name || `Borrower #LN${1000 + item.loanId}`;
+    const borrowerPhone = item.customerPhone || customer?.phone || '';
+    const borrowerAddress = item.customerAddress || customer?.address || '';
+    const dueAmount = item.remaining !== undefined ? item.remaining : (item.amount - (item.paidAmount || 0));
 
     return (
       <View style={styles.card}>
         {/* Top Card Row */}
         <View style={styles.cardTopRow}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{(customer?.name || 'B').charAt(0).toUpperCase()}</Text>
+            <Text style={styles.avatarText}>{(borrowerName || 'B').charAt(0).toUpperCase()}</Text>
           </View>
           <View style={{ flex: 1, marginLeft: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.customerName}>{customer?.name || 'Borrower'}</Text>
+              <Text style={styles.customerName}>{borrowerName}</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
               <View style={styles.loanBadge}>
                 <Text style={styles.loanBadgeText}>#LN{1000 + item.loanId}</Text>
               </View>
-              {customer?.phone && (
-                <Text style={styles.phoneSub}>{customer.phone}</Text>
-              )}
+              {borrowerPhone ? (
+                <Text style={styles.phoneSub}>{borrowerPhone}</Text>
+              ) : null}
             </View>
           </View>
 
@@ -193,22 +196,22 @@ export default function TodayDuesScreen({ user }: TodayDuesScreenProps) {
         </View>
 
         {/* Address if available */}
-        {customer?.address ? (
+        {borrowerAddress ? (
           <View style={styles.addressRow}>
             <Ionicons name="location-outline" size={13} color="#94a3b8" />
             <Text style={styles.addressText} numberOfLines={1}>
-              {customer.address}{customer.city ? `, ${customer.city}` : ''}
+              {borrowerAddress}
             </Text>
           </View>
         ) : null}
 
         {/* Action Buttons Row */}
         <View style={styles.actionRow}>
-          {customer?.phone && (
+          {borrowerPhone ? (
             <>
               <TouchableOpacity
                 style={styles.actionPill}
-                onPress={() => handleCall(customer.phone)}
+                onPress={() => handleCall(borrowerPhone)}
                 activeOpacity={0.7}
               >
                 <Ionicons name="call" size={14} color="#2563eb" />
@@ -217,14 +220,14 @@ export default function TodayDuesScreen({ user }: TodayDuesScreenProps) {
 
               <TouchableOpacity
                 style={[styles.actionPill, styles.waPill]}
-                onPress={() => handleWhatsApp(customer.phone, customer.name, dueAmount)}
+                onPress={() => handleWhatsApp(borrowerPhone, borrowerName, dueAmount)}
                 activeOpacity={0.7}
               >
                 <Ionicons name="logo-whatsapp" size={14} color="#16a34a" />
                 <Text style={[styles.actionPillText, { color: '#16a34a' }]}>WhatsApp</Text>
               </TouchableOpacity>
             </>
-          )}
+          ) : null}
 
           {!isPaid ? (
             <TouchableOpacity

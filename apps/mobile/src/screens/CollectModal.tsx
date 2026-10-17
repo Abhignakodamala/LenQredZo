@@ -121,7 +121,7 @@ export default function CollectModal({
               <View style={{ flex: 1 }}>
                 <Text style={styles.title}>Collect EMI Payment</Text>
                 <Text style={styles.subtitle}>
-                  Loan #{1000 + emi.loanId} · {emi.loan?.customer?.name}
+                  Loan #{1000 + emi.loanId} · {emi.customerName || emi.loan?.customer?.name || 'Customer'}
                 </Text>
               </View>
               <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>

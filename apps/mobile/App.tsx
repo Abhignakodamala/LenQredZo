@@ -13,16 +13,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { User } from './src/types';
 import { restoreSession, logout } from './src/services/auth';
 import LoginScreen from './src/screens/LoginScreen';
+import DashboardScreen from './src/screens/DashboardScreen';
+import LoansScreen from './src/screens/LoansScreen';
 import TodayDuesScreen from './src/screens/TodayDuesScreen';
 import CustomersScreen from './src/screens/CustomersScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 
-type Tab = 'dues' | 'customers' | 'profile';
+type Tab = 'dashboard' | 'loans' | 'dues' | 'customers' | 'profile';
 
 function MainApp() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<Tab>('dues');
+  const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
@@ -38,7 +40,7 @@ function MainApp() {
   const handleLogout = async () => {
     await logout();
     setUser(null);
-    setActiveTab('dues');
+    setActiveTab('dashboard');
   };
 
   if (loading) {
@@ -51,7 +53,7 @@ function MainApp() {
           </View>
         </View>
         <Text style={styles.splashBrand}>LenQredzo</Text>
-        <Text style={styles.splashSub}>Field Collection Portal</Text>
+        <Text style={styles.splashSub}>Finance Management & Field Portal</Text>
         <ActivityIndicator size="small" color="#3b82f6" style={{ marginTop: 24 }} />
       </View>
     );
@@ -67,46 +69,86 @@ function MainApp() {
     );
   }
 
-  // Logged-in Main App View with Modern Bottom Tab Navigation
+  // Logged-in Complete Application View with 5 Tabs
   return (
     <View style={[styles.rootContainerLight, { paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
       {/* Screen Body */}
       <View style={styles.screenBody}>
+        {activeTab === 'dashboard' && <DashboardScreen user={user} onNavigateTab={setActiveTab} />}
+        {activeTab === 'loans' && <LoansScreen />}
         {activeTab === 'dues' && <TodayDuesScreen user={user} />}
         {activeTab === 'customers' && <CustomersScreen />}
         {activeTab === 'profile' && <ProfileScreen user={user} onLogout={handleLogout} />}
       </View>
 
-      {/* Bottom Modern Tab Bar */}
+      {/* Bottom Modern 5-Tab Bar */}
       <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+        {/* 1. Dashboard Tab */}
         <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'dues' && styles.tabItemActive]}
+          style={styles.tabItem}
+          onPress={() => setActiveTab('dashboard')}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.iconWrapper, activeTab === 'dashboard' && styles.iconWrapperActive]}>
+            <Ionicons
+              name={activeTab === 'dashboard' ? 'pie-chart' : 'pie-chart-outline'}
+              size={19}
+              color={activeTab === 'dashboard' ? '#2563eb' : '#64748b'}
+            />
+          </View>
+          <Text style={[styles.tabLabel, activeTab === 'dashboard' && styles.tabLabelActive]}>
+            Dashboard
+          </Text>
+        </TouchableOpacity>
+
+        {/* 2. Loans Tab */}
+        <TouchableOpacity
+          style={styles.tabItem}
+          onPress={() => setActiveTab('loans')}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.iconWrapper, activeTab === 'loans' && styles.iconWrapperActive]}>
+            <Ionicons
+              name={activeTab === 'loans' ? 'document-text' : 'document-text-outline'}
+              size={19}
+              color={activeTab === 'loans' ? '#2563eb' : '#64748b'}
+            />
+          </View>
+          <Text style={[styles.tabLabel, activeTab === 'loans' && styles.tabLabelActive]}>
+            Loans
+          </Text>
+        </TouchableOpacity>
+
+        {/* 3. Collections Tab */}
+        <TouchableOpacity
+          style={styles.tabItem}
           onPress={() => setActiveTab('dues')}
           activeOpacity={0.7}
         >
           <View style={[styles.iconWrapper, activeTab === 'dues' && styles.iconWrapperActive]}>
             <Ionicons
               name={activeTab === 'dues' ? 'wallet' : 'wallet-outline'}
-              size={20}
+              size={19}
               color={activeTab === 'dues' ? '#2563eb' : '#64748b'}
             />
           </View>
           <Text style={[styles.tabLabel, activeTab === 'dues' && styles.tabLabelActive]}>
-            Today Dues
+            Collect
           </Text>
         </TouchableOpacity>
 
+        {/* 4. Customers Tab */}
         <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'customers' && styles.tabItemActive]}
+          style={styles.tabItem}
           onPress={() => setActiveTab('customers')}
           activeOpacity={0.7}
         >
           <View style={[styles.iconWrapper, activeTab === 'customers' && styles.iconWrapperActive]}>
             <Ionicons
               name={activeTab === 'customers' ? 'people' : 'people-outline'}
-              size={20}
+              size={19}
               color={activeTab === 'customers' ? '#2563eb' : '#64748b'}
             />
           </View>
@@ -115,15 +157,16 @@ function MainApp() {
           </Text>
         </TouchableOpacity>
 
+        {/* 5. Profile Tab */}
         <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'profile' && styles.tabItemActive]}
+          style={styles.tabItem}
           onPress={() => setActiveTab('profile')}
           activeOpacity={0.7}
         >
           <View style={[styles.iconWrapper, activeTab === 'profile' && styles.iconWrapperActive]}>
             <Ionicons
               name={activeTab === 'profile' ? 'person-circle' : 'person-circle-outline'}
-              size={20}
+              size={19}
               color={activeTab === 'profile' ? '#2563eb' : '#64748b'}
             />
           </View>
@@ -235,7 +278,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
     borderColor: '#f1f5f9',
-    paddingTop: 8,
+    paddingTop: 6,
     shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.04,
@@ -247,11 +290,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center'
   },
-  tabItemActive: {},
   iconWrapper: {
-    width: 40,
-    height: 28,
-    borderRadius: 14,
+    width: 38,
+    height: 26,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 2
@@ -260,7 +302,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#eff6ff'
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     color: '#64748b'
   },

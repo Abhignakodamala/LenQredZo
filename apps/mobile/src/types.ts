@@ -9,6 +9,7 @@ export interface User {
   branchId?: number;
   branchName?: string;
   companyId: number;
+  companyName?: string;
 }
 
 export interface Customer {
@@ -19,22 +20,31 @@ export interface Customer {
   city?: string;
   kycStatus?: 'pending' | 'verified' | 'rejected';
   activeLoansCount?: number;
+  email?: string;
 }
 
 export interface EMIItem {
   id: number;
   loanId: number;
+  customerName?: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  branchName?: string;
+  companyName?: string;
+  loanType?: string;
   amount: number;
   paidAmount?: number;
+  remaining?: number;
   dueDate: string;
-  status: 'pending' | 'paid' | 'partial';
+  status: 'pending' | 'paid' | 'partial' | 'overdue';
   penalty?: number;
   penaltyPaid?: boolean;
-  loan: {
+  daysOverdue?: number;
+  loan?: {
     id: number;
     amount: number;
     status: string;
-    customer: {
+    customer?: {
       id: number;
       name: string;
       phone: string;
@@ -51,5 +61,50 @@ export interface CollectPaymentPayload {
   payAmount: number;
   method: PaymentMethod;
   reference?: string;
-  verificationPhoto?: string; // Base64 image
+  verificationPhoto?: string;
+}
+
+export interface DashboardStats {
+  totalDisbursed: number;
+  totalCollections: number;
+  activeCustomers: number;
+  activeLoans: number;
+  totalLoans: number;
+  npaPercentage: number;
+  netProfit: number;
+  collectionEfficiency: number;
+  recentLoans: {
+    id: number;
+    type?: string;
+    amount: number;
+    status: string;
+    createdAt: string;
+    customer?: {
+      name: string;
+      phone?: string;
+    };
+  }[];
+  aiInsights?: {
+    icon: string;
+    title: string;
+    description: string;
+    level: string;
+  }[];
+}
+
+export interface LoanItem {
+  id: number;
+  amount: number;
+  interestRate?: number;
+  tenure?: number;
+  frequency?: string;
+  status: string;
+  type?: string;
+  createdAt: string;
+  customer?: {
+    id: number;
+    name: string;
+    phone: string;
+    city?: string;
+  };
 }

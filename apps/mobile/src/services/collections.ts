@@ -1,5 +1,25 @@
 import { apiRequest } from './api';
-import { EMIItem, Customer, CollectPaymentPayload } from '../types';
+import { EMIItem, Customer, CollectPaymentPayload, DashboardStats, LoanItem } from '../types';
+
+export async function fetchDashboardStats(): Promise<DashboardStats | null> {
+  try {
+    const data = await apiRequest<DashboardStats>('/api/dashboard/stats');
+    return data;
+  } catch (err) {
+    console.warn('Failed to load dashboard stats:', err);
+    return null;
+  }
+}
+
+export async function fetchLoans(): Promise<LoanItem[]> {
+  try {
+    const data = await apiRequest<LoanItem[]>('/api/loans');
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.warn('Failed to load loans:', err);
+    return [];
+  }
+}
 
 export async function fetchAllCollections(): Promise<EMIItem[]> {
   const data = await apiRequest<EMIItem[]>('/api/loans/collections/all');
