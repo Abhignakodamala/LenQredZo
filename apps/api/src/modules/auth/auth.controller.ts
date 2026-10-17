@@ -228,6 +228,7 @@ export const logLoginPhoto = async (req: any, res: Response) => {
       action: 'login_photo',
       entityType: 'User',
       entityId: req.user.userId,
+      details: 'Agent shift attendance photo verified',
       photoData,
     });
 

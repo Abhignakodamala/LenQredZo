@@ -19,7 +19,8 @@ export async function uploadAttendancePhoto(token: string, photoBase64: string):
   try {
     await apiRequest('/api/auth/login-photo', {
       method: 'POST',
-      body: { photoData: photoBase64 }
+      body: { photoData: photoBase64 },
+      token
     });
   } catch (err) {
     // Attendance logging shouldn't crash if offline, but logs warning

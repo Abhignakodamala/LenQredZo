@@ -18,9 +18,12 @@ type AuditPhoto = {
 };
 
 const ACTION_LABELS: Record<string, string> = {
-  login_photo: '🔐 Login',
-  payment_collected: '💰 Payment Collected',
+  login_photo: '🔐 Login Attendance',
+  payment_collected: '💰 Payment Proof',
+  MARK_EMI_PAID: '💰 Payment Proof',
 };
+
+const isPaymentAction = (action: string) => action === 'payment_collected' || action === 'MARK_EMI_PAID';
 
 export default function AuditPhotosPage() {
   const [me, setMe] = useState<AuthUser | null>(null);
@@ -56,7 +59,11 @@ export default function AuditPhotosPage() {
   }, []);
 
   const allowed = me && ALLOWED.includes(me.role);
-  const filtered = filter === 'all' ? photos : photos.filter(p => p.action === filter);
+  const filtered = filter === 'all'
+    ? photos
+    : filter === 'payment_collected'
+      ? photos.filter(p => isPaymentAction(p.action))
+      : photos.filter(p => p.action === filter);
 
   const card: React.CSSProperties = { background: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e5e7eb' };
   const chip = (active: boolean): React.CSSProperties => ({
@@ -110,7 +117,7 @@ export default function AuditPhotosPage() {
             🔐 Logins ({photos.filter(p => p.action === 'login_photo').length})
           </button>
           <button onClick={() => setFilter('payment_collected')} style={chip(filter === 'payment_collected')}>
-            💰 Payments ({photos.filter(p => p.action === 'payment_collected').length})
+            💰 Payments ({photos.filter(p => isPaymentAction(p.action)).length})
           </button>
         </div>
 

@@ -127,3 +127,29 @@
     @apply font-sans;
     }
 }
+
+/* Mobile responsive synchronization */
+@media (max-width: 768px) {
+  .dashboard-main-content,
+  div[style*="marginLeft: 220"],
+  div[style*="margin-left: 220px"],
+  div[style*="marginLeft: '220px'"] {
+    margin-left: 0 !important;
+    padding-top: 60px !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+
+  .desktop-sidebar {
+    display: none !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .mobile-top-bar,
+  .mobile-drawer,
+  .mobile-drawer-backdrop {
+    display: none !important;
+  }
+}

@@ -35,9 +35,10 @@ export async function apiRequest<T = any>(
     method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
     body?: any;
     requireAuth?: boolean;
+    token?: string;
   } = {}
 ): Promise<T> {
-  const { method = 'GET', body, requireAuth = true } = options;
+  const { method = 'GET', body, requireAuth = true, token: explicitToken } = options;
   const baseUrl = await getApiUrl();
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const url = `${baseUrl}${cleanEndpoint}`;
@@ -48,7 +49,7 @@ export async function apiRequest<T = any>(
   };
 
   if (requireAuth) {
-    const token = await getAuthToken();
+    const token = explicitToken || (await getAuthToken());
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
