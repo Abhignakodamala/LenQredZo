@@ -9,7 +9,8 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  ScrollView
+  ScrollView,
+  Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { loginWithCredentials, uploadAttendancePhoto, saveActiveSession } from '../services/auth';
@@ -26,21 +27,31 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Mandatory Attendance Photo States
+  // Mandatory Attendance Photo States (For field agents)
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [pendingToken, setPendingToken] = useState<string | null>(null);
   const [pendingUser, setPendingUser] = useState<User | null>(null);
 
   const handleCredentialsSubmit = async () => {
     if (!email.trim() || !password) {
-      Alert.alert('Required Fields', 'Please enter your agent email and password.');
+      Alert.alert('Required Fields', 'Please enter your email and password.');
       return;
     }
 
     setLoading(true);
     try {
       const res = await loginWithCredentials(email.trim(), password);
-      // Valid credentials — now enforce mandatory attendance photo step
+      const roleClean = (res.user?.role || '').toLowerCase().replace(/[\s_-]/g, '');
+      const isOwner = ['owner', 'admin', 'superadmin', 'branchmanager', 'manager', 'director'].includes(roleClean);
+
+      // Management / Owners enter immediately without field attendance roadblock
+      if (isOwner) {
+        await saveActiveSession(res.token, res.user);
+        onLoginSuccess(res.user);
+        return;
+      }
+
+      // Valid credentials for Field Collection Agent — enforce shift attendance photo
       setPendingToken(res.token);
       setPendingUser(res.user);
       setShowAttendanceModal(true);
@@ -84,30 +95,34 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         <View style={styles.brandBox}>
           <View style={styles.logoBadgeContainer}>
             <View style={styles.logoBadge}>
-              <Ionicons name="shield-checkmark" size={32} color="#ffffff" />
+              <Image
+                source={require('../../assets/lenqredzo-logo-transparent.png')}
+                style={styles.brandLogoImg}
+                resizeMode="contain"
+              />
             </View>
           </View>
-          <Text style={styles.brandName}>LenQredzo</Text>
+          <Text style={styles.brandName}>LenQredzo Capital</Text>
           <View style={styles.badgePill}>
-            <Text style={styles.badgePillText}>FIELD AGENT APP</Text>
+            <Text style={styles.badgePillText}>FINANCE & FIELD MOBILITY</Text>
           </View>
-          <Text style={styles.brandTagline}>Daily Route & EMI Collections Portal</Text>
+          <Text style={styles.brandTagline}>Enterprise Loan Management & Recovery Portal</Text>
         </View>
 
         {/* Login Form Card */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Agent Sign In</Text>
-          <Text style={styles.cardSub}>Sign in to view today's route & assigned dues</Text>
+          <Text style={styles.cardTitle}>Sign In</Text>
+          <Text style={styles.cardSub}>Executive overview or field collection route</Text>
 
           {/* Email Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Agent Email</Text>
+            <Text style={styles.inputLabel}>Email Address</Text>
             <View style={styles.inputBox}>
               <Ionicons name="mail-outline" size={18} color="#94a3b8" style={styles.fieldIcon} />
               <TextInput
                 value={email}
                 onChangeText={setEmail}
-                placeholder="agent@company.com"
+                placeholder="user@lenqredzo.com"
                 placeholderTextColor="#94a3b8"
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -215,17 +230,22 @@ const styles = StyleSheet.create({
     marginBottom: 12
   },
   logoBadge: {
-    width: 60,
-    height: 60,
-    borderRadius: 18,
-    backgroundColor: '#2563eb',
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#2563eb',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
+    shadowOpacity: 0.35,
     shadowRadius: 12,
-    elevation: 8
+    elevation: 8,
+    padding: 6
+  },
+  brandLogoImg: {
+    width: 48,
+    height: 48
   },
   brandName: {
     fontSize: 26,

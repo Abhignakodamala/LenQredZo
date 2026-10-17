@@ -16,9 +16,10 @@ import { fetchDashboardStats } from '../services/collections';
 interface DashboardScreenProps {
   user: User;
   onNavigateTab: (tab: 'dashboard' | 'loans' | 'dues' | 'customers' | 'profile') => void;
+  onSwitchToFieldMode?: () => void;
 }
 
-export default function DashboardScreen({ user, onNavigateTab }: DashboardScreenProps) {
+export default function DashboardScreen({ user, onNavigateTab, onSwitchToFieldMode }: DashboardScreenProps) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -59,19 +60,32 @@ export default function DashboardScreen({ user, onNavigateTab }: DashboardScreen
       <View style={styles.brandHeader}>
         <View style={styles.brandLeft}>
           <Image
-            src="/lenqredzo-logo-transparent.png"
+            source={require('../../assets/lenqredzo-logo-transparent.png')}
             style={styles.brandLogo}
             resizeMode="contain"
           />
           <View style={{ marginLeft: 10 }}>
             <Text style={styles.companyName}>LENQREDZO CAPITAL</Text>
-            <Text style={styles.companySub}>Finance Management Portal</Text>
+            <Text style={styles.companySub}>Finance Executive Portal</Text>
           </View>
         </View>
-        <View style={styles.roleBadge}>
-          <View style={styles.liveDot} />
-          <Text style={styles.roleBadgeText}>LIVE</Text>
-        </View>
+
+        {onSwitchToFieldMode ? (
+          <TouchableOpacity
+            style={styles.modeSwitchHeaderBtn}
+            onPress={onSwitchToFieldMode}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="bicycle" size={13} color="#2563eb" />
+            <Text style={styles.modeSwitchHeaderText}>Field View</Text>
+            <Ionicons name="swap-horizontal" size={12} color="#2563eb" style={{ marginLeft: 2 }} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.roleBadge}>
+            <View style={styles.liveDot} />
+            <Text style={styles.roleBadgeText}>LIVE</Text>
+          </View>
+        )}
       </View>
 
       {/* Greeting Banner */}
@@ -333,6 +347,22 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 10,
     gap: 4
+  },
+  modeSwitchHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 9,
+    paddingVertical: 4.5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    gap: 4
+  },
+  modeSwitchHeaderText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1d4ed8'
   },
   liveDot: {
     width: 5,

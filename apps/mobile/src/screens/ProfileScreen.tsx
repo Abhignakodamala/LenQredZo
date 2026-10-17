@@ -15,11 +15,16 @@ import { getApiUrl, setApiUrl, DEFAULT_API_URL } from '../config';
 interface ProfileScreenProps {
   user: User;
   onLogout: () => void;
+  appMode?: 'executive' | 'field';
+  onToggleMode?: (mode: 'executive' | 'field') => void;
 }
 
-export default function ProfileScreen({ user, onLogout }: ProfileScreenProps) {
+export default function ProfileScreen({ user, onLogout, appMode = 'executive', onToggleMode }: ProfileScreenProps) {
   const [apiUrl, setApiUrlState] = useState('');
   const [savingUrl, setSavingUrl] = useState(false);
+
+  const roleNormalized = (user.role || '').toLowerCase().replace(/[\s_-]/g, '');
+  const isOwner = ['owner', 'admin', 'superadmin', 'branchmanager', 'manager', 'director'].includes(roleNormalized);
 
   useEffect(() => {
     getApiUrl().then(setApiUrlState);
@@ -51,8 +56,8 @@ export default function ProfileScreen({ user, onLogout }: ProfileScreenProps) {
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Agent Profile</Text>
-        <Text style={styles.headerSub}>LenQredzo Mobile Collection Portal</Text>
+        <Text style={styles.headerTitle}>{isOwner ? 'Executive Account & Profile' : 'Agent Profile'}</Text>
+        <Text style={styles.headerSub}>LenQredzo Capital · {isOwner ? 'Executive Management' : 'Field Collection Portal'}</Text>
       </View>
 
       {/* User Info Card */}
@@ -63,22 +68,81 @@ export default function ProfileScreen({ user, onLogout }: ProfileScreenProps) {
         <Text style={styles.userName}>{user.name}</Text>
         <Text style={styles.userEmail}>{user.email}</Text>
         <View style={styles.roleBadge}>
-          <Ionicons name="shield-checkmark" size={13} color="#2563eb" style={{ marginRight: 4 }} />
+          <Ionicons name={isOwner ? 'ribbon' : 'shield-checkmark'} size={13} color="#2563eb" style={{ marginRight: 4 }} />
           <Text style={styles.roleText}>{user.role.toUpperCase()}</Text>
         </View>
       </View>
 
+      {/* Executive vs Field Mode Switcher Card (For Owners & Admins) */}
+      {isOwner && onToggleMode ? (
+        <View style={styles.card}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+            <Ionicons name="layers-outline" size={17} color="#0f172a" style={{ marginRight: 6 }} />
+            <Text style={styles.sectionTitle}>App Experience Mode</Text>
+          </View>
+          <Text style={styles.configDesc}>
+            Switch your mobile interface view between business cockpit and field agent route.
+          </Text>
+
+          <View style={styles.modeCardsRow}>
+            {/* Executive Mode Card */}
+            <TouchableOpacity
+              style={[styles.modeCard, appMode === 'executive' && styles.modeCardActive]}
+              onPress={() => onToggleMode('executive')}
+              activeOpacity={0.75}
+            >
+              <View style={[styles.modeIconCircle, appMode === 'executive' ? styles.modeIconCircleActive : {}]}>
+                <Ionicons name="pie-chart" size={18} color={appMode === 'executive' ? '#2563eb' : '#64748b'} />
+              </View>
+              <Text style={[styles.modeCardTitle, appMode === 'executive' && styles.modeCardTitleActive]}>
+                👑 Executive
+              </Text>
+              <Text style={styles.modeCardSub}>
+                Full KPIs, disbursements, loan portfolio & customer directory.
+              </Text>
+              {appMode === 'executive' && (
+                <View style={styles.modeActivePill}>
+                  <Text style={styles.modeActivePillText}>CURRENT ACTIVE</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            {/* Field Agent Mode Card */}
+            <TouchableOpacity
+              style={[styles.modeCard, appMode === 'field' && styles.modeCardActive]}
+              onPress={() => onToggleMode('field')}
+              activeOpacity={0.75}
+            >
+              <View style={[styles.modeIconCircle, appMode === 'field' ? styles.modeIconCircleActive : {}]}>
+                <Ionicons name="bicycle" size={18} color={appMode === 'field' ? '#16a34a' : '#64748b'} />
+              </View>
+              <Text style={[styles.modeCardTitle, appMode === 'field' && styles.modeCardTitleFieldActive]}>
+                🏍️ Field Route
+              </Text>
+              <Text style={styles.modeCardSub}>
+                Door-to-door dues, 1-tap WhatsApp, calls & photo collections.
+              </Text>
+              {appMode === 'field' && (
+                <View style={[styles.modeActivePill, { backgroundColor: '#ecfdf5' }]}>
+                  <Text style={[styles.modeActivePillText, { color: '#16a34a' }]}>CURRENT ACTIVE</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
+
       {/* Shift & Details Card */}
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Shift & Assignment Details</Text>
+        <Text style={styles.sectionTitle}>{isOwner ? 'Organization & Authorization' : 'Shift & Assignment Details'}</Text>
 
         <View style={styles.detailRow}>
           <View style={styles.iconCircle}>
             <Ionicons name="business-outline" size={16} color="#2563eb" />
           </View>
           <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.detailLabel}>Company Reference</Text>
-            <Text style={styles.detailValue}>Company #{user.companyId}</Text>
+            <Text style={styles.detailLabel}>Company & Tenant</Text>
+            <Text style={styles.detailValue}>{user.companyName || `Company #${user.companyId}`}</Text>
           </View>
         </View>
 
@@ -90,7 +154,9 @@ export default function ProfileScreen({ user, onLogout }: ProfileScreenProps) {
           </View>
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={styles.detailLabel}>Designation</Text>
-            <Text style={styles.detailValue}>Field Collection Agent</Text>
+            <Text style={styles.detailValue}>
+              {isOwner ? (user.role === 'branch_manager' ? 'Branch Manager' : 'Executive Owner / Administrator') : 'Field Collection Agent'}
+            </Text>
           </View>
         </View>
 
@@ -101,8 +167,10 @@ export default function ProfileScreen({ user, onLogout }: ProfileScreenProps) {
             <Ionicons name="checkmark-circle" size={16} color="#16a34a" />
           </View>
           <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.detailLabel}>Attendance Status</Text>
-            <Text style={[styles.detailValue, { color: '#15803d' }]}>Shift Active · Photo Logged</Text>
+            <Text style={styles.detailLabel}>Authentication Status</Text>
+            <Text style={[styles.detailValue, { color: '#15803d' }]}>
+              {isOwner ? 'Authorized Session · All Features Unlocked' : 'Shift Active · Attendance Verified'}
+            </Text>
           </View>
         </View>
       </View>
@@ -248,6 +316,69 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#0f172a'
+  },
+  modeCardsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8
+  },
+  modeCard: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    alignItems: 'flex-start'
+  },
+  modeCardActive: {
+    borderColor: '#2563eb',
+    backgroundColor: '#eff6ff'
+  },
+  modeIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0'
+  },
+  modeIconCircleActive: {
+    borderColor: '#bfdbfe',
+    backgroundColor: '#ffffff'
+  },
+  modeCardTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#334155',
+    marginBottom: 4
+  },
+  modeCardTitleActive: {
+    color: '#1d4ed8'
+  },
+  modeCardTitleFieldActive: {
+    color: '#15803d'
+  },
+  modeCardSub: {
+    fontSize: 10,
+    color: '#64748b',
+    lineHeight: 14,
+    marginBottom: 8
+  },
+  modeActivePill: {
+    backgroundColor: '#dbeafe',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6
+  },
+  modeActivePillText: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    color: '#1d4ed8',
+    letterSpacing: 0.4
   },
   detailRow: {
     flexDirection: 'row',

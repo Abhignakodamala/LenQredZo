@@ -18,11 +18,12 @@ import CollectModal from './CollectModal';
 
 interface TodayDuesScreenProps {
   user: User;
+  onSwitchToExecutiveMode?: () => void;
 }
 
 type TabType = 'today' | 'overdue' | 'collected' | 'all';
 
-export default function TodayDuesScreen({ user }: TodayDuesScreenProps) {
+export default function TodayDuesScreen({ user, onSwitchToExecutiveMode }: TodayDuesScreenProps) {
   const [emis, setEmis] = useState<EMIItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -263,10 +264,22 @@ export default function TodayDuesScreen({ user }: TodayDuesScreenProps) {
               {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' })} · Field Shift
             </Text>
           </View>
-          <View style={styles.shiftBadge}>
-            <View style={styles.liveDot} />
-            <Text style={styles.shiftBadgeText}>Active</Text>
-          </View>
+          {onSwitchToExecutiveMode ? (
+            <TouchableOpacity
+              style={styles.modeSwitchHeaderBtn}
+              onPress={onSwitchToExecutiveMode}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="pie-chart" size={13} color="#2563eb" />
+              <Text style={styles.modeSwitchHeaderText}>Executive</Text>
+              <Ionicons name="swap-horizontal" size={12} color="#2563eb" style={{ marginLeft: 2 }} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.shiftBadge}>
+              <View style={styles.liveDot} />
+              <Text style={styles.shiftBadgeText}>Active</Text>
+            </View>
+          )}
         </View>
 
         {/* 3 Metrics KPI Cards */}
@@ -447,6 +460,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#d1fae5',
     gap: 5
+  },
+  modeSwitchHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 9,
+    paddingVertical: 4.5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    gap: 4
+  },
+  modeSwitchHeaderText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1d4ed8'
   },
   liveDot: {
     width: 6,
