@@ -214,8 +214,19 @@ export const getLoanById = async (req: any, res: Response) => {
 
 export const updateLoanStatus = async (req: any, res: Response) => {
   try {
+    const loanId = Number(req.params.id);
+    const existing = await prisma.loan.findUnique({ where: { id: loanId } });
+    if (!existing || existing.companyId !== req.user.companyId) {
+      return res.status(404).json({ message: 'Loan not found' });
+    }
+
+    const ALLOWED_STATUSES = ['pending', 'approved', 'disbursed', 'rejected', 'completed', 'cancelled'];
+    if (!ALLOWED_STATUSES.includes(req.body.status)) {
+      return res.status(400).json({ message: `Invalid status. Must be one of: ${ALLOWED_STATUSES.join(', ')}` });
+    }
+
     const loan = await prisma.loan.update({
-      where: { id: Number(req.params.id) },
+      where: { id: loanId },
       data: { status: req.body.status }
     });
     await logAudit({
@@ -257,7 +268,9 @@ export const markEmiPaid = async (req: any, res: Response) => {
       where: { id: emiId },
       include: { loan: true }
     });
-    if (!emi) return res.status(404).json({ message: 'EMI not found' });
+    if (!emi || emi.loan.companyId !== req.user.companyId) {
+      return res.status(404).json({ message: 'EMI not found' });
+    }
     if (emi.status === 'paid') return res.status(400).json({ message: 'EMI is already fully paid' });
 
     const alreadyPaid = emi.paidAmount || 0;
