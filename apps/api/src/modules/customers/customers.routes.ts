@@ -13,6 +13,8 @@ import {
 } from './documents.controller';
 import {
   verifyCustomerBankAccount,
+  generateUpiVerificationQr,
+  verifyUpiPayment,
   updateCustomerBankDetails
 } from './bank.controller';
 
@@ -36,8 +38,10 @@ router.patch('/:id/documents/:docId/verify', protect, requirePermission('custome
 router.delete('/:id/documents/:docId', protect, requirePermission('customer:edit'), deleteCustomerDocument);
 router.patch('/:id/kyc-status', protect, requirePermission('customer:edit'), updateCustomerKycStatus);
 
-// Bank Account & Penny Drop Verification
+// Dual-Method Bank Account Verification (₹1 UPI QR Scan & Bank Account + IFSC Penny Drop)
 router.post('/:id/verify-bank', protect, requirePermission('customer:edit'), verifyCustomerBankAccount);
+router.post('/:id/verify-upi-qr', protect, requirePermission('customer:edit'), generateUpiVerificationQr);
+router.post('/:id/verify-upi', protect, requirePermission('customer:edit'), verifyUpiPayment);
 router.put('/:id/bank-details', protect, requirePermission('customer:edit'), updateCustomerBankDetails);
 
 router.post('/bulk-import', protect, bulkImportCustomers);
