@@ -161,23 +161,73 @@ export const verifyCustomerBankAccount = async (req: any, res: Response) => {
     const branchName = `${ifscData.branch}, ${ifscData.city}`;
 
     // 2. Perform Penny-Drop / Beneficiary Verification
-    // In production with live connected banking (ICICI/RazorpayX), triggers ₹1 IMPS debit
-    // from Financier Company current account to Borrower savings account.
+    // If financier has live RazorpayX credentials configured, calls Fund Account Validation API.
+    // Otherwise or for simulated scenarios, uses intelligent simulation engine.
     let beneficiaryName = '';
 
-    if (req.body.simulateMismatch === true) {
-      beneficiaryName = 'RAMESH KUMAR SHARMA'; // 3rd party fraud simulation
-    } else if (req.body.simulateReversedName === true) {
-      const parts = customer.name.trim().split(/\s+/);
-      beneficiaryName = [...parts].reverse().join(' ').toUpperCase(); // e.g. "Muppaneni Srilakshmi"
-    } else if (req.body.simulatePartial === true) {
-      const parts = customer.name.trim().split(/\s+/);
-      beneficiaryName = parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0]}`.toUpperCase() : `${customer.name} K`.toUpperCase(); // e.g. "Srilakshmi M"
-    } else if (req.body.customBeneficiaryName && String(req.body.customBeneficiaryName).trim()) {
-      beneficiaryName = String(req.body.customBeneficiaryName).trim().toUpperCase();
-    } else {
-      // Default: Bank returns legal name matching borrower KYC
-      beneficiaryName = customer.name.toUpperCase();
+    const rzpSettings = await prisma.razorpaySettings.findUnique({
+      where: { companyId: req.user.companyId }
+    });
+
+    if (
+      rzpSettings?.isEnabled &&
+      rzpSettings.keyId &&
+      rzpSettings.keySecret &&
+      !req.body.simulateMismatch &&
+      !req.body.simulateReversedName &&
+      !req.body.simulatePartial &&
+      !req.body.customBeneficiaryName &&
+      !req.body.simulateInvalidAccount
+    ) {
+      try {
+        const auth = 'Basic ' + Buffer.from(`${rzpSettings.keyId}:${rzpSettings.keySecret}`).toString('base64');
+        const validationRes = await (globalThis as any).fetch('https://api.razorpay.com/v1/fund_accounts/validations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: auth
+          },
+          body: JSON.stringify({
+            fund_account: {
+              account_type: 'bank_account',
+              bank_account: {
+                name: customer.name,
+                ifsc,
+                account_number: accountNumber
+              }
+            },
+            amount: 100,
+            currency: 'INR',
+            notes: { customerId: customer.id }
+          })
+        });
+
+        if (validationRes.ok) {
+          const valData = await validationRes.json();
+          if (valData.registered_name) {
+            beneficiaryName = String(valData.registered_name).toUpperCase();
+          }
+        }
+      } catch (liveErr) {
+        console.warn('Live RazorpayX Fund Account Validation API hit failed, falling back:', liveErr);
+      }
+    }
+
+    if (!beneficiaryName) {
+      if (req.body.simulateMismatch === true) {
+        beneficiaryName = 'RAMESH KUMAR SHARMA'; // 3rd party fraud simulation
+      } else if (req.body.simulateReversedName === true) {
+        const parts = customer.name.trim().split(/\s+/);
+        beneficiaryName = [...parts].reverse().join(' ').toUpperCase(); // e.g. "Muppaneni Srilakshmi"
+      } else if (req.body.simulatePartial === true) {
+        const parts = customer.name.trim().split(/\s+/);
+        beneficiaryName = parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0]}`.toUpperCase() : `${customer.name} K`.toUpperCase(); // e.g. "Srilakshmi M"
+      } else if (req.body.customBeneficiaryName && String(req.body.customBeneficiaryName).trim()) {
+        beneficiaryName = String(req.body.customBeneficiaryName).trim().toUpperCase();
+      } else {
+        // Default: Bank returns legal name matching borrower KYC
+        beneficiaryName = customer.name.toUpperCase();
+      }
     }
 
     // 3. Calculate Name Match Score

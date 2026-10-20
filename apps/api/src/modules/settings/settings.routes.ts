@@ -6,7 +6,10 @@ import {
   deleteCompanyLogo,
   logoUploadMiddleware,
   updateProfile,
-  changePassword
+  changePassword,
+  getRazorpaySettings,
+  updateRazorpaySettings,
+  testRazorpayConnection
 } from './settings.controller';
 import { protect } from '../../middleware/auth';
 
@@ -18,5 +21,10 @@ router.post('/company/logo', protect, logoUploadMiddleware, uploadCompanyLogo);
 router.delete('/company/logo', protect, deleteCompanyLogo);
 router.put('/profile', protect, updateProfile);
 router.put('/password', protect, changePassword);
+
+// Razorpay & Connected Banking Credentials
+router.get('/razorpay', protect, getRazorpaySettings);
+router.put('/razorpay', protect, updateRazorpaySettings);
+router.post('/razorpay/test', protect, testRazorpayConnection);
 
 export default router;

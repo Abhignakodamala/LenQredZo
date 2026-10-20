@@ -24,6 +24,12 @@ export default function SettingsPage() {
   const [savingPwd, setSavingPwd] = useState(false);
   const [pwdError, setPwdError] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [rzpKeyId, setRzpKeyId] = useState('');
+  const [rzpKeySecret, setRzpKeySecret] = useState('');
+  const [rzpEnabled, setRzpEnabled] = useState(true);
+  const [savingRzp, setSavingRzp] = useState(false);
+  const [testingRzp, setTestingRzp] = useState(false);
+  const [rzpTestResult, setRzpTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const logoInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -42,6 +48,10 @@ export default function SettingsPage() {
         window.dispatchEvent(new Event('company:updated'));
       }
       if (data.user) setUser(data.user);
+      if (data.razorpaySettings) {
+        setRzpKeyId(data.razorpaySettings.keyId || '');
+        setRzpEnabled(data.razorpaySettings.isEnabled ?? true);
+      }
     } catch (error) { console.error('Failed to fetch settings', error); }
     setLoading(false);
   };
@@ -205,6 +215,55 @@ export default function SettingsPage() {
   setExporting(false);
 };
 
+  const saveRazorpay = async () => {
+    if (!rzpKeyId.trim()) {
+      showMsg('❌ Please enter Razorpay Key ID');
+      return;
+    }
+    setSavingRzp(true);
+    setRzpTestResult(null);
+    try {
+      const res = await fetch(`${API_URL}/api/settings/razorpay`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+        body: JSON.stringify({ keyId: rzpKeyId, keySecret: rzpKeySecret, isEnabled: rzpEnabled })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showMsg('✅ Razorpay & Connected Banking saved successfully');
+        setRzpKeySecret('');
+      } else {
+        showMsg(`❌ ${data.error || 'Failed to save Razorpay settings'}`);
+      }
+    } catch (err: any) {
+      showMsg('❌ Failed to save Razorpay settings');
+    } finally {
+      setSavingRzp(false);
+    }
+  };
+
+  const testRazorpay = async () => {
+    setTestingRzp(true);
+    setRzpTestResult(null);
+    try {
+      const res = await fetch(`${API_URL}/api/settings/razorpay/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+        body: JSON.stringify({ keyId: rzpKeyId, keySecret: rzpKeySecret })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setRzpTestResult({ success: true, message: data.message || 'Authenticated successfully with Razorpay!' });
+      } else {
+        setRzpTestResult({ success: false, message: data.error || 'Authentication failed' });
+      }
+    } catch (err: any) {
+      setRzpTestResult({ success: false, message: 'Could not connect to Razorpay server' });
+    } finally {
+      setTestingRzp(false);
+    }
+  };
+
   const inp: CSSProperties = { width: '100%', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' };
   const lbl: CSSProperties = { display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '6px', color: '#374151' };
   const card: CSSProperties = { background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e5e7eb', marginBottom: '20px' };
@@ -352,6 +411,111 @@ export default function SettingsPage() {
           <button onClick={saveCompany} disabled={savingCompany} style={{ ...btn, marginTop: '16px', opacity: savingCompany ? 0.7 : 1 }}>
             {savingCompany ? 'Saving...' : 'Save Company Details'}
           </button>
+        </div>
+
+        {/* Connected Banking & RazorpayX */}
+        <div style={card}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <h3 style={{ fontWeight: '700', fontSize: '16px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                💳 Connected Banking & Payout Gateway (RazorpayX)
+              </h3>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#6b7280' }}>
+                Connect your business current account to automate ₹1 Penny Drops, instant disbursements, and WhatsApp EMI collection links.
+              </p>
+            </div>
+            <span style={{
+              fontSize: '11px',
+              padding: '4px 10px',
+              borderRadius: '20px',
+              fontWeight: 700,
+              background: rzpKeyId ? '#dcfce7' : '#f3f4f6',
+              color: rzpKeyId ? '#15803d' : '#6b7280',
+              border: `1px solid ${rzpKeyId ? '#86efac' : '#e5e7eb'}`
+            }}>
+              {rzpKeyId ? '● Gateway Connected' : '○ Not Configured'}
+            </span>
+          </div>
+
+          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '12px', color: '#1e40af', lineHeight: 1.4 }}>
+            <strong>🛡️ Direct Bank-to-Bank Guarantee:</strong> LenQredzo is a non-custodial SaaS platform. All ₹1 Penny Drops and loan disbursements are debited directly from YOUR linked company current account via RazorpayX. LenQredzo never holds or pools your capital.
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            <div>
+              <label style={lbl}>Razorpay Key ID *</label>
+              <input
+                type="text"
+                placeholder="rzp_live_... or rzp_test_..."
+                value={rzpKeyId}
+                onChange={e => setRzpKeyId(e.target.value)}
+                style={inp}
+              />
+            </div>
+            <div>
+              <label style={lbl}>Razorpay Key Secret *</label>
+              <input
+                type="password"
+                placeholder={rzpKeyId ? 'Leave blank to keep existing secret, or enter new' : 'Enter Razorpay Key Secret'}
+                value={rzpKeySecret}
+                onChange={e => setRzpKeySecret(e.target.value)}
+                style={inp}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+            <input
+              type="checkbox"
+              id="rzpEnabled"
+              checked={rzpEnabled}
+              onChange={e => setRzpEnabled(e.target.checked)}
+              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+            />
+            <label htmlFor="rzpEnabled" style={{ fontSize: '13px', color: '#374151', cursor: 'pointer', fontWeight: 500 }}>
+              Enable automated Penny Drop and WhatsApp Payment Links for this company
+            </label>
+          </div>
+
+          {rzpTestResult && (
+            <div style={{
+              padding: '10px 14px',
+              borderRadius: '8px',
+              fontSize: '13px',
+              marginBottom: '16px',
+              background: rzpTestResult.success ? '#f0fdf4' : '#fef2f2',
+              color: rzpTestResult.success ? '#166534' : '#991b1b',
+              border: `1px solid ${rzpTestResult.success ? '#86efac' : '#fca5a5'}`
+            }}>
+              {rzpTestResult.success ? '✓ ' : '✕ '} {rzpTestResult.message}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              onClick={saveRazorpay}
+              disabled={savingRzp}
+              style={{ ...btn, opacity: savingRzp ? 0.7 : 1 }}
+            >
+              {savingRzp ? 'Saving...' : 'Save Razorpay Credentials'}
+            </button>
+            <button
+              onClick={testRazorpay}
+              disabled={testingRzp || !rzpKeyId}
+              style={{
+                background: '#f8fafc',
+                color: '#334155',
+                border: '1px solid #cbd5e1',
+                padding: '10px 18px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: testingRzp || !rzpKeyId ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {testingRzp ? 'Testing Connection...' : '⚡ Test Connection'}
+            </button>
+          </div>
         </div>
 
         {/* Profile Settings */}

@@ -48,13 +48,27 @@ export const getSettings = async (req: any, res: Response) => {
     const companyId = req.user.companyId;
     const userId = req.user.id || req.user.userId;
 
-    const company = await prisma.company.findUnique({ where: { id: companyId } });
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      include: {
+        razorpaySettings: {
+          select: {
+            id: true,
+            keyId: true,
+            isEnabled: true,
+            createdAt: true,
+            updatedAt: true
+          }
+        }
+      }
+    });
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, name: true, email: true, role: true }
     });
 
-    res.json({ company, user });
+    res.json({ company, user, razorpaySettings: company?.razorpaySettings || null });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }
@@ -212,5 +226,112 @@ export const changePassword = async (req: any, res: Response) => {
     res.json({ message: 'Password changed successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
+  }
+};
+
+// ── RAZORPAY & CONNECTED BANKING SETTINGS ──────────────────────────────────────
+
+export const getRazorpaySettings = async (req: any, res: Response) => {
+  try {
+    const companyId = req.user.companyId;
+    const settings = await prisma.razorpaySettings.findUnique({ where: { companyId } });
+    if (!settings) {
+      return res.json({ configured: false, keyId: '', isEnabled: false });
+    }
+    return res.json({
+      configured: true,
+      keyId: settings.keyId,
+      keySecretMasked: settings.keySecret ? `••••••••${settings.keySecret.slice(-4)}` : '',
+      isEnabled: settings.isEnabled
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || 'Server error' });
+  }
+};
+
+export const updateRazorpaySettings = async (req: any, res: Response) => {
+  try {
+    const companyId = req.user.companyId;
+    const { keyId, keySecret, isEnabled = true } = req.body;
+
+    if (!keyId || !String(keyId).trim()) {
+      return res.status(400).json({ error: 'Razorpay Key ID is required (e.g. rzp_live_... or rzp_test_...)' });
+    }
+
+    const existing = await prisma.razorpaySettings.findUnique({ where: { companyId } });
+
+    // Keep existing secret if empty or unchanged
+    let finalSecret = keySecret ? String(keySecret).trim() : '';
+    if (!finalSecret || finalSecret.includes('••••')) {
+      finalSecret = existing?.keySecret || '';
+    }
+
+    if (!finalSecret) {
+      return res.status(400).json({ error: 'Razorpay Key Secret is required' });
+    }
+
+    const saved = await prisma.razorpaySettings.upsert({
+      where: { companyId },
+      create: {
+        companyId,
+        keyId: String(keyId).trim(),
+        keySecret: finalSecret,
+        isEnabled: Boolean(isEnabled)
+      },
+      update: {
+        keyId: String(keyId).trim(),
+        keySecret: finalSecret,
+        isEnabled: Boolean(isEnabled)
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Razorpay credentials saved successfully',
+      settings: {
+        keyId: saved.keyId,
+        isEnabled: saved.isEnabled
+      }
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || 'Failed to save Razorpay settings' });
+  }
+};
+
+export const testRazorpayConnection = async (req: any, res: Response) => {
+  try {
+    const companyId = req.user.companyId;
+    const settings = await prisma.razorpaySettings.findUnique({ where: { companyId } });
+
+    const keyId = req.body.keyId ? String(req.body.keyId).trim() : settings?.keyId;
+    let keySecret = req.body.keySecret ? String(req.body.keySecret).trim() : '';
+    if (!keySecret || keySecret.includes('••••')) {
+      keySecret = settings?.keySecret || '';
+    }
+
+    if (!keyId || !keySecret) {
+      return res.status(400).json({ error: 'Razorpay Key ID and Key Secret are required to test connection' });
+    }
+
+    // Ping Razorpay API endpoint with basic auth
+    const authHeader = 'Basic ' + Buffer.from(`${keyId}:${keySecret}`).toString('base64');
+    const rzpRes = await (globalThis as any).fetch('https://api.razorpay.com/v1/payments?count=1', {
+      headers: { Authorization: authHeader }
+    });
+
+    if (rzpRes.ok) {
+      return res.json({
+        success: true,
+        message: 'Connection verified! Razorpay account is active and authenticated.'
+      });
+    } else {
+      const errData = await rzpRes.json().catch(() => ({}));
+      return res.status(400).json({
+        success: false,
+        error: errData.error?.description || 'Authentication failed. Please verify your Key ID and Key Secret.'
+      });
+    }
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || 'Failed to connect to Razorpay' });
   }
 };
