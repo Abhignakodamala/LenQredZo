@@ -42,6 +42,8 @@ export default function BankAccountCard({ customer, onRefresh }: BankAccountCard
   const [upiTimer, setUpiTimer] = useState<number>(300);
   const [upiScenario, setUpiScenario] = useState<'exact' | 'reversed' | 'partial' | 'mismatch' | 'custom'>('exact');
   const [customUpiName, setCustomUpiName] = useState('');
+  const [showUpiSimulator, setShowUpiSimulator] = useState(false);
+  const [showPennySimulator, setShowPennySimulator] = useState(false);
   const [upiResult, setUpiResult] = useState<{
     success: boolean;
     status: string;
@@ -914,63 +916,130 @@ export default function BankAccountCard({ customer, onRefresh }: BankAccountCard
                   )}
                 </div>
 
-                {/* Simulation & Real-time Webhook Receiver Controls */}
-                <div style={{ background: '#f1f5f9', padding: '12px', borderRadius: '10px', marginBottom: '16px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>🧪 Simulation & Webhook Simulator</span>
-                    <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 500 }}>Tests NPCI Payer Name verification</span>
+                {/* ── AUTOMATIC NPCI LIVE GATEWAY STATUS ── */}
+                <div style={{
+                  background: '#f0fdf4',
+                  border: '1.5px solid #86efac',
+                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  marginBottom: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}>
+                  <div style={{
+                    width: '12px',
+                    height: '12px',
+                    borderRadius: '50%',
+                    background: '#16a34a',
+                    boxShadow: '0 0 0 4px #bbf7d0',
+                    flexShrink: 0
+                  }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>⚡ 100% Automatic Detection Active</span>
+                      <span style={{ fontSize: '10px', background: '#dcfce7', color: '#15803d', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>NPCI Webhook</span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#15803d', marginTop: '2px', lineHeight: 1.4 }}>
+                      When borrower scans & pays ₹1 via GPay / PhonePe / Paytm, the bank automatically returns their registered legal name via webhook in &lt;1 second. <strong>No manual option selection needed!</strong>
+                    </div>
                   </div>
+                </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '8px' }}>
-                    {[
-                      { key: 'exact', label: '🟢 Exact Borrower KYC', desc: `Payer: "${customer.name.toUpperCase()}"` },
-                      { key: 'reversed', label: '🟢 Reversed Name', desc: 'Surname first, given name last' },
-                      { key: 'partial', label: '🟡 Initials / Nickname', desc: 'e.g. Srilakshmi M.' },
-                      { key: 'mismatch', label: '🔴 Shop / Family Account', desc: 'Payer: "RAMESH KUMAR SHARMA"' }
-                    ].map(s => (
-                      <label
-                        key={s.key}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: '6px',
-                          background: upiScenario === s.key ? '#e0f2fe' : 'white',
-                          border: upiScenario === s.key ? '1.5px solid #0284c7' : '1px solid #cbd5e1',
-                          padding: '6px 8px',
-                          borderRadius: '6px',
-                          cursor: 'pointer'
-                        }}
-                      >
+                {/* ── COLLAPSIBLE SANDBOX / DEMO SIMULATOR (FOR STAFF TESTING) ── */}
+                <div style={{
+                  background: '#f8fafc',
+                  border: '1px dashed #cbd5e1',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  marginBottom: '16px'
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowUpiSimulator(!showUpiSimulator)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      width: '100%',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#475569',
+                      cursor: 'pointer',
+                      padding: 0
+                    }}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>🧪 Staff Testing & Sandbox Simulator</span>
+                      <span style={{ fontSize: '10px', background: '#e2e8f0', color: '#475569', padding: '2px 6px', borderRadius: '4px' }}>
+                        Demo Mode Only
+                      </span>
+                    </span>
+                    <span style={{ color: '#2563eb', fontSize: '12px' }}>
+                      {showUpiSimulator ? '▲ Hide Test Scenarios' : '▼ Test Mismatch Scenarios (Shop / Nickname)'}
+                    </span>
+                  </button>
+
+                  {showUpiSimulator && (
+                    <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
+                      <p style={{ margin: '0 0 8px 0', fontSize: '11px', color: '#64748b', lineHeight: 1.4 }}>
+                        ℹ️ <strong>For testing only:</strong> In live production, NPCI detects this automatically. Use these buttons to simulate what happens when a borrower pays from their own account vs a shopkeeper&apos;s phone:
+                      </p>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '8px' }}>
+                        {[
+                          { key: 'exact', label: '🟢 Exact Borrower KYC', desc: `Payer: "${customer.name.toUpperCase()}"` },
+                          { key: 'reversed', label: '🟢 Reversed Name', desc: 'Surname first, given name last' },
+                          { key: 'partial', label: '🟡 Initials / Nickname', desc: 'e.g. Srilakshmi M.' },
+                          { key: 'mismatch', label: '🔴 Shop / Family Account', desc: 'Payer: "RAMESH KUMAR SHARMA"' }
+                        ].map(s => (
+                          <label
+                            key={s.key}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: '6px',
+                              background: upiScenario === s.key ? '#e0f2fe' : 'white',
+                              border: upiScenario === s.key ? '1.5px solid #0284c7' : '1px solid #cbd5e1',
+                              padding: '6px 8px',
+                              borderRadius: '6px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <input
+                              type="radio"
+                              name="upiScenario"
+                              checked={upiScenario === s.key}
+                              onChange={() => setUpiScenario(s.key as any)}
+                              style={{ marginTop: '2px' }}
+                            />
+                            <div style={{ fontSize: '11px', textAlign: 'left' }}>
+                              <div style={{ fontWeight: 600, color: '#0f172a' }}>{s.label}</div>
+                              <div style={{ color: '#64748b', fontSize: '10px' }}>{s.desc}</div>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+
+                      {upiScenario === 'custom' && (
                         <input
-                          type="radio"
-                          name="upiScenario"
-                          checked={upiScenario === s.key}
-                          onChange={() => setUpiScenario(s.key as any)}
-                          style={{ marginTop: '2px' }}
+                          type="text"
+                          placeholder="Enter custom NPCI registered legal payer name..."
+                          value={customUpiName}
+                          onChange={(e) => setCustomUpiName(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            border: '1px solid #cbd5e1',
+                            fontSize: '12px',
+                            boxSizing: 'border-box'
+                          }}
                         />
-                        <div style={{ fontSize: '11px', textAlign: 'left' }}>
-                          <div style={{ fontWeight: 600, color: '#0f172a' }}>{s.label}</div>
-                          <div style={{ color: '#64748b', fontSize: '10px' }}>{s.desc}</div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-
-                  {upiScenario === 'custom' && (
-                    <input
-                      type="text"
-                      placeholder="Enter custom NPCI registered legal payer name..."
-                      value={customUpiName}
-                      onChange={(e) => setCustomUpiName(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '6px 10px',
-                        borderRadius: '6px',
-                        border: '1px solid #cbd5e1',
-                        fontSize: '12px',
-                        boxSizing: 'border-box'
-                      }}
-                    />
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -1140,62 +1209,106 @@ export default function BankAccountCard({ customer, onRefresh }: BankAccountCard
 
                 {/* Explanation */}
                 <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px', fontSize: '12px', color: '#1e40af', lineHeight: '1.4' }}>
-                  <strong>ℹ️ Direct IMPS Verification:</strong> Sends ₹1 to the borrower&apos;s savings/current account. The beneficiary bank Core Banking System (CBS) returns the official legal passbook name, bypassing UPI app nicknames.
+                  <strong>ℹ️ Direct IMPS Verification:</strong> Sends ₹1 to the borrower&apos;s savings/current account. The beneficiary bank Core Banking System (CBS) returns the official legal passbook name automatically, bypassing UPI app nicknames.
                 </div>
 
-                {/* Scenario Options */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '18px' }}>
-                  {[
-                    { key: 'exact', title: '🟢 Match Borrower Name (100%)', desc: `Bank returns: "${customer.name.toUpperCase()}"` },
-                    { key: 'reversed', title: '🟢 Reversed Indian Name (100%)', desc: 'Bank returns: Surname first, given name last' },
-                    { key: 'partial', title: '🟡 Partial / Initials Match (85%)', desc: `Bank returns initials (e.g. "${customer.name.split(' ')[0]} M")` },
-                    { key: 'mismatch', title: '🔴 3rd-Party Fraud Account (0%)', desc: 'Bank returns: "RAMESH KUMAR SHARMA" (Triggers fraud block)' },
-                    { key: 'invalid', title: '❌ Invalid Account / Closed', desc: 'Bank rejects IMPS ping with NPCI Account Inactive error' },
-                    { key: 'custom', title: '✍️ Custom Bank Beneficiary Name', desc: 'Type custom name to test fuzzy match score engine' }
-                  ].map(opt => (
-                    <label
-                      key={opt.key}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: '10px',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        border: scenario === opt.key ? '2px solid #2563eb' : '1px solid #e2e8f0',
-                        background: scenario === opt.key ? '#f0f7ff' : 'white',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        name="scenario"
-                        checked={scenario === opt.key}
-                        onChange={() => setScenario(opt.key as any)}
-                        style={{ marginTop: '3px' }}
-                      />
-                      <div>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>{opt.title}</div>
-                        <div style={{ fontSize: '11px', color: '#64748b' }}>{opt.desc}</div>
-                      </div>
-                    </label>
-                  ))}
+                {/* Collapsible Sandbox / Demo Simulator for IMPS */}
+                <div style={{
+                  background: '#f8fafc',
+                  border: '1px dashed #cbd5e1',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  marginBottom: '18px'
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowPennySimulator(!showPennySimulator)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      width: '100%',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#475569',
+                      cursor: 'pointer',
+                      padding: 0
+                    }}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>🧪 Staff Testing & Sandbox Simulator</span>
+                      <span style={{ fontSize: '10px', background: '#e2e8f0', color: '#475569', padding: '2px 6px', borderRadius: '4px' }}>
+                        Demo Mode Only
+                      </span>
+                    </span>
+                    <span style={{ color: '#2563eb', fontSize: '12px' }}>
+                      {showPennySimulator ? '▲ Hide Test Scenarios' : '▼ Test Passbook Name Matching'}
+                    </span>
+                  </button>
 
-                  {scenario === 'custom' && (
-                    <div style={{ marginTop: '6px', paddingLeft: '24px' }}>
-                      <input
-                        type="text"
-                        placeholder="Enter name returned by bank..."
-                        value={customName}
-                        onChange={(e) => setCustomName(e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '7px 10px',
-                          borderRadius: '6px',
-                          border: '1px solid #cbd5e1',
-                          fontSize: '13px',
-                          boxSizing: 'border-box'
-                        }}
-                      />
+                  {showPennySimulator && (
+                    <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
+                      <p style={{ margin: '0 0 8px 0', fontSize: '11px', color: '#64748b', lineHeight: 1.4 }}>
+                        ℹ️ <strong>For testing only:</strong> In live production, the bank Core Banking System returns the official passbook name automatically. Use these options to test LenQredzo&apos;s fuzzy matching engine:
+                      </p>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {[
+                          { key: 'exact', title: '🟢 Match Borrower Name (100%)', desc: `Bank returns: "${customer.name.toUpperCase()}"` },
+                          { key: 'reversed', title: '🟢 Reversed Indian Name (100%)', desc: 'Bank returns: Surname first, given name last' },
+                          { key: 'partial', title: '🟡 Partial / Initials Match (85%)', desc: `Bank returns initials (e.g. "${customer.name.split(' ')[0]} M")` },
+                          { key: 'mismatch', title: '🔴 3rd-Party Fraud Account (0%)', desc: 'Bank returns: "RAMESH KUMAR SHARMA" (Triggers fraud block)' },
+                          { key: 'invalid', title: '❌ Invalid Account / Closed', desc: 'Bank rejects IMPS ping with NPCI Account Inactive error' },
+                          { key: 'custom', title: '✍️ Custom Bank Beneficiary Name', desc: 'Type custom name to test fuzzy match score engine' }
+                        ].map(opt => (
+                          <label
+                            key={opt.key}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: '10px',
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              border: scenario === opt.key ? '2px solid #2563eb' : '1px solid #e2e8f0',
+                              background: scenario === opt.key ? '#f0f7ff' : 'white',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <input
+                              type="radio"
+                              name="scenario"
+                              checked={scenario === opt.key}
+                              onChange={() => setScenario(opt.key as any)}
+                              style={{ marginTop: '3px' }}
+                            />
+                            <div>
+                              <div style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>{opt.title}</div>
+                              <div style={{ fontSize: '11px', color: '#64748b' }}>{opt.desc}</div>
+                            </div>
+                          </label>
+                        ))}
+
+                        {scenario === 'custom' && (
+                          <div style={{ marginTop: '6px', paddingLeft: '24px' }}>
+                            <input
+                              type="text"
+                              placeholder="Enter name returned by bank..."
+                              value={customName}
+                              onChange={(e) => setCustomName(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '7px 10px',
+                                borderRadius: '6px',
+                                border: '1px solid #cbd5e1',
+                                fontSize: '13px',
+                                boxSizing: 'border-box'
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
