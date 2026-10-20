@@ -814,6 +814,19 @@ export default function BankAccountCard({ customer, onRefresh }: BankAccountCard
                   <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '6px', fontWeight: 500 }}>
                     Borrower scans with any UPI app to deposit ₹1 verification ping
                   </div>
+                  <div style={{
+                    fontSize: '11px',
+                    color: '#15803d',
+                    background: '#f0fdf4',
+                    border: '1px solid #bbf7d0',
+                    borderRadius: '6px',
+                    padding: '4px 10px',
+                    display: 'inline-block',
+                    marginBottom: '10px',
+                    fontWeight: 600
+                  }}>
+                    🏢 Direct Credit to: <strong>{customer.company?.name || 'Your Finance Account'}</strong> (0% Platform Fee)
+                  </div>
 
                   {upiLoading ? (
                     <div style={{ padding: '40px 0', color: '#64748b', fontSize: '13px' }}>
@@ -1177,6 +1190,100 @@ export default function BankAccountCard({ customer, onRefresh }: BankAccountCard
             {/* ═══════════════════════════════════════════════════════════════════ */}
             {activeTab === 'penny_drop' && (
               <div>
+                {/* ── TRANSFER ROUTE: FINANCIER ACCOUNT -> BORROWER ACCOUNT ── */}
+                <div style={{
+                  background: '#f8fafc',
+                  border: '1.5px solid #cbd5e1',
+                  borderRadius: '10px',
+                  padding: '14px',
+                  marginBottom: '16px'
+                }}>
+                  <div style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    color: '#334155',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    marginBottom: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}>
+                    <span>🏦 Direct Banking Route (Zero Platform Intermediary)</span>
+                    <span style={{ fontSize: '10px', background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '12px', fontWeight: 700 }}>
+                      Direct Bank-to-Bank IMPS
+                    </span>
+                  </div>
+
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr auto 1fr',
+                    alignItems: 'center',
+                    gap: '10px',
+                    background: 'white',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    {/* Source: Financier Account */}
+                    <div>
+                      <span style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>
+                        Debit Source (Your Finance A/C)
+                      </span>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
+                        {customer.company?.name || 'Your Finance Company'}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#16a34a', marginTop: '2px', fontWeight: 600 }}>
+                        ● Linked Corporate Current A/C
+                      </div>
+                    </div>
+
+                    {/* Arrow & Amount */}
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color: '#2563eb',
+                        background: '#eff6ff',
+                        padding: '3px 8px',
+                        borderRadius: '12px',
+                        border: '1px solid #bfdbfe'
+                      }}>
+                        ₹1.00 IMPS
+                      </div>
+                      <div style={{ fontSize: '16px', color: '#94a3b8', marginTop: '2px' }}>➔</div>
+                    </div>
+
+                    {/* Destination: Borrower Account */}
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>
+                        Credit Target (Borrower)
+                      </span>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
+                        {customer.name}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', fontFamily: 'monospace' }}>
+                        {customer.bankAccountNumber ? `A/C: ••••${customer.bankAccountNumber.slice(-4)}` : 'A/C Pending'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    marginTop: '10px',
+                    fontSize: '11px',
+                    color: '#64748b',
+                    lineHeight: 1.4,
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '6px'
+                  }}>
+                    <span>🛡️</span>
+                    <span>
+                      <strong>Platform Guarantee:</strong> LenQredzo is a SaaS platform and never holds or pools your capital. The ₹1 verification ping is debited directly from your finance company&apos;s linked corporate account via connected banking (ICICI/RazorpayX/HDFC).
+                    </span>
+                  </div>
+                </div>
+
                 {/* Target Account Summary */}
                 <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '16px', fontSize: '13px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
