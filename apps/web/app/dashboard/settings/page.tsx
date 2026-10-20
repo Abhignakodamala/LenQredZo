@@ -33,6 +33,10 @@ export default function SettingsPage() {
 
   const logoInputRef = useRef<HTMLInputElement | null>(null);
 
+  const isOwner = ['owner', 'admin', 'Super Admin'].includes(user?.role || '') ||
+    user?.role?.toLowerCase().includes('admin') ||
+    user?.role?.toLowerCase().includes('owner');
+
   useEffect(() => { fetchSettings(); }, []);
 
   const fetchSettings = async () => {
@@ -292,7 +296,32 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Company Settings */}
+        {!isOwner && (
+          <div style={{
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '10px',
+            padding: '14px 16px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
+          }}>
+            <span style={{ fontSize: '24px' }}>🔒</span>
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
+                Role-Based View: {user.role || 'Staff Member'}
+              </div>
+              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px', lineHeight: 1.4 }}>
+                Company branding, connected banking (RazorpayX), and financial ledger exports are restricted to Company Owners. You have full access to manage your personal profile and security credentials below.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isOwner && (
+          <>
+            {/* Company Settings */}
         <div style={card}>
           <h3 style={{ fontWeight: '700', fontSize: '16px', margin: '0 0 16px' }}>🏢 Company Details & Branding</h3>
 
@@ -517,6 +546,8 @@ export default function SettingsPage() {
             </button>
           </div>
         </div>
+        </>
+        )}
 
         {/* Profile Settings */}
         <div style={card}>
@@ -591,6 +622,8 @@ export default function SettingsPage() {
 
 
 
+        {isOwner && (
+          <>
         <SecurityDeviceInfo />
 
 <ActivityLog />
@@ -605,6 +638,8 @@ export default function SettingsPage() {
             {exporting ? 'Preparing file...' : 'Download Excel Export'}
           </button>
         </div>
+          </>
+        )}
 
         {/* Danger Zone */}
         <div style={{ ...card, border: '1px solid #fecaca' }}>

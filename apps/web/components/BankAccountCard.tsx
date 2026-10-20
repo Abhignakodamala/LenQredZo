@@ -44,6 +44,15 @@ export default function BankAccountCard({ customer, onRefresh }: BankAccountCard
   const [customUpiName, setCustomUpiName] = useState('');
   const [showUpiSimulator, setShowUpiSimulator] = useState(false);
   const [showPennySimulator, setShowPennySimulator] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState('');
+
+  useEffect(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || '{}');
+      setCurrentUserRole(u.role || '');
+    } catch {}
+  }, []);
+  const canManageBank = !['collection_agent', 'recovery_officer', 'Agent'].includes(currentUserRole);
   const [upiResult, setUpiResult] = useState<{
     success: boolean;
     status: string;
@@ -437,6 +446,7 @@ export default function BankAccountCard({ customer, onRefresh }: BankAccountCard
           </p>
         </div>
 
+        {canManageBank ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <button
             onClick={openEditModal}
@@ -506,6 +516,11 @@ export default function BankAccountCard({ customer, onRefresh }: BankAccountCard
             ⚡ Method 2: Account + IFSC
           </button>
         </div>
+        ) : (
+          <span style={{ fontSize: '12px', color: '#64748b', background: '#f1f5f9', padding: '6px 12px', borderRadius: '8px', fontWeight: 500 }}>
+            🔒 Bank Verification Managed by Branch Ops
+          </span>
+        )}
       </div>
 
       {/* Alert Banner */}

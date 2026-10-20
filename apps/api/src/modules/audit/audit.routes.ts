@@ -7,8 +7,9 @@ import { getAuditPhotos } from './audit.controller';
 const router = Router();
 
 // GET /api/audit
-// Retains activities for past 6 months (180 days) and supports date range filtering
-router.get('/', protect, async (req: any, res) => {
+// Restricted to roles with 'audit:view' permission (Owner, Branch Manager, Accountant).
+// Retains activities for past 6 months (180 days) and supports date range filtering.
+router.get('/', protect, requirePermission('audit:view'), async (req: any, res) => {
   try {
     const companyId = req.user.companyId;
 

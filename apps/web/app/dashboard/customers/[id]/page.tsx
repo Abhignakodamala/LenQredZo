@@ -47,6 +47,14 @@ export default function CustomerDetailPage() {
   const [customDocType, setCustomDocType] = useState('other');
   const [showCustomUpload, setShowCustomUpload] = useState(false);
   const [showPassbookModal, setShowPassbookModal] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState('');
+
+  useEffect(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || '{}');
+      setCurrentUserRole(u.role || '');
+    } catch {}
+  }, []);
 
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
@@ -609,7 +617,7 @@ export default function CustomerDetailPage() {
                         👁️ Preview
                       </button>
 
-                      {doc.status !== 'verified' && (
+                      {doc.status !== 'verified' && !['collection_agent', 'recovery_officer', 'Agent'].includes(currentUserRole) && (
                         <button
                           onClick={() => handleVerifyDoc(doc.id)}
                           style={{ background: '#dcfce7', border: '1px solid #86efac', padding: '6px 10px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', color: '#15803d', fontWeight: 600 }}
@@ -681,10 +689,12 @@ export default function CustomerDetailPage() {
                     </p>
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <button onClick={() => setActivePreviewDoc(doc)} style={{ background: '#f3f4f6', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>👁️ Preview</button>
-                      {doc.status !== 'verified' && (
+                      {doc.status !== 'verified' && !['collection_agent', 'recovery_officer', 'Agent'].includes(currentUserRole) && (
                         <button onClick={() => handleVerifyDoc(doc.id)} style={{ background: '#dcfce7', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', color: '#15803d', fontWeight: 600, cursor: 'pointer' }}>✓ Verify</button>
                       )}
-                      <button onClick={() => handleDeleteDoc(doc.id)} style={{ background: '#fee2e2', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', color: '#b91c1c', cursor: 'pointer', marginLeft: 'auto' }}>🗑️ Delete</button>
+                      {!['collection_agent', 'recovery_officer', 'Agent'].includes(currentUserRole) && (
+                        <button onClick={() => handleDeleteDoc(doc.id)} style={{ background: '#fee2e2', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', color: '#b91c1c', cursor: 'pointer', marginLeft: 'auto' }}>🗑️ Delete</button>
+                      )}
                     </div>
                   </div>
                 ))}

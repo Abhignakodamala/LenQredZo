@@ -8,7 +8,7 @@ import { API_URL } from '@/lib/api';
 type User = { name?: string; role?: string };
 type Company = { name?: string; logo?: string | null };
 
-const baseMenuItems = [
+const ALL_MENU_ITEMS = [
   { name: 'Dashboard', icon: '📊', href: '/dashboard' },
   { name: 'Customers', icon: '👥', href: '/dashboard/customers' },
   { name: 'Loans', icon: '💰', href: '/dashboard/loans' },
@@ -18,19 +18,95 @@ const baseMenuItems = [
   { name: 'AI Analysis', icon: '🤖', href: '/dashboard/ai' },
   { name: 'WhatsApp', icon: '💬', href: '/dashboard/whatsapp' },
   { name: 'Branches', icon: '🏢', href: '/dashboard/branches' },
+  { name: 'Staff', icon: '🧑‍💼', href: '/dashboard/staff' },
+  { name: 'Audit Photos', icon: '📸', href: '/dashboard/audit-photos' },
   { name: 'Settings', icon: '⚙️', href: '/dashboard/settings' },
 ];
 
-const OWNER_ROLES = ['owner', 'admin', 'Super Admin'];
+function normalizeRoleName(role?: string): string {
+  if (!role) return 'collection_agent';
+  const lower = role.toLowerCase().trim().replace(/[-\s]+/g, '_');
+  if (lower === 'super_admin' || lower === 'admin') return 'owner';
+  if (lower === 'manager') return 'branch_manager';
+  if (lower === 'agent') return 'collection_agent';
+  return lower;
+}
+
+// Role-Based Access Control (RBAC) Menu Whitelist:
+// Staff members ONLY see the navigation links that relate strictly to their work.
+const ROLE_ALLOWED_ROUTES: Record<string, string[]> = {
+  // Finance Owner / Super Admin: Full company-wide visibility
+  owner: [
+    '/dashboard',
+    '/dashboard/customers',
+    '/dashboard/loans',
+    '/dashboard/collections',
+    '/dashboard/payments',
+    '/dashboard/analytics',
+    '/dashboard/ai',
+    '/dashboard/whatsapp',
+    '/dashboard/branches',
+    '/dashboard/staff',
+    '/dashboard/audit-photos',
+    '/dashboard/settings',
+  ],
+
+  // Branch Manager: Branch operations & collections (no company settings, no staff salary config, no global branch setup)
+  branch_manager: [
+    '/dashboard',
+    '/dashboard/customers',
+    '/dashboard/loans',
+    '/dashboard/collections',
+    '/dashboard/payments',
+    '/dashboard/analytics',
+    '/dashboard/ai',
+    '/dashboard/whatsapp',
+    '/dashboard/audit-photos',
+  ],
+
+  // Loan Officer: Underwriting, loan applications & AI credit assessment
+  loan_officer: [
+    '/dashboard',
+    '/dashboard/customers',
+    '/dashboard/loans',
+    '/dashboard/ai',
+  ],
+
+  // Accountant: Ledgers, collections, payments & financial analytics
+  accountant: [
+    '/dashboard',
+    '/dashboard/collections',
+    '/dashboard/payments',
+    '/dashboard/analytics',
+  ],
+
+  // Collection Agent: Field visits, borrower contacts, and daily EMI collections only
+  collection_agent: [
+    '/dashboard',
+    '/dashboard/customers',
+    '/dashboard/collections',
+  ],
+
+  // Recovery Officer: Overdue recovery & collections only
+  recovery_officer: [
+    '/dashboard',
+    '/dashboard/customers',
+    '/dashboard/collections',
+  ],
+};
 
 const ROLE_LABELS: Record<string, string> = {
   owner: 'Finance Owner',
   admin: 'Finance Owner',
   'Super Admin': 'Super Admin',
+  super_admin: 'Super Admin',
   branch_manager: 'Branch Manager',
+  Manager: 'Branch Manager',
   loan_officer: 'Loan Officer',
   accountant: 'Accountant',
+  Accountant: 'Accountant',
   collection_agent: 'Collection Agent',
+  Agent: 'Collection Agent',
   recovery_officer: 'Recovery Officer',
 };
 
@@ -106,20 +182,12 @@ export default function Sidebar() {
     setMobileDrawerOpen(false);
   }, [pathname]);
 
-  const isOwner = OWNER_ROLES.includes(user?.role || '');
+  // Determine allowed routes strictly by user role
+  const normRole = normalizeRoleName(user?.role);
+  const allowedHrefs = ROLE_ALLOWED_ROUTES[normRole] || ROLE_ALLOWED_ROUTES['collection_agent'];
+  const menuItems = ALL_MENU_ITEMS.filter(m => allowedHrefs.includes(m.href));
 
-  const menuItems = [...baseMenuItems];
-  if (isOwner) {
-    const settingsIdx = menuItems.findIndex(m => m.name === 'Settings');
-    menuItems.splice(
-      settingsIdx,
-      0,
-      { name: 'Staff', icon: '🧑‍💼', href: '/dashboard/staff' },
-      { name: 'Audit Photos', icon: '📸', href: '/dashboard/audit-photos' }
-    );
-  }
-
-  const roleLabel = ROLE_LABELS[user?.role || ''] || user?.role || 'User';
+  const roleLabel = ROLE_LABELS[user?.role || ''] || user?.role || 'Staff Member';
 
   const renderLogo = () => {
     const customLogoUrl = company?.logo && !logoError
@@ -180,23 +248,21 @@ export default function Sidebar() {
   };
 
   const renderNavLinks = () => (
-    <nav style={{ padding: '12px 8px', flex: 1, overflowY: 'auto' }}>
+    <nav style={{ flex: 1, padding: '16px 12px', overflowY: 'auto' }}>
       {menuItems.map((item) => {
-        const isActive = item.href === '/dashboard' ? pathname === '/dashboard' : (pathname === item.href || pathname.startsWith(item.href + '/'));
+        const isActive = pathname === item.href;
         return (
           <Link
             key={item.name}
             href={item.href}
-            onClick={() => setMobileDrawerOpen(false)}
             style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              gap: '10px',
-              padding: '10px 12px',
+              gap: '12px',
+              padding: '10px 14px',
               borderRadius: '8px',
-              marginBottom: '2px',
               textDecoration: 'none',
+              marginBottom: '4px',
               fontSize: '14px',
               fontWeight: isActive ? '600' : '400',
               background: isActive ? '#1e40af' : 'transparent',

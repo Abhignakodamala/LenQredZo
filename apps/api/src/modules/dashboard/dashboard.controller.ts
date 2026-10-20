@@ -1,24 +1,33 @@
 import prisma from '../../lib/prisma';
 import { Response } from 'express';
-
+import { customerScope, loanScope, paymentScope, emiScope, isBranchScoped } from '../../utils/scoping';
+import { normalizeRole } from '../../utils/permissions';
 
 export const getDashboardStats = async (req: any, res: Response) => {
   try {
     const companyId = req.user.companyId;
+    const userRole = normalizeRole(req.user?.role);
+    const isOwnerOrAccountant = userRole === 'owner' || userRole === 'accountant';
+    const isBranchUser = isBranchScoped(req.user);
+
     const IST_OFFSET = 5.5 * 60 * 60 * 1000;
     const istNow = new Date(Date.now() + IST_OFFSET);
     const startOfMonth = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), 1) - IST_OFFSET);
     const startOfLastMonth = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth() - 1, 1) - IST_OFFSET);
     const endOfLastMonth = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), 1) - IST_OFFSET - 1000);
+
+    // Apply strict role & branch scoping: field agents & branch staff only query their assigned data
     const [loans, customers, payments, allEmis, branches] = await Promise.all([
-      prisma.loan.findMany({ where: { companyId } }),
-      prisma.customer.findMany({ where: { companyId } }),
-      prisma.payment.findMany({ where: { loan: { companyId } } }),
+      prisma.loan.findMany({ where: loanScope(req.user) }),
+      prisma.customer.findMany({ where: customerScope(req.user) }),
+      prisma.payment.findMany({ where: paymentScope(req.user) }),
       prisma.eMI.findMany({
-        where: { loan: { companyId } },
+        where: emiScope(req.user),
         include: { loan: { include: { customer: true } } }
       }),
-      prisma.branch.findMany({ where: { companyId } })
+      prisma.branch.findMany({
+        where: isBranchUser && req.user.branchId ? { companyId, id: req.user.branchId } : { companyId }
+      })
     ]);
 
     // === BASIC STATS ===
@@ -26,7 +35,9 @@ export const getDashboardStats = async (req: any, res: Response) => {
     const totalCollections = payments.reduce((s, p) => s + p.amount, 0);
     const activeCustomers = customers.length;
     const activeLoans = loans.filter(l => l.status === 'active').length;
-    const netProfit = Math.round(totalCollections * 0.15);
+
+    // Mask company net profit for non-owner and non-accounting roles (e.g. Field Agents)
+    const netProfit = isOwnerOrAccountant ? Math.round(totalCollections * 0.15) : null;
 
     // === MONTH OVER MONTH CHANGE ===
     const thisMonthDisbursed = loans.filter(l => new Date(l.createdAt) >= startOfMonth).reduce((s, l) => s + l.amount, 0);
@@ -60,7 +71,6 @@ export const getDashboardStats = async (req: any, res: Response) => {
     const npaPercentage = totalDisbursed > 0 ? Number(((overdueAmount / totalDisbursed) * 100).toFixed(2)) : 0;
 
     // === COLLECTION EFFICIENCY ===
-    // All EMIs that have arrived by date OR were collected/foreclosed in advance
     const payableOrCollectedEmis = allEmis.filter(e => new Date(e.dueDate) <= istNow || e.status === 'paid');
     const collectedCount = payableOrCollectedEmis.filter(e => e.status === 'paid').length;
     const collectionEfficiency = payableOrCollectedEmis.length > 0
@@ -89,13 +99,6 @@ export const getDashboardStats = async (req: any, res: Response) => {
         level: highRiskCount > 5 ? 'High' : highRiskCount > 0 ? 'Medium' : 'Low',
         levelColor: highRiskCount > 5 ? '#dc2626' : highRiskCount > 0 ? '#d97706' : '#16a34a',
         levelBg: highRiskCount > 5 ? '#fee2e2' : highRiskCount > 0 ? '#fef3c7' : '#dcfce7'
-      },
-      {
-        icon: '📊', title: 'Collection efficiency',
-        description: `${collectionEfficiency}% this month`,
-        level: collectionEfficiency >= 80 ? 'Good' : 'Needs Attention',
-        levelColor: collectionEfficiency >= 80 ? '#16a34a' : '#dc2626',
-        levelBg: collectionEfficiency >= 80 ? '#dcfce7' : '#fee2e2'
       },
       {
         icon: '💡', title: 'Loans eligible for top-up',
@@ -129,8 +132,10 @@ export const getDashboardStats = async (req: any, res: Response) => {
     const portfolioData = Object.keys(portfolio).map(type => ({ name: type, value: portfolio[type] }));
 
     const recentLoans = await prisma.loan.findMany({
-      where: { companyId }, include: { customer: true },
-      orderBy: { createdAt: 'desc' }, take: 5
+      where: loanScope(req.user),
+      include: { customer: true },
+      orderBy: { createdAt: 'desc' },
+      take: 5
     });
 
     res.json({
@@ -138,7 +143,7 @@ export const getDashboardStats = async (req: any, res: Response) => {
       totalLoans: loans.length, npaPercentage, netProfit,
       disbursedChange, collectionChange, collectionEfficiency,
       recentLoans, portfolioData, npaChartData, aiInsights,
-      branchPerformance: branchStats
+      branchPerformance: isOwnerOrAccountant ? branchStats : []
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
@@ -147,16 +152,15 @@ export const getDashboardStats = async (req: any, res: Response) => {
 
 export const getAnalytics = async (req: any, res: Response) => {
   try {
-    const companyId = req.user.companyId;
     const loans = await prisma.loan.findMany({
-      where: { companyId },
+      where: loanScope(req.user),
       include: { customer: true }
     });
     const payments = await prisma.payment.findMany({
-      where: { loan: { companyId } }
+      where: paymentScope(req.user)
     });
     const emis = await prisma.eMI.findMany({
-      where: { loan: { companyId } }
+      where: emiScope(req.user)
     });
 
     // Monthly disbursement trend (last 6 months)
@@ -225,14 +229,14 @@ export const getAnalytics = async (req: any, res: Response) => {
 
 export const getTodayOverview = async (req: any, res: Response) => {
   try {
-    const companyId = req.user.companyId;
-    // Compute "today" in India time so day boundaries are correct regardless of server timezone.
     const IST_OFFSET = 5.5 * 60 * 60 * 1000;
     const istNow = new Date(Date.now() + IST_OFFSET);
     const startOfToday = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), istNow.getUTCDate()) - IST_OFFSET);
     const endOfToday = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), istNow.getUTCDate(), 23, 59, 59) - IST_OFFSET);
+
+    // Scoped to the user's branch / company
     const emis = await prisma.eMI.findMany({
-      where: { loan: { companyId } },
+      where: emiScope(req.user),
       include: { loan: { include: { customer: true } } },
       orderBy: { dueDate: 'asc' }
     });
@@ -255,9 +259,9 @@ export const getTodayOverview = async (req: any, res: Response) => {
     // Due-today total
     const dueTodayAmount = dueToday.reduce((s, e) => s + e.amount, 0);
 
-    // Recent activity — last 5 payments
+    // Recent activity — last 5 payments scoped to user
     const recentPayments = await prisma.payment.findMany({
-      where: { loan: { companyId } },
+      where: paymentScope(req.user),
       include: { loan: { include: { customer: true } } },
       orderBy: { paidAt: 'desc' },
       take: 5
@@ -282,7 +286,6 @@ export const getTodayOverview = async (req: any, res: Response) => {
     res.status(500).json({ message: 'Server error', error });
   }
 };
-// ADD THIS FUNCTION to dashboard.controller.ts
 
 export const getSystemHealth = async (req: any, res: Response) => {
   try {
