@@ -110,21 +110,15 @@ const FIGMA_CONTACTS: ChatContact[] = [
       {
         id: '2',
         sender: 'agent',
-        text: 'Hello Srilakshmi,\n\nYour next EMI is due on 08 Sep 2026.\nOutstanding balance: ₹7,80,000\n\nLet me know if you need the full statement.',
+        text: 'Hello Srilakshmi,\n\nYour next EMI is due on 08 Sep 2026.\nOutstanding balance: ₹7,80,000\n\nHere is your official EMI payment link:',
         time: '09:15 AM',
         status: 'read'
-      },
-      {
-        id: '3',
-        sender: 'borrower',
-        text: 'Thank you for the reminder. I will make the payment today itself.',
-        time: '10:24 AM'
       },
       {
         id: '4',
         sender: 'agent',
         text: 'Payment Reminder Notification',
-        time: '10:25 AM',
+        time: '09:16 AM',
         status: 'read',
         isReminderCard: true,
         reminderData: {
@@ -132,6 +126,12 @@ const FIGMA_CONTACTS: ChatContact[] = [
           dueDate: '08 Sep 2026',
           loanId: 'LN1001'
         }
+      },
+      {
+        id: '3',
+        sender: 'borrower',
+        text: 'Thank you for the reminder. I will make the payment today itself.',
+        time: '10:24 AM'
       },
       {
         id: '5',
@@ -824,10 +824,19 @@ export default function WhatsAppHubPage() {
                 // Automated Payment Reminder Card from Figma
                 if (msg.isReminderCard && msg.reminderData) {
                   return (
-                    <div key={msg.id} className="flex justify-start my-3">
-                      <div className="max-w-[360px] bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 relative overflow-hidden">
+                    <div
+                      key={msg.id}
+                      className={`flex ${isBorrower ? 'justify-start' : 'justify-end'} my-3`}
+                    >
+                      <div
+                        className={`max-w-[360px] rounded-2xl p-4 shadow-sm border relative overflow-hidden ${
+                          isBorrower
+                            ? 'bg-white rounded-tl-xs border-slate-200/80'
+                            : 'bg-[#dcf8c6] rounded-tr-xs border-emerald-300/80'
+                        }`}
+                      >
                         <div className="flex items-center gap-2 mb-2">
-                          <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                          <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
                             <Check className="w-3.5 h-3.5 stroke-[3]" />
                           </div>
                           <span className="text-xs font-bold text-slate-900 tracking-tight">
@@ -835,7 +844,7 @@ export default function WhatsAppHubPage() {
                           </span>
                         </div>
 
-                        <p className="text-xs text-slate-700 leading-relaxed mb-3">
+                        <p className="text-xs text-slate-800 leading-relaxed mb-3">
                           Your EMI of <strong className="text-slate-900 font-extrabold">{msg.reminderData.amount}</strong> is due on{' '}
                           <strong className="text-slate-900 font-semibold">{msg.reminderData.dueDate}</strong>. Pay online or visit your branch.
                         </p>
@@ -843,24 +852,32 @@ export default function WhatsAppHubPage() {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => {
+                              const payUrl = `/dashboard/collections?search=${encodeURIComponent(selectedContact.name)}`;
+                              window.open(payUrl, '_blank');
                               navigator.clipboard?.writeText(`https://pay.lenqredzo.com/l/${msg.reminderData?.loanId}`);
-                              showToast('✓ Payment Link copied to clipboard!');
+                              showToast('✓ Opening Payment Gateway & Link copied!');
                             }}
-                            className="flex-1 py-1.5 px-3 bg-[#25D366] hover:bg-emerald-600 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                            className="flex-1 py-1.5 px-3 bg-[#128C7E] hover:bg-[#075E54] text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
                           >
                             <CreditCard className="w-3.5 h-3.5" />
                             <span>Pay Online</span>
                           </button>
                           <button
-                            onClick={() => showToast('Opening EMI Invoice Statement')}
-                            className="py-1.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all"
+                            onClick={() => {
+                              window.open('/dashboard/customers', '_blank');
+                              showToast('Opening Customer Account Statement');
+                            }}
+                            className="py-1.5 px-3 bg-white/90 hover:bg-white text-slate-700 border border-slate-300/70 rounded-lg text-xs font-bold transition-all cursor-pointer"
                           >
                             Invoice
                           </button>
                         </div>
 
-                        <div className="text-[10px] text-slate-400 text-right mt-2 font-medium">
-                          {msg.time}
+                        <div className="flex items-center justify-end gap-1 mt-2 text-[10px] text-slate-500 font-medium">
+                          <span>{msg.time}</span>
+                          {!isBorrower && (
+                            <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
+                          )}
                         </div>
                       </div>
                     </div>
