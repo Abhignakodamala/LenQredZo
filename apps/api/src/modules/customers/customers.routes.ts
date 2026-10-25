@@ -26,7 +26,7 @@ router.get('/:id', protect, getCustomerById);
 router.get('/:id/documents', protect, getCustomerDocuments);
 
 // Document upload & KYC actions
-router.post('/:id/documents', protect, requirePermission('customer:edit'), (req, res, next) => {
+router.post('/:id/documents', protect, requirePermission('doc:upload'), (req, res, next) => {
   uploadMiddleware(req as any, res as any, (err: any) => {
     if (err) {
       return res.status(400).json({ error: err.message || 'File upload failed' });
@@ -39,10 +39,10 @@ router.delete('/:id/documents/:docId', protect, requirePermission('customer:edit
 router.patch('/:id/kyc-status', protect, requirePermission('customer:edit'), updateCustomerKycStatus);
 
 // Dual-Method Bank Account Verification (₹1 UPI QR Scan & Bank Account + IFSC Penny Drop)
-router.post('/:id/verify-bank', protect, requirePermission('customer:edit'), verifyCustomerBankAccount);
-router.post('/:id/verify-upi-qr', protect, requirePermission('customer:edit'), generateUpiVerificationQr);
-router.post('/:id/verify-upi', protect, requirePermission('customer:edit'), verifyUpiPayment);
-router.put('/:id/bank-details', protect, requirePermission('customer:edit'), updateCustomerBankDetails);
+router.post('/:id/verify-bank', protect, requirePermission('bank:verify'), verifyCustomerBankAccount);
+router.post('/:id/verify-upi-qr', protect, requirePermission('bank:verify'), generateUpiVerificationQr);
+router.post('/:id/verify-upi', protect, requirePermission('bank:verify'), verifyUpiPayment);
+router.put('/:id/bank-details', protect, requirePermission('bank:verify'), updateCustomerBankDetails);
 
 router.post('/bulk-import', protect, bulkImportCustomers);
 // Actions are gated by permission.

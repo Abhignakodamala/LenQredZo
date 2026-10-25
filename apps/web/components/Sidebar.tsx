@@ -64,34 +64,49 @@ const ROLE_ALLOWED_ROUTES: Record<string, string[]> = {
     '/dashboard/audit-photos',
   ],
 
-  // Loan Officer: Underwriting, loan applications & AI credit assessment
+  // Loan Officer: Underwriting, loan applications & AI credit assessment, with view access to collections and payments
   loan_officer: [
     '/dashboard',
     '/dashboard/customers',
     '/dashboard/loans',
+    '/dashboard/collections',
+    '/dashboard/payments',
     '/dashboard/ai',
+    '/dashboard/whatsapp',
+    '/dashboard/audit-photos',
   ],
 
-  // Accountant: Ledgers, collections, payments & financial analytics
+  // Accountant: Ledgers, collections, payments & financial analytics, with view access to customers and loans
   accountant: [
     '/dashboard',
+    '/dashboard/customers',
+    '/dashboard/loans',
     '/dashboard/collections',
     '/dashboard/payments',
     '/dashboard/analytics',
+    '/dashboard/whatsapp',
   ],
 
-  // Collection Agent: Field visits, borrower contacts, and daily EMI collections only
+  // Collection Agent: Field visits, borrower contacts, daily EMI collections, loan schedules, payment receipts & WhatsApp
   collection_agent: [
     '/dashboard',
     '/dashboard/customers',
+    '/dashboard/loans',
     '/dashboard/collections',
+    '/dashboard/payments',
+    '/dashboard/whatsapp',
+    '/dashboard/audit-photos',
   ],
 
-  // Recovery Officer: Overdue recovery & collections only
+  // Recovery Officer: Overdue recovery, loan schedules, customer records, payment receipts, field visit proofs & WhatsApp
   recovery_officer: [
     '/dashboard',
     '/dashboard/customers',
+    '/dashboard/loans',
     '/dashboard/collections',
+    '/dashboard/payments',
+    '/dashboard/whatsapp',
+    '/dashboard/audit-photos',
   ],
 };
 

@@ -342,30 +342,142 @@ export default function CustomerDetailPage() {
               📖 Account Passbook / SOA
             </button>
 
-            {/* Quick Staff KYC Status Override */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', padding: '6px 12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-              <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>KYC Status:</span>
-              <select
-                value={kycStatus}
-                disabled={kycUpdating}
-                onChange={(e) => handleUpdateKycStatus(e.target.value)}
+            {/* Quick Staff KYC Status Override / Read-only Indicator */}
+            {!['collection_agent', 'recovery_officer', 'Agent'].includes(currentUserRole) ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', padding: '6px 12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>KYC Status:</span>
+                <select
+                  value={kycStatus}
+                  disabled={kycUpdating}
+                  onChange={(e) => handleUpdateKycStatus(e.target.value)}
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    border: '1px solid #d1d5db',
+                    background: '#f9fafb',
+                    color: '#111827',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="pending">Pending Documents</option>
+                  <option value="submitted">Under Review</option>
+                  <option value="verified">KYC Verified</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+            ) : (
+              <span style={{ fontSize: '12px', color: '#64748b', background: '#f8fafc', padding: '6px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontWeight: 500 }}>
+                🔒 KYC Approval: Loan Officer / Manager
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* ── FIELD & OPERATIONS QUICK-ACTION TOOLBAR ────────────────────────────── */}
+        <div style={{
+          background: 'white',
+          border: '1px solid #e5e7eb',
+          borderRadius: '12px',
+          padding: '12px 18px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {customer.phone && (
+              <a
+                href={`tel:${customer.phone}`}
                 style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: '#f0fdf4',
+                  color: '#15803d',
+                  border: '1px solid #bbf7d0',
+                  padding: '7px 12px',
+                  borderRadius: '8px',
                   fontSize: '13px',
                   fontWeight: 600,
-                  padding: '4px 8px',
-                  borderRadius: '6px',
-                  border: '1px solid #d1d5db',
-                  background: '#f9fafb',
-                  color: '#111827',
-                  cursor: 'pointer'
+                  textDecoration: 'none'
                 }}
               >
-                <option value="pending">Pending Documents</option>
-                <option value="submitted">Under Review</option>
-                <option value="verified">KYC Verified</option>
-                <option value="rejected">Rejected</option>
-              </select>
-            </div>
+                📞 Call Customer
+              </a>
+            )}
+            {customer.phone && (
+              <a
+                href={`https://wa.me/91${customer.phone.replace(/\D/g, '').replace(/^91/, '')}?text=Dear%20${encodeURIComponent(customer.name)},%20greetings%20from%20LenQredzo.%20This%20is%20regarding%20your%20loan%20account.`}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: '#25D366',
+                  color: 'white',
+                  border: 'none',
+                  padding: '7px 12px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  textDecoration: 'none'
+                }}
+              >
+                💬 WhatsApp Message
+              </a>
+            )}
+            {(customer.address || customer.street || customer.city) && (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([customer.address, customer.street, customer.city, customer.state, customer.pinCode].filter(Boolean).join(', '))}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: '#eff6ff',
+                  color: '#1d4ed8',
+                  border: '1px solid #bfdbfe',
+                  padding: '7px 12px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  textDecoration: 'none'
+                }}
+              >
+                📍 Navigate Address
+              </a>
+            )}
+            <button
+              onClick={() => router.push(`/dashboard/collections?search=${encodeURIComponent(customer.name)}`)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: '#fffbeb',
+                color: '#b45309',
+                border: '1px solid #fde68a',
+                padding: '7px 12px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              💵 Collect EMI / Payment
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>
+              Branch: <strong>{customer.branch?.name || 'Main Branch'}</strong>
+            </span>
           </div>
         </div>
 
@@ -626,7 +738,7 @@ export default function CustomerDetailPage() {
                         </button>
                       )}
 
-                      {doc.status !== 'rejected' && (
+                      {doc.status !== 'rejected' && !['collection_agent', 'recovery_officer', 'Agent'].includes(currentUserRole) && (
                         <button
                           onClick={() => {
                             setRejectingDocId(doc.id);
@@ -641,18 +753,20 @@ export default function CustomerDetailPage() {
                       <button
                         onClick={() => fileInputRefs.current[slot.key]?.click()}
                         style={{ background: 'none', border: 'none', padding: '6px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', color: '#6b7280', marginLeft: 'auto' }}
-                        title="Re-upload"
+                        title="Upload / Replace file"
                       >
                         🔄
                       </button>
 
-                      <button
-                        onClick={() => handleDeleteDoc(doc.id)}
-                        style={{ background: 'none', border: 'none', padding: '6px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', color: '#ef4444' }}
-                        title="Delete"
-                      >
-                        🗑️
-                      </button>
+                      {!['collection_agent', 'recovery_officer', 'Agent'].includes(currentUserRole) && (
+                        <button
+                          onClick={() => handleDeleteDoc(doc.id)}
+                          style={{ background: 'none', border: 'none', padding: '6px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', color: '#ef4444' }}
+                          title="Delete"
+                        >
+                          🗑️
+                        </button>
+                      )}
                     </div>
                   ) : null}
                 </div>

@@ -19,7 +19,8 @@ export type Permission =
   | 'data:export' | 'audit:view'
   | 'staff:manage'
   | 'settings:manage' | 'settings:view'
-  | 'branch:manage' | 'whatsapp:settings';
+  | 'branch:manage' | 'whatsapp:settings'
+  | 'bank:verify' | 'doc:upload';
 
 export function normalizeRole(role?: string): string {
   if (!role) return '';
@@ -39,29 +40,34 @@ const rolePermissions: Record<string, Permission[]> = {
     'data:export', 'audit:view',
     'staff:manage',
     'settings:manage', 'settings:view',
-    'branch:manage', 'whatsapp:settings'
+    'branch:manage', 'whatsapp:settings',
+    'bank:verify', 'doc:upload'
   ],
   branch_manager: [
     'customer:create', 'customer:edit', 'customer:delete',
     'loan:create', 'loan:approve',
     'collection:collect', 'penalty:waive',
     'recovery:manage',
-    'data:export', 'audit:view'
+    'data:export', 'audit:view',
+    'bank:verify', 'doc:upload'
   ],
   loan_officer: [
     'customer:create', 'customer:edit',
-    'loan:create', 'loan:approve'
+    'loan:create', 'loan:approve',
+    'bank:verify', 'doc:upload'
   ],
   accountant: [
     'collection:collect',
     'data:export', 'audit:view'
   ],
   collection_agent: [
-    'collection:collect'
+    'collection:collect',
+    'bank:verify', 'doc:upload'
   ],
   recovery_officer: [
     'collection:collect',
-    'recovery:manage'
+    'recovery:manage',
+    'bank:verify', 'doc:upload'
   ]
 };
 

@@ -52,7 +52,8 @@ export default function BankAccountCard({ customer, onRefresh }: BankAccountCard
       setCurrentUserRole(u.role || '');
     } catch {}
   }, []);
-  const canManageBank = !['collection_agent', 'recovery_officer', 'Agent'].includes(currentUserRole);
+  // All operational staff (including field recovery & loan officers) can trigger verification with borrowers
+  const canManageBank = true;
   const [upiResult, setUpiResult] = useState<{
     success: boolean;
     status: string;
@@ -569,6 +570,83 @@ export default function BankAccountCard({ customer, onRefresh }: BankAccountCard
 
       {/* Details Grid */}
       <div style={{ padding: '20px' }}>
+        {/* Unverified Action Hero Callout */}
+        {status !== 'verified' && (
+          <div style={{
+            marginBottom: '20px',
+            background: 'linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%)',
+            border: '1px solid #bbf7d0',
+            borderRadius: '12px',
+            padding: '18px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '16px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.03)'
+          }}>
+            <div style={{ maxWidth: '580px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <span style={{ fontSize: '18px' }}>⚡</span>
+                <span style={{ fontSize: '14px', fontWeight: 700, color: '#166534' }}>
+                  Action Required: Verify Borrower&apos;s Bank Account
+                </span>
+              </div>
+              <p style={{ margin: 0, fontSize: '12px', color: '#374151', lineHeight: '1.5' }}>
+                RBI compliance requires bank verification prior to loan disbursement. Have the borrower scan the ₹1 UPI QR code on GPay / PhonePe / Paytm, or execute an IMPS penny drop verification.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => openVerificationModal('upi_qr')}
+                style={{
+                  background: '#047857',
+                  color: 'white',
+                  border: 'none',
+                  padding: '9px 16px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 2px 4px rgba(4, 120, 87, 0.25)'
+                }}
+              >
+                📱 Scan ₹1 UPI QR (3s)
+              </button>
+
+              <button
+                onClick={() => {
+                  if (!hasAccountDetails) {
+                    openEditModal();
+                  } else {
+                    openVerificationModal('penny_drop');
+                  }
+                }}
+                style={{
+                  background: '#2563eb',
+                  color: 'white',
+                  border: 'none',
+                  padding: '9px 16px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 2px 4px rgba(37, 99, 235, 0.25)'
+                }}
+              >
+                ⚡ IMPS Penny Drop
+              </button>
+            </div>
+          </div>
+        )}
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
           {/* Card 1: Account & Bank */}
           <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
@@ -658,7 +736,7 @@ export default function BankAccountCard({ customer, onRefresh }: BankAccountCard
           </div>
         </div>
 
-        {/* Informational Callout: Dual Verification Advantage */}
+        {/* Informational Callout & Interactive Test Sandbox */}
         <div style={{
           marginTop: '16px',
           background: '#f8fafc',
@@ -677,38 +755,43 @@ export default function BankAccountCard({ customer, onRefresh }: BankAccountCard
               <strong>Smart Fallback Guarantee:</strong> Fast 3-second verification via ₹1 UPI QR. If borrower uses a spouse or shop UPI with a different name, seamlessly switch to Bank Account + IFSC without rejecting the customer.
             </span>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              onClick={() => openVerificationModal('upi_qr')}
-              style={{
-                background: 'white',
-                border: '1px solid #cbd5e1',
-                borderRadius: '6px',
-                padding: '4px 10px',
-                fontSize: '11px',
-                fontWeight: 600,
-                color: '#0f172a',
-                cursor: 'pointer'
-              }}
-            >
-              Test UPI Flow
-            </button>
-            <button
-              onClick={() => openVerificationModal('penny_drop')}
-              style={{
-                background: 'white',
-                border: '1px solid #cbd5e1',
-                borderRadius: '6px',
-                padding: '4px 10px',
-                fontSize: '11px',
-                fontWeight: 600,
-                color: '#0f172a',
-                cursor: 'pointer'
-              }}
-            >
-              Test IMPS Flow
-            </button>
-          </div>
+          <details style={{ width: '100%', marginTop: '6px' }}>
+            <summary style={{ fontSize: '11px', color: '#64748b', cursor: 'pointer', fontWeight: 600 }}>
+              🧪 Interactive RBI Sandbox Simulator (Developer / Demo Mode)
+            </summary>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+              <button
+                onClick={() => openVerificationModal('upi_qr')}
+                style={{
+                  background: 'white',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  padding: '5px 12px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: '#0f172a',
+                  cursor: 'pointer'
+                }}
+              >
+                Test UPI Flow
+              </button>
+              <button
+                onClick={() => openVerificationModal('penny_drop')}
+                style={{
+                  background: 'white',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  padding: '5px 12px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: '#0f172a',
+                  cursor: 'pointer'
+                }}
+              >
+                Test IMPS Flow
+              </button>
+            </div>
+          </details>
         </div>
       </div>
 
