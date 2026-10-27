@@ -8,12 +8,23 @@ import { runMidnightPenaltyAccrual } from '../../services/penalty-cron.service';
 
 
 // --- PII helpers: decrypt + mask before sending to the browser ---
+function safeDecrypt(val?: string | null): string {
+  if (!val) return '';
+  try {
+    return decrypt(val);
+  } catch {
+    return val;
+  }
+}
+
 function maskCustomer(c: any) {
   if (!c) return c;
+  const rawBank = safeDecrypt(c.bankAccountNumber);
   return {
     ...c,
-    aadhar: c.aadhar ? maskAadhaar(decrypt(c.aadhar)) : '',
-    pan: c.pan ? maskPan(decrypt(c.pan)) : ''
+    aadhar: c.aadhar ? maskAadhaar(safeDecrypt(c.aadhar)) : '',
+    pan: c.pan ? maskPan(safeDecrypt(c.pan)) : '',
+    bankAccountNumber: rawBank ? (rawBank.length <= 4 ? rawBank : `XXXX-XXXX-${rawBank.slice(-4)}`) : ''
   };
 }
 
@@ -201,10 +212,31 @@ export const getLoanById = async (req: any, res: Response) => {
       return res.status(403).json({ message: 'This loan belongs to another branch' });
     }
 
+    let disbursalVoucher = null;
+    if (loan.disbursedAt) {
+      const audit = await prisma.auditLog.findFirst({
+        where: {
+          companyId: loan.companyId || req.user.companyId,
+          entityType: 'Loan',
+          entityId: loan.id,
+          action: 'DISBURSE_LOAN'
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+      if (audit && audit.details) {
+        try {
+          disbursalVoucher = JSON.parse(audit.details);
+        } catch {
+          disbursalVoucher = { summary: audit.details };
+        }
+      }
+    }
+
     const safe = {
       ...loan,
       customer: maskCustomer(loan.customer),
-      guarantors: (loan.guarantors || []).map(maskGuarantor)
+      guarantors: (loan.guarantors || []).map(maskGuarantor),
+      disbursalVoucher
     };
     res.json(safe);
   } catch (error) {
@@ -236,6 +268,156 @@ export const updateLoanStatus = async (req: any, res: Response) => {
     res.json({ message: 'Loan status updated', loan });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
+  }
+};
+
+export const disburseLoan = async (req: any, res: Response) => {
+  try {
+    const loanId = Number(req.params.id);
+    const { payoutMode = 'IMPS', notes = '' } = req.body;
+
+    const loan = await prisma.loan.findUnique({
+      where: { id: loanId },
+      include: { customer: true, company: true, emis: true }
+    });
+
+    if (!loan) return res.status(404).json({ success: false, error: 'Loan not found' });
+    if (loan.companyId !== req.user.companyId) {
+      return res.status(403).json({ success: false, error: 'Unauthorized access to loan' });
+    }
+    if (isBranchScoped(req.user) && loan.customer?.branchId !== req.user.branchId) {
+      return res.status(403).json({ success: false, error: 'This loan belongs to another branch' });
+    }
+
+    // 1. Status checks
+    if (loan.status === 'completed' || loan.disbursedAt) {
+      return res.status(400).json({ success: false, error: 'This loan has already been disbursed.' });
+    }
+    if (loan.status === 'rejected' || loan.status === 'cancelled') {
+      return res.status(400).json({ success: false, error: `Cannot disburse a ${loan.status} loan.` });
+    }
+
+    const customer = loan.customer;
+    if (!customer) {
+      return res.status(400).json({ success: false, error: 'Borrower customer record not found.' });
+    }
+
+    // 2. Strict RBI Digital Lending Compliance Check: Bank Verification
+    const isBankVerified = customer.bankAccountStatus === 'verified';
+    if (!isBankVerified) {
+      return res.status(400).json({
+        success: false,
+        error: 'RBI Compliance Block: Cannot disburse funds to an unverified bank account. Please verify borrower bank details via ₹1 UPI QR or Penny Drop first.'
+      });
+    }
+
+    const rawBankAcc = safeDecrypt(customer.bankAccountNumber);
+    const bankIfsc = customer.bankIfsc || '';
+    const bankName = customer.bankName || 'Borrower Bank';
+    const beneficiaryName = customer.bankBeneficiaryName || customer.name;
+
+    if (!rawBankAcc || !bankIfsc) {
+      return res.status(400).json({
+        success: false,
+        error: 'Incomplete bank particulars: Account Number and IFSC are required for disbursement.'
+      });
+    }
+
+    // 3. Financial calculations
+    const grossSanctionAmount = loan.amount;
+    const processingFee = loan.processingFee || 0;
+    const upfrontInterest = loan.deductUpfront
+      ? (loan.interestType === 'flat'
+          ? Math.round(grossSanctionAmount * (loan.interestRate / 100) * (loan.tenure / (loan.frequency === 'daily' ? 365 : loan.frequency === 'weekly' ? 52 : 12)))
+          : 0)
+      : 0;
+    const totalDeductions = processingFee + upfrontInterest;
+    const netCreditAmount = grossSanctionAmount - totalDeductions;
+
+    if (netCreditAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Total deductions exceed the loan sanction amount.'
+      });
+    }
+
+    // 4. Generate Bank UTR reference & Payout simulation
+    const now = new Date();
+    const datePrefix = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const randomSuffix = Math.floor(100000 + Math.random() * 900000);
+    const utr = `UTR${datePrefix}${randomSuffix}`;
+
+    const maskedAcc = rawBankAcc.length <= 4 ? rawBankAcc : `XXXX-XXXX-${rawBankAcc.slice(-4)}`;
+
+    const voucherData = {
+      utr,
+      payoutMode: String(payoutMode).toUpperCase(),
+      payoutStatus: 'SUCCESS',
+      disbursedAt: now.toISOString(),
+      disbursedBy: req.user.name || 'Branch Operations',
+      disbursedByRole: req.user.role || 'Officer',
+      loanId: loan.id,
+      loanReference: `LN${1000 + loan.id}`,
+      borrowerId: customer.id,
+      borrowerName: customer.name,
+      borrowerPhone: customer.phone,
+      beneficiaryName,
+      bankName,
+      bankIfsc,
+      maskedAccount: maskedAcc,
+      grossSanctionAmount,
+      processingFee,
+      upfrontInterest,
+      totalDeductions,
+      netCreditAmount,
+      tenure: loan.tenure,
+      frequency: loan.frequency,
+      interestRate: loan.interestRate,
+      notes: notes || 'Instant RBI-compliant loan disbursement via IMPS payout gateway.'
+    };
+
+    // 5. Update Loan status and recalculate EMI due dates from disbursal date
+    const updatedLoan = await prisma.loan.update({
+      where: { id: loan.id },
+      data: {
+        status: 'active',
+        disbursedAt: now,
+        disbursedAmount: netCreditAmount
+      }
+    });
+
+    // Update existing EMIs to align with new disbursal date
+    if (loan.emis && loan.emis.length > 0) {
+      for (let i = 0; i < loan.emis.length; i++) {
+        const emi = loan.emis[i];
+        if (emi.status === 'pending') {
+          const newDueDate = getNextDueDate(now, i + 1, loan.frequency);
+          await prisma.eMI.update({
+            where: { id: emi.id },
+            data: { dueDate: newDueDate }
+          });
+        }
+      }
+    }
+
+    // 6. Log Audit Event with full structured voucher
+    await logAudit({
+      req,
+      action: 'DISBURSE_LOAN',
+      entityType: 'Loan',
+      entityId: loan.id,
+      details: JSON.stringify(voucherData)
+    });
+
+    res.json({
+      success: true,
+      message: `Loan LN${1000 + loan.id} successfully disbursed via ${payoutMode}!`,
+      voucher: voucherData,
+      loan: updatedLoan
+    });
+  } catch (error: any) {
+    console.error('Loan disbursal error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Disbursal failed' });
   }
 };
 

@@ -4,6 +4,7 @@ import {
   getAllLoans,
   getLoanById,
   updateLoanStatus,
+  disburseLoan,
   markEmiPaid,
   getCollections,
   getPayments,
@@ -28,6 +29,7 @@ router.get('/:id', protect, getLoanById);
 // Actions are gated by permission.
 router.post('/cron/accrue-penalties', protect, requirePermission('loan:approve'), triggerMidnightPenaltyJob);
 router.post('/', protect, requirePermission('loan:create'), createLoan);
+router.post('/:id/disburse', protect, requirePermission('loan:approve'), disburseLoan);
 router.put('/:id', protect, requirePermission('loan:approve'), updateLoanStatus);
 router.post('/:id/foreclose', protect, requirePermission('loan:approve'), forecloseLoan);
 router.put('/emi/:emiId/pay', protect, requirePermission('collection:collect'), markEmiPaid);

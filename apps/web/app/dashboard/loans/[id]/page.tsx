@@ -8,15 +8,34 @@ import Script from 'next/script';
 import SanctionLetterModal from '@/components/SanctionLetterModal';
 import NocModal from '@/components/NocModal';
 import ForeclosureModal from '@/components/ForeclosureModal';
+import LoanDisbursalModal from '@/components/LoanDisbursalModal';
+import DisbursalVoucherModal from '@/components/DisbursalVoucherModal';
 
 type LoanDetail = {
   id: number;
   type: string;
   amount: number;
   disbursedAmount?: number;
+  disbursedAt?: string;
+  disbursalVoucher?: any;
   emiAmount: number;
   outstandingAmount?: number;
-  customer?: { id: number; name: string; phone?: string; aadhar?: string; pan?: string; address?: string; city?: string; street?: string };
+  customer?: {
+    id: number;
+    name: string;
+    phone?: string;
+    aadhar?: string;
+    pan?: string;
+    address?: string;
+    city?: string;
+    street?: string;
+    bankName?: string;
+    bankAccountNumber?: string;
+    bankIfsc?: string;
+    bankAccountStatus?: string;
+    bankBeneficiaryName?: string;
+    bankNameMatchScore?: number;
+  };
   company?: { id: number; name: string; phone?: string; email?: string };
   createdAt: string;
   updatedAt?: string;
@@ -48,6 +67,9 @@ export default function LoanDetailPage() {
   const [showSanctionLetter, setShowSanctionLetter] = useState(false);
   const [showNocModal, setShowNocModal] = useState(false);
   const [showForeclosureModal, setShowForeclosureModal] = useState(false);
+  const [showDisburseModal, setShowDisburseModal] = useState(false);
+  const [showVoucherModal, setShowVoucherModal] = useState(false);
+  const [activeVoucher, setActiveVoucher] = useState<any>(null);
   const [guarantorModalOpen, setGuarantorModalOpen] = useState(false);
   const [savingGuarantor, setSavingGuarantor] = useState(false);
   const [guarantorForm, setGuarantorForm] = useState({
@@ -64,6 +86,7 @@ export default function LoanDetailPage() {
   });
   useEffect(() => { setMe(getAuthUser()); }, []);
   const canDelete = me && ['owner', 'admin', 'Super Admin', 'branch_manager'].includes(me.role);
+  const canDisburse = me && ['owner', 'admin', 'Super Admin', 'branch_manager', 'loan_officer'].includes(me.role);
 
   const deleteLoan = async () => {
     if (!loan) return;
@@ -290,12 +313,71 @@ export default function LoanDetailPage() {
           </div>
           <span style={{
             marginLeft: 'auto',
-            background: loan.status === 'completed' ? '#dcfce7' : loan.status === 'active' ? '#e0f2fe' : '#f3f4f6',
-            color: loan.status === 'completed' ? '#15803d' : loan.status === 'active' ? '#0369a1' : '#6b7280',
-            padding: '4px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '700'
+            background: loan.status === 'completed' ? '#dcfce7' : loan.disbursedAt ? '#dcfce7' : loan.status === 'active' ? '#e0f2fe' : '#f3f4f6',
+            color: loan.status === 'completed' ? '#15803d' : loan.disbursedAt ? '#15803d' : loan.status === 'active' ? '#0369a1' : '#6b7280',
+            padding: '4px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '700',
+            display: 'inline-flex', alignItems: 'center', gap: '6px'
           }}>
-            {loan.status === 'completed' ? '✅ Completed / Settled' : loan.status === 'active' ? '🟢 Active' : loan.status}
+            {loan.status === 'completed' ? '✅ Completed / Settled' : loan.disbursedAt ? '🟢 Disbursed & Active' : '🟡 Approved / Ready for Disbursal'}
           </span>
+
+          {/* 1-Click Instant Disbursal Button (IMPS) */}
+          {!loan.disbursedAt && loan.status !== 'completed' && loan.status !== 'rejected' && loan.status !== 'cancelled' && canDisburse && (
+            <button
+              onClick={() => setShowDisburseModal(true)}
+              style={{
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: '700',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.35)'
+              }}
+            >
+              ⚡ 1-Click Disburse (IMPS)
+            </button>
+          )}
+
+          {/* Official Disbursal Voucher Button */}
+          {loan.disbursedAt && (
+            <button
+              onClick={() => {
+                setActiveVoucher(loan.disbursalVoucher || {
+                  loanId: loan.id,
+                  loanReference: `LN${1000 + loan.id}`,
+                  borrowerName: loan.customer?.name,
+                  borrowerPhone: loan.customer?.phone,
+                  netCreditAmount: loan.disbursedAmount || loan.amount,
+                  grossSanctionAmount: loan.amount,
+                  disbursedAt: loan.disbursedAt,
+                  utr: 'UTR-VERIFIED'
+                });
+                setShowVoucherModal(true);
+              }}
+              style={{
+                background: '#047857',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: '700',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+              }}
+            >
+              📄 Disbursal Voucher
+            </button>
+          )}
 
           {/* Foreclose button: available when loan has pending dues */}
           {loan.status !== 'completed' && (
@@ -370,6 +452,126 @@ export default function LoanDetailPage() {
           )}
         </div>
 
+        {/* Disbursal Callout Banner */}
+        {!loan.disbursedAt && loan.status !== 'completed' && loan.status !== 'rejected' && loan.status !== 'cancelled' ? (
+          <div style={{
+            background: loan.customer?.bankAccountStatus === 'verified' ? '#f0fdf4' : '#fffbeb',
+            border: loan.customer?.bankAccountStatus === 'verified' ? '1px solid #86efac' : '1px solid #fde68a',
+            borderRadius: '12px',
+            padding: '14px 20px',
+            marginBottom: '24px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <span style={{
+                fontSize: '22px',
+                width: '40px',
+                height: '40px',
+                borderRadius: '10px',
+                background: loan.customer?.bankAccountStatus === 'verified' ? '#dcfce7' : '#fef3c7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                {loan.customer?.bankAccountStatus === 'verified' ? '⚡' : '🛡️'}
+              </span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '14px', color: loan.customer?.bankAccountStatus === 'verified' ? '#166534' : '#92400e' }}>
+                  {loan.customer?.bankAccountStatus === 'verified'
+                    ? 'Ready for Instant Disbursal (RBI Compliant)'
+                    : 'Action Required: Borrower Bank Account Unverified'}
+                </div>
+                <div style={{ fontSize: '12px', color: loan.customer?.bankAccountStatus === 'verified' ? '#15803d' : '#b45309', marginTop: '2px' }}>
+                  {loan.customer?.bankAccountStatus === 'verified'
+                    ? `Borrower destination account (${loan.customer?.bankName || 'Bank'} · ${loan.customer?.bankAccountNumber || '••••'}) is verified. Net disbursement payable: ${fmt(loan.disbursedAmount || loan.amount)}.`
+                    : 'RBI Digital Lending Guidelines mandate bank account verification before loan disbursement. Complete ₹1 Penny Drop / UPI verification on the customer profile.'}
+                </div>
+              </div>
+            </div>
+
+            {canDisburse && (
+              <button
+                onClick={() => setShowDisburseModal(true)}
+                style={{
+                  background: loan.customer?.bankAccountStatus === 'verified'
+                    ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                    : '#d97706',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '9px 18px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                }}
+              >
+                {loan.customer?.bankAccountStatus === 'verified' ? '⚡ 1-Click Disburse (IMPS)' : '🔍 Review & Disburse'}
+              </button>
+            )}
+          </div>
+        ) : loan.disbursedAt ? (
+          <div style={{
+            background: '#f0fdf4',
+            border: '1px solid #bbf7d0',
+            borderRadius: '12px',
+            padding: '12px 20px',
+            marginBottom: '24px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '20px' }}>✅</span>
+              <div>
+                <span style={{ fontWeight: 700, fontSize: '13px', color: '#166534' }}>
+                  Funds Disbursed via Real-time Payout (IMPS)
+                </span>
+                <span style={{ fontSize: '12px', color: '#15803d', marginLeft: '8px' }}>
+                  Disbursed on {fmtDateTimeIST(loan.disbursedAt)} · Net credited: {fmt(loan.disbursedAmount || loan.amount)}
+                  {loan.disbursalVoucher?.utr && ` · Bank UTR: ${loan.disbursalVoucher.utr}`}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setActiveVoucher(loan.disbursalVoucher || {
+                  loanId: loan.id,
+                  loanReference: `LN${1000 + loan.id}`,
+                  borrowerName: loan.customer?.name,
+                  borrowerPhone: loan.customer?.phone,
+                  netCreditAmount: loan.disbursedAmount || loan.amount,
+                  grossSanctionAmount: loan.amount,
+                  disbursedAt: loan.disbursedAt,
+                  utr: 'UTR-VERIFIED'
+                });
+                setShowVoucherModal(true);
+              }}
+              style={{
+                background: 'white',
+                border: '1px solid #86efac',
+                color: '#166534',
+                borderRadius: '6px',
+                padding: '6px 14px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
+              📄 Official Voucher
+            </button>
+          </div>
+        ) : null}
+
         {/* Stat Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
           {[
@@ -412,6 +614,9 @@ export default function LoanDetailPage() {
               ['Processing Fee', loan.processingFee != null && loan.processingFee > 0 ? fmt(loan.processingFee) : 'None'],
               ['Penalty', loan.penaltyType === 'none' ? 'None' : loan.penaltyType === 'fixed' ? `₹${loan.penaltyValue ?? 0} per EMI` : loan.penaltyType === 'percentage' ? `${loan.penaltyValue ?? 0}% of EMI` : `₹${loan.penaltyValue ?? 0}/day`],
               ['Upfront Interest', loan.deductUpfront ? 'Yes — deducted upfront' : 'No'],
+              ['Disbursal Status', loan.disbursedAt ? '🟢 Disbursed' : 'Pending Disbursal'],
+              ['Disbursal Date', loan.disbursedAt ? fmtDateTimeIST(loan.disbursedAt) : 'Not Disbursed'],
+              ['Bank UTR Reference', loan.disbursalVoucher?.utr || (loan.disbursedAt ? 'Recorded' : '—')],
             ].map(([k, v]) => (
               <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f3f4f6', fontSize: '13px' }}>
                 <span style={{ color: '#6b7280' }}>{k}</span>
@@ -998,6 +1203,38 @@ export default function LoanDetailPage() {
           setShowForeclosureModal(false);
           setShowNocModal(true);
         }}
+      />
+    )}
+
+    {/* Instant Loan Disbursal Modal */}
+    {showDisburseModal && (
+      <LoanDisbursalModal
+        loan={loan}
+        onClose={() => setShowDisburseModal(false)}
+        onSuccess={async (voucher) => {
+          setShowDisburseModal(false);
+          setActiveVoucher(voucher);
+          setShowVoucherModal(true);
+          // reload loan details
+          try {
+            const res = await fetch(`${API_URL}/api/loans/${id}`, {
+              headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+            });
+            const fresh = await res.json();
+            setLoan(fresh);
+          } catch (e) {
+            console.error(e);
+          }
+        }}
+      />
+    )}
+
+    {/* Official Disbursal Voucher Modal */}
+    {showVoucherModal && (
+      <DisbursalVoucherModal
+        voucher={activeVoucher || loan.disbursalVoucher}
+        company={loan.company}
+        onClose={() => setShowVoucherModal(false)}
       />
     )}
     </>
