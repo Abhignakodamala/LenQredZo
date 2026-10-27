@@ -10,6 +10,8 @@ import NocModal from '@/components/NocModal';
 import ForeclosureModal from '@/components/ForeclosureModal';
 import LoanDisbursalModal from '@/components/LoanDisbursalModal';
 import DisbursalVoucherModal from '@/components/DisbursalVoucherModal';
+import SetupAutoPayModal from '@/components/SetupAutoPayModal';
+import MandateCertificateModal from '@/components/MandateCertificateModal';
 
 type LoanDetail = {
   id: number;
@@ -18,6 +20,7 @@ type LoanDetail = {
   disbursedAmount?: number;
   disbursedAt?: string;
   disbursalVoucher?: any;
+  mandate?: any;
   emiAmount: number;
   outstandingAmount?: number;
   customer?: {
@@ -70,6 +73,9 @@ export default function LoanDetailPage() {
   const [showDisburseModal, setShowDisburseModal] = useState(false);
   const [showVoucherModal, setShowVoucherModal] = useState(false);
   const [activeVoucher, setActiveVoucher] = useState<any>(null);
+  const [showAutoPayModal, setShowAutoPayModal] = useState(false);
+  const [showMandateCertModal, setShowMandateCertModal] = useState(false);
+  const [debitingEmiId, setDebitingEmiId] = useState<number | null>(null);
   const [guarantorModalOpen, setGuarantorModalOpen] = useState(false);
   const [savingGuarantor, setSavingGuarantor] = useState(false);
   const [guarantorForm, setGuarantorForm] = useState({
@@ -152,6 +158,49 @@ export default function LoanDetailPage() {
   });
 
   const maskAadhaar = (a: string) => a ? '****-****-' + a.slice(-4) : '—';
+
+  const handleExecuteAutoDebit = async (emi: any) => {
+    if (!loan) return;
+    const confirmed = window.confirm(
+      `⚡ TRIGGER 1-CLICK AUTOPAY DEBIT?\n\n• Amount: ${fmt(emi.amount - (emi.paidAmount || 0))}\n• Borrower: ${loan.customer?.name}\n• Mandate UMN: ${loan.mandate?.umn}\n• NPCI Direct Bank Debit\n\nProceed to auto-debit this EMI now?`
+    );
+    if (!confirmed) return;
+
+    setDebitingEmiId(emi.id);
+    try {
+      const res = await fetch(`${API_URL}/api/payments/mandates/execute-debit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+        },
+        body: JSON.stringify({
+          loanId: loan.id,
+          emiId: emi.id
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        alert(data.error || data.message || 'Auto-debit execution failed');
+        return;
+      }
+
+      alert(`✅ AutoPay Success!\n\n${data.message}\n\nNPCI Txn Ref: ${data.reference}`);
+
+      // Reload loan
+      const fresh = await fetch(`${API_URL}/api/loans/${id}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+      });
+      const freshData = await fresh.json();
+      setLoan(freshData);
+    } catch (err: any) {
+      console.error(err);
+      alert('Network error while executing auto-debit.');
+    } finally {
+      setDebitingEmiId(null);
+    }
+  };
 
   const handleSendPaymentLink = async (emi: any) => {
     if (!loan) return;
@@ -572,6 +621,101 @@ export default function LoanDetailPage() {
           </div>
         ) : null}
 
+        {/* AutoPay Mandate Status Card */}
+        {loan.mandate ? (
+          <div style={{
+            background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+            border: '1px solid #86efac',
+            borderRadius: '12px',
+            padding: '14px 20px',
+            marginBottom: '24px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            boxShadow: '0 2px 6px rgba(16, 185, 129, 0.1)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <span style={{ fontSize: '24px' }}>🛡️</span>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontWeight: 800, fontSize: '14px', color: '#166534' }}>
+                    NPCI UPI AutoPay Active
+                  </span>
+                  <code style={{ background: '#bbf7d0', color: '#14532d', padding: '1px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 700 }}>
+                    {loan.mandate.umn}
+                  </code>
+                </div>
+                <div style={{ fontSize: '12px', color: '#15803d', marginTop: '3px' }}>
+                  Max Recurring Limit: {fmt(loan.mandate.maxAmount)} · Bank: {loan.mandate.bankName || loan.customer?.bankName} ({loan.mandate.maskedAccount || '••••'}) · Mode: {loan.mandate.mandateType}
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowMandateCertModal(true)}
+              style={{
+                background: 'white',
+                border: '1px solid #86efac',
+                color: '#166534',
+                borderRadius: '8px',
+                padding: '8px 14px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
+              📄 Mandate Certificate
+            </button>
+          </div>
+        ) : loan.status !== 'completed' ? (
+          <div style={{
+            background: 'white',
+            border: '1px solid #e5e7eb',
+            borderRadius: '12px',
+            padding: '14px 20px',
+            marginBottom: '24px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '22px' }}>🔄</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '13px', color: '#111827' }}>
+                  Automate Collections via UPI AutoPay / e-NACH
+                </div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                  Set up recurring auto-debit on PhonePe/GPay to automatically collect monthly EMIs on due dates.
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowAutoPayModal(true)}
+              style={{
+                background: '#1e40af',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 6px rgba(30, 64, 175, 0.25)'
+              }}
+            >
+              ⚡ Setup AutoPay Mandate
+            </button>
+          </div>
+        ) : null}
+
         {/* Stat Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
           {[
@@ -769,6 +913,29 @@ export default function LoanDetailPage() {
                       </td>
                       <td style={{ padding: '10px 16px' }}>
                         {e.status !== 'paid' && (
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                          {loan.mandate?.status === 'ACTIVE' && (
+                            <button
+                              onClick={() => handleExecuteAutoDebit(e)}
+                              disabled={debitingEmiId === e.id}
+                              style={{
+                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '6px 12px',
+                                fontSize: '12px',
+                                cursor: debitingEmiId === e.id ? 'not-allowed' : 'pointer',
+                                fontWeight: '700',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                boxShadow: '0 2px 4px rgba(16, 185, 129, 0.25)'
+                              }}
+                            >
+                              {debitingEmiId === e.id ? '⏳ Debiting...' : '⚡ Auto-Debit'}
+                            </button>
+                          )}
                           <button
                             onClick={() => handleSendPaymentLink(e)}
                             disabled={sendingLinkFor === e.id}
@@ -787,8 +954,9 @@ export default function LoanDetailPage() {
                               gap: '4px'
                             }}
                           >
-                            {sendingLinkFor === e.id ? '⏳ Sending...' : '📲 Send Payment Link'}
+                            {sendingLinkFor === e.id ? '⏳ Sending...' : '📲 Payment Link'}
                           </button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -1235,6 +1403,36 @@ export default function LoanDetailPage() {
         voucher={activeVoucher || loan.disbursalVoucher}
         company={loan.company}
         onClose={() => setShowVoucherModal(false)}
+      />
+    )}
+
+    {/* Setup UPI AutoPay / e-NACH Mandate Modal */}
+    {showAutoPayModal && (
+      <SetupAutoPayModal
+        loan={loan}
+        onClose={() => setShowAutoPayModal(false)}
+        onSuccess={async (mandate) => {
+          setShowAutoPayModal(false);
+          // reload loan
+          try {
+            const res = await fetch(`${API_URL}/api/loans/${id}`, {
+              headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+            });
+            const fresh = await res.json();
+            setLoan(fresh);
+          } catch (e) {
+            console.error(e);
+          }
+        }}
+      />
+    )}
+
+    {/* Official Mandate Registration Certificate Modal */}
+    {showMandateCertModal && (
+      <MandateCertificateModal
+        mandate={loan.mandate}
+        company={loan.company}
+        onClose={() => setShowMandateCertModal(false)}
       />
     )}
     </>

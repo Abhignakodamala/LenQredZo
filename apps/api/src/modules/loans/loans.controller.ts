@@ -232,11 +232,29 @@ export const getLoanById = async (req: any, res: Response) => {
       }
     }
 
+    let mandate = null;
+    const mandateAudit = await prisma.auditLog.findFirst({
+      where: {
+        companyId: loan.companyId || req.user.companyId,
+        entityType: 'Mandate',
+        entityId: loan.id
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    if (mandateAudit && mandateAudit.details) {
+      try {
+        mandate = JSON.parse(mandateAudit.details);
+      } catch {
+        mandate = { notes: mandateAudit.details };
+      }
+    }
+
     const safe = {
       ...loan,
       customer: maskCustomer(loan.customer),
       guarantors: (loan.guarantors || []).map(maskGuarantor),
-      disbursalVoucher
+      disbursalVoucher,
+      mandate
     };
     res.json(safe);
   } catch (error) {
