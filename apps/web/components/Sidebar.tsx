@@ -14,6 +14,7 @@ const ALL_MENU_ITEMS = [
   { name: 'Loans', icon: '💰', href: '/dashboard/loans' },
   { name: 'Collections', icon: '📋', href: '/dashboard/collections' },
   { name: 'Payments', icon: '💳', href: '/dashboard/payments' },
+  { name: 'Cash Register', icon: '💼', href: '/dashboard/cash-register' },
   { name: 'Analytics', icon: '📈', href: '/dashboard/analytics' },
   { name: 'AI Analysis', icon: '🤖', href: '/dashboard/ai' },
   { name: 'WhatsApp', icon: '💬', href: '/dashboard/whatsapp' },
@@ -38,6 +39,7 @@ const ROLE_ALLOWED_ROUTES: Record<string, string[]> = {
   // Finance Owner / Super Admin: Full company-wide visibility
   owner: [
     '/dashboard',
+    '/dashboard/cash-register',
     '/dashboard/customers',
     '/dashboard/loans',
     '/dashboard/collections',
@@ -54,6 +56,7 @@ const ROLE_ALLOWED_ROUTES: Record<string, string[]> = {
   // Branch Manager: Branch operations & collections (no company settings, no staff salary config, no global branch setup)
   branch_manager: [
     '/dashboard',
+    '/dashboard/cash-register',
     '/dashboard/customers',
     '/dashboard/loans',
     '/dashboard/collections',
@@ -67,6 +70,7 @@ const ROLE_ALLOWED_ROUTES: Record<string, string[]> = {
   // Loan Officer: Underwriting, loan applications & AI credit assessment, with view access to collections and payments
   loan_officer: [
     '/dashboard',
+    '/dashboard/cash-register',
     '/dashboard/customers',
     '/dashboard/loans',
     '/dashboard/collections',
@@ -79,6 +83,7 @@ const ROLE_ALLOWED_ROUTES: Record<string, string[]> = {
   // Accountant: Ledgers, collections, payments & financial analytics, with view access to customers and loans
   accountant: [
     '/dashboard',
+    '/dashboard/cash-register',
     '/dashboard/customers',
     '/dashboard/loans',
     '/dashboard/collections',
@@ -90,6 +95,7 @@ const ROLE_ALLOWED_ROUTES: Record<string, string[]> = {
   // Collection Agent: Field visits, borrower contacts, daily EMI collections, loan schedules, payment receipts & WhatsApp
   collection_agent: [
     '/dashboard',
+    '/dashboard/cash-register',
     '/dashboard/customers',
     '/dashboard/loans',
     '/dashboard/collections',
@@ -101,6 +107,7 @@ const ROLE_ALLOWED_ROUTES: Record<string, string[]> = {
   // Recovery Officer: Overdue recovery, loan schedules, customer records, payment receipts, field visit proofs & WhatsApp
   recovery_officer: [
     '/dashboard',
+    '/dashboard/cash-register',
     '/dashboard/customers',
     '/dashboard/loans',
     '/dashboard/collections',
