@@ -6,7 +6,15 @@ import {
   verifyPayment
 } from './payments.controller';
 import { protect } from '../../middleware/auth';
-import { createMandate, getLoanMandate, executeMandateDebit } from './mandates.controller';
+import {
+  createMandate,
+  getLoanMandate,
+  executeMandateDebit,
+  getUpcomingPreDebitEmis,
+  sendPreDebitNotification,
+  triggerPreDebitCron
+} from './mandates.controller';
+import { requirePermission } from '../../utils/permissions';
 
 const router = Router();
 
@@ -22,5 +30,10 @@ router.post('/verify', protect, verifyPayment);
 router.post('/mandates/create', protect, createMandate);
 router.get('/mandates/:loanId', protect, getLoanMandate);
 router.post('/mandates/execute-debit', protect, executeMandateDebit);
+
+// RBI 24-Hour e-Mandate Pre-Debit Advance Notifications
+router.get('/mandates/pre-debit/upcoming', protect, getUpcomingPreDebitEmis);
+router.post('/mandates/pre-debit/send', protect, requirePermission('collection:collect'), sendPreDebitNotification);
+router.post('/mandates/pre-debit/cron', protect, requirePermission('loan:approve'), triggerPreDebitCron);
 
 export default router;

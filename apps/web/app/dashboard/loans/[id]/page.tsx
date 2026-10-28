@@ -17,6 +17,7 @@ import LegalNoticeViewModal from '@/components/LegalNoticeViewModal';
 import LogFieldVisitModal from '@/components/LogFieldVisitModal';
 import LoanRestructureModal from '@/components/LoanRestructureModal';
 import RestructureAddendumModal from '@/components/RestructureAddendumModal';
+import PreDebitNotificationModal from '@/components/PreDebitNotificationModal';
 
 type LoanDetail = {
   id: number;
@@ -90,6 +91,7 @@ export default function LoanDetailPage() {
   const [showRestructureModal, setShowRestructureModal] = useState(false);
   const [showAddendumModal, setShowAddendumModal] = useState(false);
   const [activeAddendum, setActiveAddendum] = useState<any>(null);
+  const [showPreDebitModal, setShowPreDebitModal] = useState(false);
   const [guarantorModalOpen, setGuarantorModalOpen] = useState(false);
   const [savingGuarantor, setSavingGuarantor] = useState(false);
   const [guarantorForm, setGuarantorForm] = useState({
@@ -831,24 +833,47 @@ export default function LoanDetailPage() {
               </div>
             </div>
 
-            <button
-              onClick={() => setShowMandateCertModal(true)}
-              style={{
-                background: 'white',
-                border: '1px solid #86efac',
-                color: '#166534',
-                borderRadius: '8px',
-                padding: '8px 14px',
-                cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: 600,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}
-            >
-              📄 Mandate Certificate
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                onClick={() => setShowPreDebitModal(true)}
+                style={{
+                  background: '#047857',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '8px 14px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                }}
+                title="Send statutory 24-hr advance notice prior to auto-debit"
+              >
+                ⏰ 24-Hr Pre-Debit Alert
+              </button>
+
+              <button
+                onClick={() => setShowMandateCertModal(true)}
+                style={{
+                  background: 'white',
+                  border: '1px solid #86efac',
+                  color: '#166534',
+                  borderRadius: '8px',
+                  padding: '8px 14px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                📄 Mandate Certificate
+              </button>
+            </div>
           </div>
         ) : loan.status !== 'completed' ? (
           <div style={{
@@ -1753,7 +1778,15 @@ export default function LoanDetailPage() {
       />
     )}
 
-    {/* Restructure Addendum Modal */}
+    {/* 24-Hour Pre-Debit AutoPay Center Modal */}
+    {showPreDebitModal && (
+      <PreDebitNotificationModal
+        loanId={loan?.id}
+        onClose={() => setShowPreDebitModal(false)}
+      />
+    )}
+
+        {/* Restructure Addendum Modal */}
     {showAddendumModal && (
       <RestructureAddendumModal
         addendum={activeAddendum || loan.latestRestructuringAddendum}

@@ -5,6 +5,7 @@ import FaceCaptureModal from '@/components/FaceCaptureModal';
 import CollectionRunSheetModal from '@/components/CollectionRunSheetModal';
 import CashReconciliationModal from '@/components/CashReconciliationModal';
 import BulkCollectionModal from '@/components/BulkCollectionModal';
+import PreDebitNotificationModal from '@/components/PreDebitNotificationModal';
 import { getAuthUser, can } from '@/lib/authUser';
 import { API_URL } from '@/lib/api';
 
@@ -17,6 +18,7 @@ export default function CollectionsPage() {
   const [showRunSheet, setShowRunSheet] = useState(false);
   const [showCashReconciliation, setShowCashReconciliation] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
+  const [showPreDebitModal, setShowPreDebitModal] = useState(false);
 
   // Collect dialog state
   const [dialog, setDialog] = useState<any>(null); // { emi, collectPenalty }
@@ -249,6 +251,27 @@ export default function CollectionsPage() {
               title="Collect and clear multiple EMIs in 1 batch voucher"
             >
               ⚡ Fast Bulk Collection (Batch Mode)
+            </button>
+
+            <button
+              onClick={() => setShowPreDebitModal(true)}
+              style={{
+                background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '10px 18px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 4px rgba(4, 120, 87, 0.25)'
+              }}
+              title="RBI e-Mandate 24-Hour Advance Pre-Debit AutoPay Notifications"
+            >
+              ⏰ 24-Hr Pre-Debit Alerts (AutoPay)
             </button>
 
             <button
@@ -640,6 +663,13 @@ export default function CollectionsPage() {
           companyName={emis[0]?.companyName || me?.companyName || 'LenQredzo Capital Private Limited'}
           onSuccess={fetchCollections}
           onClose={() => setShowBulkModal(false)}
+        />
+      )}
+
+      {showPreDebitModal && (
+        <PreDebitNotificationModal
+          onClose={() => setShowPreDebitModal(false)}
+          onSuccess={fetchCollections}
         />
       )}
 
