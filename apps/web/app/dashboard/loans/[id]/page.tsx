@@ -12,6 +12,8 @@ import LoanDisbursalModal from '@/components/LoanDisbursalModal';
 import DisbursalVoucherModal from '@/components/DisbursalVoucherModal';
 import SetupAutoPayModal from '@/components/SetupAutoPayModal';
 import MandateCertificateModal from '@/components/MandateCertificateModal';
+import GenerateLegalNoticeModal from '@/components/GenerateLegalNoticeModal';
+import LegalNoticeViewModal from '@/components/LegalNoticeViewModal';
 
 type LoanDetail = {
   id: number;
@@ -21,6 +23,7 @@ type LoanDetail = {
   disbursedAt?: string;
   disbursalVoucher?: any;
   mandate?: any;
+  latestLegalNotice?: any;
   emiAmount: number;
   outstandingAmount?: number;
   customer?: {
@@ -76,6 +79,9 @@ export default function LoanDetailPage() {
   const [showAutoPayModal, setShowAutoPayModal] = useState(false);
   const [showMandateCertModal, setShowMandateCertModal] = useState(false);
   const [debitingEmiId, setDebitingEmiId] = useState<number | null>(null);
+  const [showGenerateNoticeModal, setShowGenerateNoticeModal] = useState(false);
+  const [showViewNoticeModal, setShowViewNoticeModal] = useState(false);
+  const [activeLegalNotice, setActiveLegalNotice] = useState<any>(null);
   const [guarantorModalOpen, setGuarantorModalOpen] = useState(false);
   const [savingGuarantor, setSavingGuarantor] = useState(false);
   const [guarantorForm, setGuarantorForm] = useState({
@@ -428,6 +434,36 @@ export default function LoanDetailPage() {
             </button>
           )}
 
+          {/* Statutory Legal Demand Notice Button */}
+          {loan.status !== 'completed' && (
+            <button
+              onClick={() => {
+                if (loan.latestLegalNotice) {
+                  setActiveLegalNotice(loan.latestLegalNotice);
+                  setShowViewNoticeModal(true);
+                } else {
+                  setShowGenerateNoticeModal(true);
+                }
+              }}
+              style={{
+                background: loan.latestLegalNotice ? '#7f1d1d' : '#991b1b',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: '700',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+              }}
+            >
+              ⚖️ {loan.latestLegalNotice ? 'Legal Notice (Issued)' : 'Legal Notice (Sec 138/25)'}
+            </button>
+          )}
+
           {/* Foreclose button: available when loan has pending dues */}
           {loan.status !== 'completed' && (
             <button
@@ -715,6 +751,77 @@ export default function LoanDetailPage() {
             </button>
           </div>
         ) : null}
+
+        {/* Statutory Legal Notice Issued Alert Banner */}
+        {loan.latestLegalNotice && (
+          <div style={{
+            background: '#fff1f2',
+            border: '1px solid #fecdd3',
+            borderRadius: '12px',
+            padding: '14px 20px',
+            marginBottom: '24px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            boxShadow: '0 2px 6px rgba(153, 27, 27, 0.08)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <span style={{ fontSize: '24px' }}>⚖️</span>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontWeight: 800, fontSize: '14px', color: '#991b1b' }}>
+                    Statutory Legal Demand Notice Issued
+                  </span>
+                  <code style={{ background: '#fee2e2', color: '#991b1b', padding: '1px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 700 }}>
+                    {loan.latestLegalNotice.noticeRefNo}
+                  </code>
+                </div>
+                <div style={{ fontSize: '12px', color: '#b91c1c', marginTop: '3px' }}>
+                  Statute: {loan.latestLegalNotice.primaryStatute || loan.latestLegalNotice.legalAct} · Issued on {fmtDateTimeIST(loan.latestLegalNotice.issuedAt)} · Claim: {fmt(loan.latestLegalNotice.defaultDetails?.totalClaimAmount)}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => {
+                  setActiveLegalNotice(loan.latestLegalNotice);
+                  setShowViewNoticeModal(true);
+                }}
+                style={{
+                  background: 'white',
+                  border: '1px solid #f87171',
+                  color: '#991b1b',
+                  borderRadius: '6px',
+                  padding: '6px 14px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                📄 View Notice
+              </button>
+              <button
+                onClick={() => setShowGenerateNoticeModal(true)}
+                style={{
+                  background: '#991b1b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 600
+                }}
+              >
+                + Draft New
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Stat Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
@@ -1433,6 +1540,37 @@ export default function LoanDetailPage() {
         mandate={loan.mandate}
         company={loan.company}
         onClose={() => setShowMandateCertModal(false)}
+      />
+    )}
+
+    {/* Draft Legal Notice Modal */}
+    {showGenerateNoticeModal && (
+      <GenerateLegalNoticeModal
+        loan={loan}
+        onClose={() => setShowGenerateNoticeModal(false)}
+        onSuccess={async (notice) => {
+          setShowGenerateNoticeModal(false);
+          setActiveLegalNotice(notice);
+          setShowViewNoticeModal(true);
+          // reload loan
+          try {
+            const res = await fetch(`${API_URL}/api/loans/${id}`, {
+              headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+            });
+            const fresh = await res.json();
+            setLoan(fresh);
+          } catch (e) {
+            console.error(e);
+          }
+        }}
+      />
+    )}
+
+    {/* View & Print Legal Notice Modal */}
+    {showViewNoticeModal && (
+      <LegalNoticeViewModal
+        notice={activeLegalNotice || loan.latestLegalNotice}
+        onClose={() => setShowViewNoticeModal(false)}
       />
     )}
     </>

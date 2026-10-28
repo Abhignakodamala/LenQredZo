@@ -249,12 +249,31 @@ export const getLoanById = async (req: any, res: Response) => {
       }
     }
 
+    let latestLegalNotice = null;
+    const noticeAudit = await prisma.auditLog.findFirst({
+      where: {
+        companyId: loan.companyId || req.user.companyId,
+        entityType: 'LegalNotice',
+        entityId: loan.id,
+        action: 'GENERATE_LEGAL_NOTICE'
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    if (noticeAudit && noticeAudit.details) {
+      try {
+        latestLegalNotice = JSON.parse(noticeAudit.details);
+      } catch {
+        latestLegalNotice = { notes: noticeAudit.details };
+      }
+    }
+
     const safe = {
       ...loan,
       customer: maskCustomer(loan.customer),
       guarantors: (loan.guarantors || []).map(maskGuarantor),
       disbursalVoucher,
-      mandate
+      mandate,
+      latestLegalNotice
     };
     res.json(safe);
   } catch (error) {
@@ -976,3 +995,185 @@ export const triggerMidnightPenaltyJob = async (req: any, res: Response) => {
 
 
 
+
+export const generateLegalNotice = async (req: any, res: Response) => {
+  try {
+    const loanId = Number(req.params.id);
+    const {
+      noticeType = 'SEC_25_PSS', // 'SEC_25_PSS' | 'SEC_138_NI' | 'LOAN_RECALL'
+      advocateName = 'Adv. R. V. Ramanathan, B.A., LL.B.',
+      advocateBarNo = 'AP/1842/2012',
+      advocateAddress = 'Chamber No. 4, District & Sessions Court Complex',
+      advocatePhone = '+91 98480 22338',
+      advocateEmail = 'ramanathan.advocate@courtlaw.in',
+      instrumentNumber,
+      dishonourDate,
+      dishonourReason = 'FUNDS INSUFFICIENT / ACCOUNT INADEQUATE',
+      curePeriodDays = 15,
+      customRemarks = ''
+    } = req.body;
+
+    const loan = await prisma.loan.findUnique({
+      where: { id: loanId },
+      include: { customer: true, company: true, emis: { orderBy: { dueDate: 'asc' } }, guarantors: true }
+    });
+
+    if (!loan) return res.status(404).json({ success: false, error: 'Loan not found' });
+    if (loan.companyId !== req.user.companyId) {
+      return res.status(403).json({ success: false, error: 'Unauthorized access to loan' });
+    }
+
+    const customer = loan.customer;
+    if (!customer) {
+      return res.status(400).json({ success: false, error: 'Borrower customer record not found' });
+    }
+
+    // 1. Calculate overdue EMIs & amounts
+    const now = new Date();
+    const overdueEmis = loan.emis.filter(e => e.status !== 'paid' && new Date(e.dueDate) <= now);
+    const pendingEmis = loan.emis.filter(e => e.status !== 'paid');
+
+    const overduePrincipal = overdueEmis.reduce((s, e) => s + (e.amount - (e.paidAmount || 0)), 0);
+    const totalPenalties = overdueEmis.reduce((s, e) => s + (e.penalty || 0), 0);
+    const totalClaimAmount = overduePrincipal + totalPenalties;
+
+    // 2. Generate Legal Notice Reference
+    const datePrefix = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    const noticeRefNo = `LN-LEGAL-${datePrefix}-LN${1000 + loan.id}-${randomSuffix}`;
+
+    // 3. Format statutory title & subject based on noticeType
+    let legalAct = '';
+    let subjectLine = '';
+    let primaryStatute = '';
+
+    if (noticeType === 'SEC_138_NI') {
+      legalAct = 'Negotiable Instruments Act, 1881';
+      primaryStatute = 'Section 138 of the Negotiable Instruments Act, 1881 read with Section 420 of the Indian Penal Code, 1860';
+      subjectLine = `STATUTORY LEGAL DEMAND NOTICE UNDER SECTION 138 OF THE NEGOTIABLE INSTRUMENTS ACT, 1881 FOR DISHONOUR OF CHEQUE NO. ${instrumentNumber || 'PDC'} FOR ₹${overduePrincipal.toLocaleString('en-IN')}`;
+    } else if (noticeType === 'SEC_25_PSS') {
+      legalAct = 'Payment and Settlement Systems Act, 2007';
+      primaryStatute = 'Section 25 of the Payment and Settlement Systems Act, 2007 read with Section 420 of the Indian Penal Code, 1860';
+      subjectLine = `STATUTORY LEGAL DEMAND NOTICE UNDER SECTION 25 OF THE PAYMENT AND SETTLEMENT SYSTEMS ACT, 2007 FOR DISHONOUR OF ELECTRONIC MANDATE / e-NACH (UMN: ${instrumentNumber || 'NPCI-MANDATE'}) FOR ₹${overduePrincipal.toLocaleString('en-IN')}`;
+    } else {
+      legalAct = 'Indian Contract Act, 1872';
+      primaryStatute = 'Section 73 & 74 of the Indian Contract Act, 1872 and Specific Relief Act';
+      subjectLine = `LEGAL RECALL & FINAL DEMAND NOTICE FOR ACCELERATED REPAYMENT OF DEFAULTED LOAN LN${1000 + loan.id} OF ₹${totalClaimAmount.toLocaleString('en-IN')}`;
+    }
+
+    const noticePayload = {
+      noticeRefNo,
+      noticeType,
+      legalAct,
+      primaryStatute,
+      subjectLine,
+      issuedAt: now.toISOString(),
+      curePeriodDays,
+      cureDeadline: new Date(now.getTime() + curePeriodDays * 24 * 60 * 60 * 1000).toISOString(),
+      advocate: {
+        name: advocateName,
+        barEnrollmentNo: advocateBarNo,
+        address: advocateAddress,
+        phone: advocatePhone,
+        email: advocateEmail
+      },
+      client: {
+        companyId: loan.company?.id,
+        companyName: loan.company?.name || 'LenQredzo Capital Private Limited',
+        companyEmail: loan.company?.email,
+        companyPhone: loan.company?.phone
+      },
+      borrower: {
+        id: customer.id,
+        name: customer.name,
+        phone: customer.phone,
+        pan: customer.pan ? maskPan(safeDecrypt(customer.pan)) : '—',
+        aadhar: customer.aadhar ? maskAadhaar(safeDecrypt(customer.aadhar)) : '—',
+        address: [customer.street, customer.city, customer.address].filter(Boolean).join(', ') || 'Address on record'
+      },
+      guarantors: (loan.guarantors || []).map((g: any) => ({
+        id: g.id,
+        name: g.name,
+        phone: g.phone,
+        relationship: g.relationship,
+        address: g.address || 'Address on record'
+      })),
+      loanDetails: {
+        loanId: loan.id,
+        loanRef: `LN${1000 + loan.id}`,
+        loanType: loan.type,
+        sanctionDate: loan.createdAt,
+        sanctionAmount: loan.amount,
+        tenure: loan.tenure,
+        frequency: loan.frequency,
+        emiAmount: loan.emiAmount
+      },
+      defaultDetails: {
+        overdueEmisCount: overdueEmis.length,
+        pendingEmisCount: pendingEmis.length,
+        overduePrincipal,
+        totalPenalties,
+        totalClaimAmount,
+        instrumentNumber: instrumentNumber || (noticeType === 'SEC_138_NI' ? 'CHEQUE-PDC' : 'NPCI-eNACH'),
+        dishonourDate: dishonourDate || now.toISOString().slice(0, 10),
+        dishonourReason
+      },
+      overdueEmisList: overdueEmis.map(e => ({
+        id: e.id,
+        dueDate: e.dueDate,
+        amount: e.amount,
+        penalty: e.penalty || 0,
+        totalDue: e.amount + (e.penalty || 0)
+      })),
+      customRemarks,
+      issuedByUserId: req.user.userId,
+      issuedByName: req.user.name || 'Legal Operations Officer'
+    };
+
+    // Store in AuditLog for permanent tamper-proof legal record
+    await logAudit({
+      req,
+      action: 'GENERATE_LEGAL_NOTICE',
+      entityType: 'LegalNotice',
+      entityId: loan.id,
+      details: JSON.stringify(noticePayload)
+    });
+
+    res.json({
+      success: true,
+      message: `Statutory Legal Demand Notice ${noticeRefNo} generated successfully!`,
+      notice: noticePayload
+    });
+  } catch (error: any) {
+    console.error('Generate legal notice error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to generate legal notice' });
+  }
+};
+
+export const getLoanLegalNotices = async (req: any, res: Response) => {
+  try {
+    const loanId = Number(req.params.id);
+    const notices = await prisma.auditLog.findMany({
+      where: {
+        companyId: req.user.companyId,
+        entityType: 'LegalNotice',
+        entityId: loanId,
+        action: 'GENERATE_LEGAL_NOTICE'
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const parsed = notices.map(n => {
+      try {
+        return JSON.parse(n.details || '{}');
+      } catch {
+        return { noticeRefNo: `NOTICE-${n.id}`, notes: n.details };
+      }
+    });
+
+    res.json({ success: true, notices: parsed });
+  } catch (error: any) {
+    console.error('Get loan legal notices error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to fetch legal notices' });
+  }
+};

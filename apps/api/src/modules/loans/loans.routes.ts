@@ -13,7 +13,9 @@ import {
   updateGuarantor,
   deleteGuarantor,
   forecloseLoan,
-  triggerMidnightPenaltyJob
+  triggerMidnightPenaltyJob,
+  generateLegalNotice,
+  getLoanLegalNotices
 } from './loans.controller';
 import { protect } from '../../middleware/auth';
 import { requirePermission } from '../../utils/permissions';
@@ -38,6 +40,10 @@ router.put('/emi/:emiId/pay', protect, requirePermission('collection:collect'), 
 router.post('/:id/guarantors', protect, requirePermission('loan:create'), addGuarantorToLoan);
 router.put('/:id/guarantors/:guarantorId', protect, requirePermission('loan:create'), updateGuarantor);
 router.delete('/:id/guarantors/:guarantorId', protect, requirePermission('loan:create'), deleteGuarantor);
+
+// Legal Notices (Section 138 NI Act / Section 25 PSS Act / Recall Demand)
+router.post('/:id/legal-notice', protect, generateLegalNotice);
+router.get('/:id/legal-notices', protect, getLoanLegalNotices);
 
 router.delete('/:id', protect, deleteLoan);
 export default router;
