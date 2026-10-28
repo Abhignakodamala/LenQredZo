@@ -3,6 +3,7 @@ import CustomerSearchSelect from '../../../components/CustomerSearchSelect';
 import { CSSProperties, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
+import CreditBureauExportModal from '@/components/CreditBureauExportModal';
 import { AuthUser, getAuthUser, can } from '@/lib/authUser';
 import { API_URL } from '@/lib/api';
 
@@ -93,6 +94,7 @@ function Section({ title, icon, children, defaultOpen = false }: {
 export default function LoansPage() {
   const router = useRouter();
   const [me, setMe] = useState<AuthUser | null>(null);
+  const [showBureauModal, setShowBureauModal] = useState(false);
   useEffect(() => { setMe(getAuthUser()); }, []);
   const canCreateLoan = can(me, 'loan:create');
   const [loans, setLoans] = useState<Loan[]>([]);
@@ -277,11 +279,31 @@ const [guarantors, setGuarantors] = useState<Guarantor[]>([{ ...emptyGuarantor }
             <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Loans</h2>
             <p style={{ color: '#6b7280', margin: 0 }}>Manage all loans and EMI schedules</p>
           </div>
-          {canCreateLoan && (
-            <button onClick={() => setShowForm(!showForm)} style={{ background: '#1e40af', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
-              + New Loan
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              onClick={() => setShowBureauModal(true)}
+              style={{
+                background: 'white',
+                border: '1px solid #cbd5e1',
+                color: '#0369a1',
+                padding: '10px 16px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              📑 Export Bureau Data
             </button>
-          )}
+            {canCreateLoan && (
+              <button onClick={() => setShowForm(!showForm)} style={{ background: '#1e40af', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
+                + New Loan
+              </button>
+            )}
+          </div>
         </div>
 
         {showForm && (
@@ -704,6 +726,9 @@ const [guarantors, setGuarantors] = useState<Guarantor[]>([{ ...emptyGuarantor }
           )}
         </div>
       </div>
+      {showBureauModal && (
+        <CreditBureauExportModal onClose={() => setShowBureauModal(false)} />
+      )}
     </div>
   );
 }

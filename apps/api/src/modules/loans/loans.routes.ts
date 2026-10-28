@@ -18,12 +18,18 @@ import {
   generateLegalNotice,
   getLoanLegalNotices,
   restructureLoan,
-  getLoanRestructuringAddenda
+  getLoanRestructuringAddenda,
+  getNpaAgeingMatrix,
+  exportCreditBureauData
 } from './loans.controller';
 import { protect } from '../../middleware/auth';
 import { requirePermission } from '../../utils/permissions';
 
 const router = Router();
+
+// Bureau Export & NPA Analytics (Before :id param route)
+router.get('/analytics/npa-ageing', protect, getNpaAgeingMatrix);
+router.get('/bureau/export', protect, requirePermission('loan:approve'), exportCreditBureauData);
 
 // Viewing is open to all logged-in staff.
 router.get('/', protect, getAllLoans);

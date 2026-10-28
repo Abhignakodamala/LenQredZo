@@ -1600,3 +1600,298 @@ export const getLoanRestructuringAddenda = async (req: any, res: Response) => {
     res.status(500).json({ success: false, error: error.message || 'Failed to fetch restructuring addenda' });
   }
 };
+
+
+
+export const getNpaAgeingMatrix = async (req: any, res: Response) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const loans = await prisma.loan.findMany({
+      where: loanScope(req.user),
+      include: {
+        customer: true,
+        company: true,
+        emis: { orderBy: { dueDate: 'asc' } }
+      }
+    });
+
+    const standardLoans: any[] = [];
+    const sma0Loans: any[] = [];
+    const sma1Loans: any[] = [];
+    const sma2Loans: any[] = [];
+    const npaLoans: any[] = [];
+
+    let totalAum = 0;
+    let totalOverdue = 0;
+    let totalProvisionReserve = 0;
+
+    for (const loan of loans) {
+      if (loan.status === 'completed' || loan.status === 'cancelled' || loan.status === 'rejected') {
+        continue;
+      }
+
+      const unpaidEmis = loan.emis.filter((e: any) => e.status !== 'paid');
+      if (unpaidEmis.length === 0) continue;
+
+      const outstandingPrincipal = unpaidEmis.reduce((s: number, e: any) => s + (e.amount - (e.paidAmount || 0)), 0);
+      const totalPenalties = unpaidEmis.reduce((s: number, e: any) => s + (e.penalty || 0), 0);
+      const overdueEmis = unpaidEmis.filter((e: any) => new Date(e.dueDate) < today);
+
+      let dpd = 0;
+      if (overdueEmis.length > 0) {
+        const oldestDue = new Date(overdueEmis[0].dueDate);
+        dpd = Math.max(0, Math.floor((today.getTime() - oldestDue.getTime()) / 86400000));
+      }
+
+      totalAum += outstandingPrincipal;
+      const overdueAmount = overdueEmis.reduce((s: number, e: any) => s + (e.amount - (e.paidAmount || 0)), 0) + totalPenalties;
+      totalOverdue += overdueAmount;
+
+      let bucket = 'Standard';
+      let provisionRate = 0.4;
+
+      if (dpd === 0) {
+        bucket = 'Standard';
+        provisionRate = 0.4;
+      } else if (dpd <= 30) {
+        bucket = 'SMA-0';
+        provisionRate = 0.4;
+      } else if (dpd <= 60) {
+        bucket = 'SMA-1';
+        provisionRate = 5.0;
+      } else if (dpd <= 90) {
+        bucket = 'SMA-2';
+        provisionRate = 10.0;
+      } else {
+        bucket = 'NPA';
+        provisionRate = 15.0;
+      }
+
+      const provisionAmount = Math.round(outstandingPrincipal * (provisionRate / 100));
+      totalProvisionReserve += provisionAmount;
+
+      const customer: any = loan.customer || {};
+      const item = {
+        loanId: loan.id,
+        loanRef: `LN${1000 + loan.id}`,
+        customerId: customer.id,
+        customerName: customer.name || 'Borrower',
+        customerPhone: customer.phone || '',
+        customerCity: customer.city || '—',
+        loanType: loan.type,
+        sanctionAmount: loan.amount,
+        outstandingPrincipal,
+        overdueAmount,
+        dpd,
+        bucket,
+        provisionRate,
+        provisionAmount,
+        overdueEmisCount: overdueEmis.length,
+        totalUnpaidEmis: unpaidEmis.length,
+        oldestDueDate: overdueEmis[0]?.dueDate || null,
+        interestRate: loan.interestRate
+      };
+
+      if (bucket === 'Standard') standardLoans.push(item);
+      else if (bucket === 'SMA-0') sma0Loans.push(item);
+      else if (bucket === 'SMA-1') sma1Loans.push(item);
+      else if (bucket === 'SMA-2') sma2Loans.push(item);
+      else npaLoans.push(item);
+    }
+
+    const calcSum = (arr: any[]) => arr.reduce((s, i) => s + i.outstandingPrincipal, 0);
+
+    const standardSum = calcSum(standardLoans);
+    const sma0Sum = calcSum(sma0Loans);
+    const sma1Sum = calcSum(sma1Loans);
+    const sma2Sum = calcSum(sma2Loans);
+    const npaSum = calcSum(npaLoans);
+
+    const par30Amount = sma1Sum + sma2Sum + npaSum;
+    const par60Amount = sma2Sum + npaSum;
+
+    const par30Ratio = totalAum > 0 ? Number(((par30Amount / totalAum) * 100).toFixed(2)) : 0;
+    const par60Ratio = totalAum > 0 ? Number(((par60Amount / totalAum) * 100).toFixed(2)) : 0;
+    const grossNpaRatio = totalAum > 0 ? Number(((npaSum / totalAum) * 100).toFixed(2)) : 0;
+
+    res.json({
+      success: true,
+      summary: {
+        totalAum,
+        totalOverdue,
+        totalProvisionReserve,
+        par30Amount,
+        par30Ratio,
+        par60Amount,
+        par60Ratio,
+        grossNpaAmount: npaSum,
+        grossNpaRatio,
+        asOfDate: today.toISOString().slice(0, 10),
+        totalActiveLoans: standardLoans.length + sma0Loans.length + sma1Loans.length + sma2Loans.length + npaLoans.length
+      },
+      buckets: {
+        standard: { label: 'Standard (0 DPD)', count: standardLoans.length, amount: standardSum, provisionRate: '0.40%', color: '#16a34a', items: standardLoans },
+        sma0: { label: 'SMA-0 (1–30 DPD)', count: sma0Loans.length, amount: sma0Sum, provisionRate: '0.40%', color: '#eab308', items: sma0Loans },
+        sma1: { label: 'SMA-1 (31–60 DPD)', count: sma1Loans.length, amount: sma1Sum, provisionRate: '5.00%', color: '#f97316', items: sma1Loans },
+        sma2: { label: 'SMA-2 (61–90 DPD)', count: sma2Loans.length, amount: sma2Sum, provisionRate: '10.00%', color: '#ef4444', items: sma2Loans },
+        npa: { label: 'NPA (>90 DPD)', count: npaLoans.length, amount: npaSum, provisionRate: '15.00%', color: '#991b1b', items: npaLoans }
+      }
+    });
+  } catch (error: any) {
+    console.error('NPA Ageing Matrix Error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to compute NPA Ageing Matrix' });
+  }
+};
+
+export const exportCreditBureauData = async (req: any, res: Response) => {
+  try {
+    const { format = 'csv', bureau = 'cibil', month } = req.query;
+    const today = new Date();
+    const reportingMonth = (typeof month === 'string' && month) ? month : today.toISOString().slice(0, 7);
+    const dateStamp = today.toISOString().slice(0, 10).replace(/-/g, '');
+
+    const loans = await prisma.loan.findMany({
+      where: loanScope(req.user),
+      include: {
+        customer: true,
+        company: true,
+        emis: { orderBy: { dueDate: 'asc' } }
+      }
+    });
+
+    const companyName = req.user.companyName || 'LenQredzo Capital Private Limited';
+    const memberId = 'IN' + String(req.user.companyId || 1000).padStart(6, '0');
+
+    const records = [];
+    let totalCurrentBalance = 0;
+    let totalOverdue = 0;
+
+    for (const loan of loans) {
+      if (loan.status === 'cancelled' || loan.status === 'rejected') continue;
+
+      const customer: any = loan.customer || {};
+      const unpaidEmis = loan.emis.filter((e: any) => e.status !== 'paid');
+      const outstandingBalance = unpaidEmis.reduce((s: number, e: any) => s + (e.amount - (e.paidAmount || 0)), 0);
+      const overdueEmis = unpaidEmis.filter((e: any) => new Date(e.dueDate) < today);
+
+      let dpd = 0;
+      if (overdueEmis.length > 0) {
+        const oldestDue = new Date(overdueEmis[0].dueDate);
+        dpd = Math.max(0, Math.floor((today.getTime() - oldestDue.getTime()) / 86400000));
+      }
+
+      const overdueAmount = overdueEmis.reduce((s: number, e: any) => s + (e.amount - (e.paidAmount || 0)), 0);
+      totalCurrentBalance += outstandingBalance;
+      totalOverdue += overdueAmount;
+
+      const dpdFormatted = String(Math.min(900, dpd)).padStart(3, '0');
+
+      let assetClass = '01';
+      if (dpd > 90 && dpd <= 365) assetClass = '02';
+      else if (dpd > 365 && dpd <= 730) assetClass = '03';
+      else if (dpd > 730) assetClass = '04';
+
+      const panDecrypted = safeDecrypt(customer.pan);
+      const aadharDecrypted = safeDecrypt(customer.aadhar);
+
+      let accountTypeCode = '05';
+      const lType = (loan.type || '').toLowerCase();
+      if (lType.includes('home') || lType.includes('mortgage') || lType.includes('property')) accountTypeCode = '02';
+      else if (lType.includes('vehicle') || lType.includes('auto') || lType.includes('car')) accountTypeCode = '01';
+      else if (lType.includes('business') || lType.includes('commercial')) accountTypeCode = '08';
+      else if (lType.includes('micro') || lType.includes('group')) accountTypeCode = '51';
+
+      records.push({
+        memberId,
+        memberShortName: companyName.slice(0, 16).toUpperCase(),
+        reportingMonth,
+        accountNumber: `LN${1000 + loan.id}`,
+        accountType: accountTypeCode,
+        ownershipIndicator: '1',
+        borrowerName: (customer.name || 'Borrower').toUpperCase(),
+        dob: customer.dob ? new Date(customer.dob).toISOString().slice(0, 10).replace(/-/g, '') : '19850101',
+        gender: (customer.gender || 'M').toUpperCase().slice(0, 1),
+        incomeTaxPan: panDecrypted ? panDecrypted.toUpperCase() : 'PANNOTAVBL',
+        aadhaarNumber: aadharDecrypted ? aadharDecrypted.replace(/\D/g, '').slice(-12) : '',
+        mobileNumber: customer.phone ? customer.phone.replace(/\D/g, '').slice(-10) : '9999999999',
+        address1: (customer.street || customer.address || 'Address Line 1').replace(/,/g, ' '),
+        address2: (customer.city || 'City').replace(/,/g, ' '),
+        city: customer.city || 'City',
+        state: customer.state || 'Telangana',
+        pinCode: customer.pincode || '500001',
+        openDate: loan.createdAt ? new Date(loan.createdAt).toISOString().slice(0, 10).replace(/-/g, '') : dateStamp,
+        sanctionAmount: Math.round(loan.amount),
+        currentBalance: Math.round(outstandingBalance),
+        amountOverdue: Math.round(overdueAmount),
+        dpd: dpdFormatted,
+        assetClassification: assetClass,
+        repaymentFrequency: loan.frequency === 'daily' ? '01' : loan.frequency === 'weekly' ? '02' : '03',
+        actualPaymentAmount: Math.round(loan.emis.filter((e: any) => e.status === 'paid').reduce((s: number, e: any) => s + e.amount, 0)),
+        repaymentTenure: loan.tenure || 12,
+        emiAmount: Math.round(loan.emis[0]?.amount || 0),
+        status: loan.status === 'completed' ? 'CLOSED' : 'ACTIVE'
+      });
+    }
+
+    await logAudit({
+      req,
+      action: 'EXPORT_CREDIT_BUREAU_DATA',
+      entityType: 'CreditBureau',
+      entityId: 0,
+      details: JSON.stringify({
+        bureau: String(bureau).toUpperCase(),
+        format,
+        reportingMonth,
+        totalAccounts: records.length,
+        totalCurrentBalance,
+        totalOverdue,
+        exportedAt: today.toISOString()
+      })
+    });
+
+    if (format === 'tudf') {
+      let tudfContent = `TUDFFILE|${memberId}|${companyName}|${dateStamp}|${records.length}\n`;
+      for (const r of records) {
+        tudfContent += `ACC|${r.accountNumber}|${r.accountType}|${r.ownershipIndicator}|${r.openDate}|${r.sanctionAmount}|${r.currentBalance}|${r.amountOverdue}|${r.dpd}|${r.assetClassification}|${r.emiAmount}|${r.repaymentTenure}\n`;
+        tudfContent += `NAM|${r.borrowerName}|${r.dob}|${r.gender}|${r.incomeTaxPan}|${r.aadhaarNumber}\n`;
+        tudfContent += `ADD|${r.address1}|${r.address2}|${r.city}|${r.state}|${r.pinCode}|${r.mobileNumber}\n`;
+      }
+      tudfContent += `TRL|${records.length}|${totalCurrentBalance}|${totalOverdue}\n`;
+
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${String(bureau).toUpperCase()}_TUDF_${reportingMonth.replace('-', '')}.txt"`);
+      return res.send(tudfContent);
+    }
+
+    const headers = [
+      'Reporting_Member_ID', 'Member_Name', 'Reporting_Month', 'Account_Number',
+      'Account_Type_Code', 'Ownership_Indicator', 'Borrower_Name', 'Date_Of_Birth',
+      'Gender', 'Income_Tax_PAN', 'Aadhaar_Number', 'Mobile_Number',
+      'Address_Line_1', 'Address_Line_2', 'City', 'State', 'PIN_Code',
+      'Date_Opened_Sanctioned', 'Sanctioned_Amount', 'Current_Balance',
+      'Amount_Overdue', 'Days_Past_Due_DPD', 'Asset_Classification',
+      'Repayment_Frequency', 'Tenure_Months', 'EMI_Amount', 'Loan_Status'
+    ];
+
+    const rows = records.map(r => [
+      `"${r.memberId}"`, `"${r.memberShortName}"`, `"${r.reportingMonth}"`, `"${r.accountNumber}"`,
+      `"${r.accountType}"`, `"${r.ownershipIndicator}"`, `"${r.borrowerName}"`, `"${r.dob}"`,
+      `"${r.gender}"`, `"${r.incomeTaxPan}"`, `"${r.aadhaarNumber}"`, `"${r.mobileNumber}"`,
+      `"${r.address1}"`, `"${r.address2}"`, `"${r.city}"`, `"${r.state}"`, `"${r.pinCode}"`,
+      `"${r.openDate}"`, r.sanctionAmount, r.currentBalance,
+      r.amountOverdue, `"${r.dpd}"`, `"${r.assetClassification}"`,
+      `"${r.repaymentFrequency}"`, r.repaymentTenure, r.emiAmount, `"${r.status}"`
+    ].join(','));
+
+    const csvContent = headers.join(',') + '\n' + rows.join('\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${String(bureau).toUpperCase()}_BUREAU_DATA_${reportingMonth.replace('-', '')}.csv"`);
+    return res.send(csvContent);
+  } catch (error: any) {
+    console.error('Export Credit Bureau Data Error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to export bureau data' });
+  }
+};
