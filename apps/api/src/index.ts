@@ -22,6 +22,7 @@ import whatsappRoutes from './modules/whatsapp/whatsapp.routes';
 
 import paymentsRoutes from './modules/payments/payments.routes';
 import cashRegisterRoutes from './modules/cash-register/cash-register.routes';
+import fieldVisitsRoutes from './modules/field-visits/field-visits.routes';
 import { startMidnightCronScheduler } from './services/penalty-cron.service';
 
 import fs from 'fs';
@@ -72,6 +73,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/cash-register', cashRegisterRoutes);
+app.use('/api/field-visits', fieldVisitsRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'LenQredZo AI API is running!' });

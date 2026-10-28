@@ -14,6 +14,7 @@ import SetupAutoPayModal from '@/components/SetupAutoPayModal';
 import MandateCertificateModal from '@/components/MandateCertificateModal';
 import GenerateLegalNoticeModal from '@/components/GenerateLegalNoticeModal';
 import LegalNoticeViewModal from '@/components/LegalNoticeViewModal';
+import LogFieldVisitModal from '@/components/LogFieldVisitModal';
 
 type LoanDetail = {
   id: number;
@@ -82,6 +83,7 @@ export default function LoanDetailPage() {
   const [showGenerateNoticeModal, setShowGenerateNoticeModal] = useState(false);
   const [showViewNoticeModal, setShowViewNoticeModal] = useState(false);
   const [activeLegalNotice, setActiveLegalNotice] = useState<any>(null);
+  const [showVisitModal, setShowVisitModal] = useState(false);
   const [guarantorModalOpen, setGuarantorModalOpen] = useState(false);
   const [savingGuarantor, setSavingGuarantor] = useState(false);
   const [guarantorForm, setGuarantorForm] = useState({
@@ -433,6 +435,27 @@ export default function LoanDetailPage() {
               📄 Disbursal Voucher
             </button>
           )}
+
+          {/* Log Field Visit Proof Button */}
+          <button
+            onClick={() => setShowVisitModal(true)}
+            style={{
+              background: '#0284c7',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '8px 16px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: '700',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+            }}
+          >
+            📍 Log Visit Proof
+          </button>
 
           {/* Statutory Legal Demand Notice Button */}
           {loan.status !== 'completed' && (
@@ -1571,6 +1594,19 @@ export default function LoanDetailPage() {
       <LegalNoticeViewModal
         notice={activeLegalNotice || loan.latestLegalNotice}
         onClose={() => setShowViewNoticeModal(false)}
+      />
+    )}
+
+    {/* Log Field Visit Modal */}
+    {showVisitModal && (
+      <LogFieldVisitModal
+        customer={loan.customer}
+        loanId={loan.id}
+        onClose={() => setShowVisitModal(false)}
+        onSuccess={(visit) => {
+          setShowVisitModal(false);
+          alert(`✅ Field visit proof logged successfully!\n\nGPS Coordinates & photo evidence captured for ${loan.customer?.name}.`);
+        }}
       />
     )}
     </>
