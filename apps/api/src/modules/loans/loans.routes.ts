@@ -16,7 +16,9 @@ import {
   forecloseLoan,
   triggerMidnightPenaltyJob,
   generateLegalNotice,
-  getLoanLegalNotices
+  getLoanLegalNotices,
+  restructureLoan,
+  getLoanRestructuringAddenda
 } from './loans.controller';
 import { protect } from '../../middleware/auth';
 import { requirePermission } from '../../utils/permissions';
@@ -36,6 +38,8 @@ router.post('/', protect, requirePermission('loan:create'), createLoan);
 router.post('/:id/disburse', protect, requirePermission('loan:approve'), disburseLoan);
 router.put('/:id', protect, requirePermission('loan:approve'), updateLoanStatus);
 router.post('/:id/foreclose', protect, requirePermission('loan:approve'), forecloseLoan);
+router.post('/:id/restructure', protect, requirePermission('loan:approve'), restructureLoan);
+router.get('/:id/restructure-addenda', protect, getLoanRestructuringAddenda);
 router.put('/emi/:emiId/pay', protect, requirePermission('collection:collect'), markEmiPaid);
 
 // Guarantor management

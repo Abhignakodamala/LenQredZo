@@ -15,6 +15,8 @@ import MandateCertificateModal from '@/components/MandateCertificateModal';
 import GenerateLegalNoticeModal from '@/components/GenerateLegalNoticeModal';
 import LegalNoticeViewModal from '@/components/LegalNoticeViewModal';
 import LogFieldVisitModal from '@/components/LogFieldVisitModal';
+import LoanRestructureModal from '@/components/LoanRestructureModal';
+import RestructureAddendumModal from '@/components/RestructureAddendumModal';
 
 type LoanDetail = {
   id: number;
@@ -25,6 +27,7 @@ type LoanDetail = {
   disbursalVoucher?: any;
   mandate?: any;
   latestLegalNotice?: any;
+  latestRestructuringAddendum?: any;
   emiAmount: number;
   outstandingAmount?: number;
   customer?: {
@@ -84,6 +87,9 @@ export default function LoanDetailPage() {
   const [showViewNoticeModal, setShowViewNoticeModal] = useState(false);
   const [activeLegalNotice, setActiveLegalNotice] = useState<any>(null);
   const [showVisitModal, setShowVisitModal] = useState(false);
+  const [showRestructureModal, setShowRestructureModal] = useState(false);
+  const [showAddendumModal, setShowAddendumModal] = useState(false);
+  const [activeAddendum, setActiveAddendum] = useState<any>(null);
   const [guarantorModalOpen, setGuarantorModalOpen] = useState(false);
   const [savingGuarantor, setSavingGuarantor] = useState(false);
   const [guarantorForm, setGuarantorForm] = useState({
@@ -533,6 +539,56 @@ export default function LoanDetailPage() {
             </button>
           )}
 
+          {/* Loan Restructuring & Moratorium Button */}
+          {loan.status !== 'completed' && loan.status !== 'rejected' && loan.status !== 'cancelled' && (
+            <button
+              onClick={() => setShowRestructureModal(true)}
+              style={{
+                background: 'linear-gradient(135deg, #4338ca 0%, #3730a3 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: '700',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+              }}
+              title="Reschedule repayment schedule, grant moratorium, or extend tenure"
+            >
+              🔄 Restructure / Moratorium
+            </button>
+          )}
+
+          {/* View Restructure Addendum Button (if already restructured) */}
+          {(activeAddendum || loan.latestRestructuringAddendum) && (
+            <button
+              onClick={() => {
+                setActiveAddendum(activeAddendum || loan.latestRestructuringAddendum);
+                setShowAddendumModal(true);
+              }}
+              style={{
+                background: '#312e81',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: '700',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+              }}
+            >
+              📑 Restructure Addendum
+            </button>
+          )}
+
           <button
             onClick={() => setShowSanctionLetter(true)}
             style={{
@@ -559,6 +615,71 @@ export default function LoanDetailPage() {
             </button>
           )}
         </div>
+
+        {/* Restructuring Addendum Banner */}
+        {(activeAddendum || loan.latestRestructuringAddendum) && (
+          <div style={{
+            background: '#eef2ff',
+            border: '1px solid #c7d2fe',
+            borderRadius: '12px',
+            padding: '14px 20px',
+            marginBottom: '24px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            boxShadow: '0 1px 3px rgba(79, 70, 229, 0.05)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <span style={{
+                fontSize: '22px',
+                width: '40px',
+                height: '40px',
+                borderRadius: '10px',
+                background: '#e0e7ff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                🔄
+              </span>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontWeight: 800, fontSize: '14px', color: '#312e81' }}>
+                    Account Rescheduled Under RBI Resolution Framework
+                  </span>
+                  <code style={{ background: '#c7d2fe', color: '#312e81', padding: '1px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 700 }}>
+                    {(activeAddendum || loan.latestRestructuringAddendum).addendumRefNo}
+                  </code>
+                </div>
+                <div style={{ fontSize: '12px', color: '#4338ca', marginTop: '3px' }}>
+                  Reason: {(activeAddendum || loan.latestRestructuringAddendum).reason} • Revised EMI: {fmt((activeAddendum || loan.latestRestructuringAddendum).restructuredTerms?.revisedEmiAmount)} • Resumption Date: {fmtDate((activeAddendum || loan.latestRestructuringAddendum).restructuredTerms?.resumptionDate)}
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                setActiveAddendum(activeAddendum || loan.latestRestructuringAddendum);
+                setShowAddendumModal(true);
+              }}
+              style={{
+                background: 'white',
+                border: '1px solid #c7d2fe',
+                color: '#3730a3',
+                borderRadius: '8px',
+                padding: '8px 14px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
+              📑 Restructuring Addendum
+            </button>
+          </div>
+        )}
 
         {/* Disbursal Callout Banner */}
         {!loan.disbursedAt && loan.status !== 'completed' && loan.status !== 'rejected' && loan.status !== 'cancelled' ? (
@@ -1607,6 +1728,37 @@ export default function LoanDetailPage() {
           setShowVisitModal(false);
           alert(`✅ Field visit proof logged successfully!\n\nGPS Coordinates & photo evidence captured for ${loan.customer?.name}.`);
         }}
+      />
+    )}
+    {/* Loan Restructuring Modal */}
+    {showRestructureModal && (
+      <LoanRestructureModal
+        loan={loan}
+        onClose={() => setShowRestructureModal(false)}
+        onSuccess={async (addendum) => {
+          setShowRestructureModal(false);
+          setActiveAddendum(addendum);
+          setShowAddendumModal(true);
+          // reload loan
+          try {
+            const res = await fetch(`${API_URL}/api/loans/${id}`, {
+              headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+            });
+            const fresh = await res.json();
+            setLoan(fresh);
+          } catch (e) {
+            console.error(e);
+          }
+        }}
+      />
+    )}
+
+    {/* Restructure Addendum Modal */}
+    {showAddendumModal && (
+      <RestructureAddendumModal
+        addendum={activeAddendum || loan.latestRestructuringAddendum}
+        company={loan.company}
+        onClose={() => setShowAddendumModal(false)}
       />
     )}
     </>

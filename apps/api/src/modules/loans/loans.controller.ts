@@ -267,13 +267,32 @@ export const getLoanById = async (req: any, res: Response) => {
       }
     }
 
+    let latestRestructuringAddendum = null;
+    const restructureAudit = await prisma.auditLog.findFirst({
+      where: {
+        companyId: loan.companyId || req.user.companyId,
+        entityType: 'Loan',
+        entityId: loan.id,
+        action: 'RESTRUCTURE_LOAN'
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    if (restructureAudit && restructureAudit.details) {
+      try {
+        latestRestructuringAddendum = JSON.parse(restructureAudit.details);
+      } catch {
+        latestRestructuringAddendum = { notes: restructureAudit.details };
+      }
+    }
+
     const safe = {
       ...loan,
       customer: maskCustomer(loan.customer),
       guarantors: (loan.guarantors || []).map(maskGuarantor),
       disbursalVoucher,
       mandate,
-      latestLegalNotice
+      latestLegalNotice,
+      latestRestructuringAddendum
     };
     res.json(safe);
   } catch (error) {
@@ -1350,5 +1369,234 @@ export const getLoanLegalNotices = async (req: any, res: Response) => {
   } catch (error: any) {
     console.error('Get loan legal notices error:', error);
     res.status(500).json({ success: false, error: error.message || 'Failed to fetch legal notices' });
+  }
+};
+
+
+export const restructureLoan = async (req: any, res: Response) => {
+  try {
+    const loanId = Number(req.params.id);
+    const {
+      restructuringType = 'moratorium',
+      moratoriumMonths = 0,
+      additionalInstallments = 0,
+      newInterestRate,
+      capitalizePenalty = false,
+      waivePenalty = false,
+      reason = '',
+      revisedStartDate,
+      officerNotes = ''
+    } = req.body;
+
+    if (!reason.trim()) {
+      return res.status(400).json({ success: false, message: 'A verified reason/justification is required for loan restructuring (e.g. medical distress, business disruption, natural calamity).' });
+    }
+
+    const loan = await prisma.loan.findUnique({
+      where: { id: loanId },
+      include: {
+        customer: true,
+        company: true,
+        emis: { orderBy: { dueDate: 'asc' } },
+        guarantors: true
+      }
+    });
+
+    if (!loan || loan.companyId !== req.user.companyId) {
+      return res.status(404).json({ success: false, message: 'Loan not found' });
+    }
+
+    if (loan.status === 'completed' || loan.status === 'rejected' || loan.status === 'cancelled') {
+      return res.status(400).json({ success: false, message: `Cannot restructure a loan in '${loan.status}' status.` });
+    }
+
+    const clearedEmis = loan.emis.filter(e => e.status === 'paid');
+    const unpaidEmis = loan.emis.filter(e => e.status !== 'paid');
+
+    if (unpaidEmis.length === 0) {
+      return res.status(400).json({ success: false, message: 'All EMIs for this loan are already fully paid. Nothing to restructure.' });
+    }
+
+    const outstandingBalance = unpaidEmis.reduce((sum, e) => sum + (e.amount - (e.paidAmount || 0)), 0);
+    const totalPenalties = unpaidEmis.reduce((sum, e) => sum + (e.penalty || 0), 0);
+    const capitalizedPenaltyAmount = (!waivePenalty && capitalizePenalty) ? totalPenalties : 0;
+    const waivedPenaltyAmount = waivePenalty ? totalPenalties : 0;
+    const newRestructuredPrincipal = outstandingBalance + capitalizedPenaltyAmount;
+
+    const today = new Date();
+    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+    const randSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
+    const addendumRefNo = `RES-ADDENDUM-${dateStr}-${randSuffix}`;
+
+    const numMoratorium = Math.max(0, Number(moratoriumMonths) || 0);
+    const numAdditional = Math.max(0, Number(additionalInstallments) || 0);
+
+    let baseStartDate = revisedStartDate ? new Date(revisedStartDate) : new Date();
+    if (isNaN(baseStartDate.getTime())) baseStartDate = new Date();
+
+    if (numMoratorium > 0) {
+      baseStartDate.setMonth(baseStartDate.getMonth() + numMoratorium);
+    }
+
+    let updatedLoan: any = null;
+    let oldEmiAmount = loan.emis[0]?.amount || 0;
+    let revisedEmiAmount = oldEmiAmount;
+
+    await prisma.$transaction(async (tx) => {
+      if (restructuringType === 'moratorium') {
+        for (let i = 0; i < unpaidEmis.length; i++) {
+          const emi = unpaidEmis[i];
+          const currentDue = new Date(emi.dueDate);
+          const newDue = new Date(currentDue);
+          newDue.setMonth(newDue.getMonth() + numMoratorium);
+
+          await tx.eMI.update({
+            where: { id: emi.id },
+            data: {
+              dueDate: newDue,
+              status: emi.paidAmount > 0 ? 'partial' : 'pending',
+              ...(waivePenalty || capitalizePenalty ? { penalty: 0 } : {})
+            }
+          });
+        }
+      } else {
+        const newRemainingCount = unpaidEmis.length + numAdditional;
+        if (newRemainingCount <= 0) {
+          throw new Error('New tenure must be at least 1 installment.');
+        }
+
+        revisedEmiAmount = Math.round(newRestructuredPrincipal / newRemainingCount);
+
+        await tx.eMI.deleteMany({
+          where: {
+            loanId: loan.id,
+            status: { not: 'paid' }
+          }
+        });
+
+        const emisToInsert: any[] = [];
+        for (let i = 1; i <= newRemainingCount; i++) {
+          const dueDate = getNextDueDate(baseStartDate, i, loan.frequency);
+          emisToInsert.push({
+            loanId: loan.id,
+            amount: revisedEmiAmount,
+            dueDate,
+            status: 'pending',
+            penalty: 0,
+            penaltyPaid: false,
+            paidAmount: 0
+          });
+        }
+        await tx.eMI.createMany({ data: emisToInsert });
+
+        const totalNewTenure = clearedEmis.length + newRemainingCount;
+        await tx.loan.update({
+          where: { id: loan.id },
+          data: {
+            tenure: totalNewTenure,
+            status: 'active',
+            ...(newInterestRate ? { interestRate: Number(newInterestRate) } : {})
+          }
+        });
+      }
+
+      updatedLoan = await tx.loan.findUnique({
+        where: { id: loan.id },
+        include: { emis: { orderBy: { dueDate: 'asc' } } }
+      });
+    });
+
+    const addendumPayload = {
+      addendumRefNo,
+      loanId: loan.id,
+      loanRef: `LN${1000 + loan.id}`,
+      restructuringDate: today.toISOString(),
+      restructuringType,
+      reason: reason.trim(),
+      officerNotes: officerNotes.trim() || undefined,
+      borrower: {
+        id: loan.customer.id,
+        name: loan.customer.name,
+        phone: loan.customer.phone,
+        pan: loan.customer.pan ? maskPan(safeDecrypt(loan.customer.pan)) : '—',
+        aadhar: loan.customer.aadhar ? maskAadhaar(safeDecrypt(loan.customer.aadhar)) : '—'
+      },
+      company: {
+        id: loan.company?.id,
+        name: loan.company?.name || 'LenQredzo Capital Private Limited'
+      },
+      originalTerms: {
+        sanctionAmount: loan.amount,
+        originalTenure: loan.tenure,
+        frequency: loan.frequency,
+        originalEmiAmount: oldEmiAmount,
+        clearedInstallments: clearedEmis.length,
+        totalPaidSoFar: clearedEmis.reduce((sum, e) => sum + e.amount, 0)
+      },
+      restructuredTerms: {
+        outstandingBalanceAtRestructure: outstandingBalance,
+        penaltiesCapitalized: capitalizedPenaltyAmount,
+        penaltiesWaived: waivedPenaltyAmount,
+        newPrincipal: newRestructuredPrincipal,
+        moratoriumMonths: numMoratorium,
+        additionalInstallments: numAdditional,
+        newRemainingInstallments: updatedLoan.emis.filter((e: any) => e.status !== 'paid').length,
+        totalNewTenure: updatedLoan.tenure,
+        revisedEmiAmount,
+        resumptionDate: baseStartDate.toISOString().slice(0, 10),
+        newMaturityDate: updatedLoan.emis[updatedLoan.emis.length - 1]?.dueDate
+      },
+      authorizedOfficer: {
+        userId: req.user.userId,
+        name: req.user.name || 'Branch Credit Head',
+        role: req.user.role
+      }
+    };
+
+    await logAudit({
+      req,
+      action: 'RESTRUCTURE_LOAN',
+      entityType: 'Loan',
+      entityId: loan.id,
+      details: JSON.stringify(addendumPayload)
+    });
+
+    res.json({
+      success: true,
+      message: `Loan LN${1000 + loan.id} restructured successfully under ${addendumRefNo}!`,
+      addendum: addendumPayload,
+      loan: updatedLoan
+    });
+  } catch (error: any) {
+    console.error('RESTRUCTURE LOAN ERROR:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to restructure loan' });
+  }
+};
+
+export const getLoanRestructuringAddenda = async (req: any, res: Response) => {
+  try {
+    const loanId = Number(req.params.id);
+    const audits = await prisma.auditLog.findMany({
+      where: {
+        companyId: req.user.companyId,
+        entityType: 'Loan',
+        entityId: loanId,
+        action: 'RESTRUCTURE_LOAN'
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const addenda = audits.map(a => {
+      try {
+        return JSON.parse(a.details || '{}');
+      } catch {
+        return { addendumRefNo: `ADDENDUM-${a.id}`, notes: a.details };
+      }
+    });
+
+    res.json({ success: true, addenda });
+  } catch (error: any) {
+    console.error('Get restructuring addenda error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to fetch restructuring addenda' });
   }
 };
