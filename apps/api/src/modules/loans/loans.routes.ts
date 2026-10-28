@@ -7,6 +7,7 @@ import {
   disburseLoan,
   markEmiPaid,
   getCollections,
+  bulkCollectEmis,
   getPayments,
   deleteLoan,
   addGuarantorToLoan,
@@ -25,6 +26,7 @@ const router = Router();
 // Viewing is open to all logged-in staff.
 router.get('/', protect, getAllLoans);
 router.get('/collections/all', protect, getCollections);
+router.post('/collections/bulk-pay', protect, requirePermission('collection:collect'), bulkCollectEmis);
 router.get('/payments/all', protect, getPayments);
 router.get('/:id', protect, getLoanById);
 

@@ -598,6 +598,181 @@ export const markEmiPaid = async (req: any, res: Response) => {
   }
 };
 
+export const bulkCollectEmis = async (req: any, res: Response) => {
+  try {
+    const { collections, method = 'cash', reference = '', notes = '' } = req.body;
+    const cleanMethod = (method || 'cash').toLowerCase();
+    const cleanRef = (reference || '').trim();
+
+    if (!Array.isArray(collections) || collections.length === 0) {
+      return res.status(400).json({ success: false, message: 'No EMI items selected for collection' });
+    }
+
+    if (collections.length > 100) {
+      return res.status(400).json({ success: false, message: 'Batch limit exceeded (maximum 100 collections per batch)' });
+    }
+
+    if (cleanMethod !== 'cash' && cleanRef) {
+      const refCheck = validateReference(cleanMethod, cleanRef);
+      if (!refCheck.ok) {
+        return res.status(400).json({ success: false, message: refCheck.message });
+      }
+    }
+
+    const today = new Date();
+    const emiIds = collections.map((c: any) => Number(c.emiId)).filter(id => !isNaN(id) && id > 0);
+
+    if (emiIds.length !== collections.length) {
+      return res.status(400).json({ success: false, message: 'Invalid EMI ID in batch' });
+    }
+
+    // Fetch existing EMIs with loan and customer details scoped to company
+    const existingEmis = await prisma.eMI.findMany({
+      where: {
+        id: { in: emiIds },
+        loan: { companyId: req.user.companyId }
+      },
+      include: {
+        loan: {
+          include: { customer: true }
+        }
+      }
+    });
+
+    if (existingEmis.length !== emiIds.length) {
+      return res.status(404).json({ success: false, message: 'One or more EMIs were not found or do not belong to your company' });
+    }
+
+    const emiMap = new Map<number, any>();
+    for (const emi of existingEmis) {
+      emiMap.set(emi.id, emi);
+    }
+
+    // Generate unique batch voucher number
+    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+    const randSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
+    const batchVoucherNumber = `BATCH-COL-${dateStr}-${randSuffix}`;
+
+    const processedResults = await prisma.$transaction(async (tx) => {
+      const results: any[] = [];
+      const affectedLoanIds = new Set<number>();
+
+      for (const item of collections) {
+        const emiId = Number(item.emiId);
+        const emi = emiMap.get(emiId);
+        if (!emi) continue;
+
+        if (emi.status === 'paid') {
+          throw new Error(`EMI #${emi.id} (Loan LN${1000 + emi.loanId}) has already been paid`);
+        }
+
+        const alreadyPaid = emi.paidAmount || 0;
+        const remaining = emi.amount - alreadyPaid;
+        const payAmount = item.amount != null ? Math.round(Number(item.amount)) : remaining;
+
+        if (payAmount <= 0) {
+          throw new Error(`Invalid payment amount for EMI #${emi.id}. Amount must be greater than 0.`);
+        }
+        if (payAmount > remaining) {
+          throw new Error(`Amount ₹${payAmount} exceeds remaining balance of ₹${remaining} for EMI #${emi.id}`);
+        }
+
+        const newPaid = alreadyPaid + payAmount;
+        const fullyCleared = newPaid >= emi.amount;
+        const penaltyAmount = (fullyCleared && item.collectPenalty) ? calculatePenalty(emi, emi.loan, today) : 0;
+        const paymentTotal = payAmount + penaltyAmount;
+
+        await tx.eMI.update({
+          where: { id: emiId },
+          data: {
+            paidAmount: newPaid,
+            status: fullyCleared ? 'paid' : 'partial',
+            ...(fullyCleared ? { penalty: penaltyAmount, penaltyPaid: Boolean(item.collectPenalty) } : {})
+          }
+        });
+
+        await tx.payment.create({
+          data: {
+            loanId: emi.loanId,
+            amount: paymentTotal,
+            method: cleanMethod,
+            reference: cleanRef || `Batch: ${batchVoucherNumber}`,
+            verified: cleanMethod !== 'cash' && cleanRef.length > 0,
+            status: 'completed',
+            paidAt: today
+          }
+        });
+
+        affectedLoanIds.add(emi.loanId);
+
+        results.push({
+          emiId: emi.id,
+          loanId: emi.loanId,
+          loanRef: `LN${1000 + emi.loanId}`,
+          customerName: emi.loan.customer?.name || 'Borrower',
+          customerPhone: emi.loan.customer?.phone || '',
+          paidAmount: payAmount,
+          penaltyAmount,
+          totalCollected: paymentTotal,
+          status: fullyCleared ? 'paid' : 'partial',
+          dueDate: emi.dueDate
+        });
+      }
+
+      // Check loan completion for each affected loan
+      for (const loanId of affectedLoanIds) {
+        const unpaidCount = await tx.eMI.count({
+          where: { loanId, status: { not: 'paid' } }
+        });
+        if (unpaidCount === 0) {
+          await tx.loan.update({
+            where: { id: loanId },
+            data: { status: 'completed' }
+          });
+        }
+      }
+
+      return results;
+    });
+
+    const totalAmountCollected = processedResults.reduce((sum, r) => sum + r.totalCollected, 0);
+
+    // Audit log
+    await logAudit({
+      req,
+      action: 'BULK_EMI_COLLECTION',
+      entityType: 'CollectionBatch',
+      entityId: 0,
+      details: JSON.stringify({
+        batchVoucherNumber,
+        totalItems: processedResults.length,
+        totalAmountCollected,
+        method: cleanMethod,
+        reference: cleanRef,
+        notes: notes || undefined,
+        collectedByUserId: req.user.userId,
+        collectedByName: req.user.name,
+        items: processedResults
+      })
+    });
+
+    res.json({
+      success: true,
+      message: `Batch collection completed successfully! Received ₹${totalAmountCollected.toLocaleString('en-IN')} across ${processedResults.length} loans.`,
+      batchVoucherNumber,
+      totalProcessed: processedResults.length,
+      totalAmountCollected,
+      collectedAt: today.toISOString(),
+      method: cleanMethod,
+      reference: cleanRef,
+      items: processedResults
+    });
+  } catch (error: any) {
+    console.error('BULK COLLECT EMIS ERROR:', error);
+    res.status(400).json({ success: false, message: error.message || 'Bulk collection transaction failed' });
+  }
+};
+
 export const getCollections = async (req: any, res: Response) => {
   try {
     const emis = await prisma.eMI.findMany({
@@ -1080,8 +1255,8 @@ export const generateLegalNotice = async (req: any, res: Response) => {
       client: {
         companyId: loan.company?.id,
         companyName: loan.company?.name || 'LenQredzo Capital Private Limited',
-        companyEmail: loan.company?.email,
-        companyPhone: loan.company?.phone
+        companyEmail: (loan.company as any)?.email,
+        companyPhone: (loan.company as any)?.phone
       },
       borrower: {
         id: customer.id,
@@ -1106,7 +1281,7 @@ export const generateLegalNotice = async (req: any, res: Response) => {
         sanctionAmount: loan.amount,
         tenure: loan.tenure,
         frequency: loan.frequency,
-        emiAmount: loan.emiAmount
+        emiAmount: loan.emis?.[0]?.amount || (loan as any).emiAmount || 0
       },
       defaultDetails: {
         overdueEmisCount: overdueEmis.length,

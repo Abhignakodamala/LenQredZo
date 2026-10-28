@@ -4,6 +4,7 @@ import Sidebar from '@/components/Sidebar';
 import FaceCaptureModal from '@/components/FaceCaptureModal';
 import CollectionRunSheetModal from '@/components/CollectionRunSheetModal';
 import CashReconciliationModal from '@/components/CashReconciliationModal';
+import BulkCollectionModal from '@/components/BulkCollectionModal';
 import { getAuthUser, can } from '@/lib/authUser';
 import { API_URL } from '@/lib/api';
 
@@ -15,6 +16,7 @@ export default function CollectionsPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showRunSheet, setShowRunSheet] = useState(false);
   const [showCashReconciliation, setShowCashReconciliation] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
 
   // Collect dialog state
   const [dialog, setDialog] = useState<any>(null); // { emi, collectPenalty }
@@ -226,6 +228,27 @@ export default function CollectionsPage() {
               title="Manually trigger midnight penalty calculation and overdue status updates"
             >
               {runningAccrual ? '⏳ Accruing Late Fees...' : '⚡ Run Midnight Penalty Job'}
+            </button>
+
+            <button
+              onClick={() => setShowBulkModal(true)}
+              style={{
+                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '10px 18px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 4px rgba(2, 132, 199, 0.25)'
+              }}
+              title="Collect and clear multiple EMIs in 1 batch voucher"
+            >
+              ⚡ Fast Bulk Collection (Batch Mode)
             </button>
 
             <button
@@ -611,6 +634,15 @@ export default function CollectionsPage() {
       )}
 
       {/* Day-End Counter Cash Drawer & Tally Modal */}
+      {showBulkModal && (
+        <BulkCollectionModal
+          emis={emis}
+          companyName={emis[0]?.companyName || me?.companyName || 'LenQredzo Capital Private Limited'}
+          onSuccess={fetchCollections}
+          onClose={() => setShowBulkModal(false)}
+        />
+      )}
+
       {showCashReconciliation && (
         <CashReconciliationModal
           companyName={me?.companyName || 'LenQredzo Capital Pvt Ltd'}

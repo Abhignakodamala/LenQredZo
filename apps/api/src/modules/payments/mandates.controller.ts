@@ -51,7 +51,8 @@ export const createMandate = async (req: Request, res: Response) => {
     const umn = `UMN${datePrefix}${randomSuffix}`;
     const mandateId = `MAN-${datePrefix}-${loan.id}-${randomSuffix}`;
 
-    const limit = maxAmount ? Number(maxAmount) : Math.round(Number(loan.emiAmount || 0) * 1.2);
+    const defaultEmi = loan.emis?.[0]?.amount || (loan as any).emiAmount || 0;
+    const limit = maxAmount ? Number(maxAmount) : Math.round(Number(defaultEmi || 0) * 1.2);
 
     const clientBaseUrl = process.env.CLIENT_URL || 'http://localhost:3000';
     const authLink = `${clientBaseUrl}/dashboard/mandate-auth?id=${mandateId}&loanId=${loan.id}&amount=${limit}`;
@@ -78,7 +79,7 @@ export const createMandate = async (req: Request, res: Response) => {
       mandateType: mandateType.toUpperCase(),
       status: 'ACTIVE', // Simulated active for instant testing & recurring debit
       maxAmount: limit,
-      emiAmount: loan.emiAmount,
+      emiAmount: defaultEmi,
       frequency,
       startDate: now.toISOString().slice(0, 10),
       endDate,

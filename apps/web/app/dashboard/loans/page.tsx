@@ -310,7 +310,6 @@ const [guarantors, setGuarantors] = useState<Guarantor[]>([{ ...emptyGuarantor }
                   </optgroup>
                   <optgroup label="Asset & Equity Loans">
                     <option>Home Equity Loan</option>
-                    <option>Gold Loan</option>
                     <option>Loan Against Property</option>
                   </optgroup>
                   <optgroup label="Business & Commercial Loans">
