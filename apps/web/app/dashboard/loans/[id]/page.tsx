@@ -591,6 +591,38 @@ export default function LoanDetailPage() {
             </button>
           )}
 
+          {/* Send UPI Pay Link Button */}
+          {loan.status !== 'completed' && loan.status !== 'rejected' && loan.status !== 'cancelled' && (
+            <button
+              onClick={() => {
+                const payUrl = `${window.location.origin}/pay/${loan.id}`;
+                if (navigator.clipboard) {
+                  navigator.clipboard.writeText(payUrl);
+                }
+                const waText = `Dear ${loan.customer?.name || 'Borrower'},\n\nPlease pay your loan EMI for ${loan.type} (Loan Ref: LN${1000 + loan.id}) securely via UPI (PhonePe / GPay / Paytm) using your personalized payment link:\n${payUrl}\n\nRegards,\n${loan.company?.name || 'LenQredzo Capital'}`;
+                const waUrl = `https://api.whatsapp.com/send?phone=${loan.customer?.phone || ''}&text=${encodeURIComponent(waText)}`;
+                window.open(waUrl, '_blank');
+              }}
+              style={{
+                background: '#25D366',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: '700',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+              }}
+              title="Share mobile 1-tap PhonePe/GPay checkout link on WhatsApp"
+            >
+              📱 Share UPI Pay Link
+            </button>
+          )}
+
           <button
             onClick={() => setShowSanctionLetter(true)}
             style={{

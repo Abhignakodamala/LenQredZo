@@ -414,3 +414,254 @@ export const verifyPayment = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to verify payment' });
   }
 };
+
+
+
+export const getPublicLoanPaymentDetails = async (req: Request, res: Response) => {
+  try {
+    const loanId = Number(req.params.loanId);
+    if (!loanId || isNaN(loanId)) {
+      return res.status(400).json({ success: false, error: 'Invalid loan reference number' });
+    }
+
+    const loan = await prisma.loan.findUnique({
+      where: { id: loanId },
+      include: {
+        customer: true,
+        company: true,
+        emis: { orderBy: { dueDate: 'asc' } }
+      }
+    });
+
+    if (!loan) {
+      return res.status(404).json({ success: false, error: 'Loan account not found' });
+    }
+
+    const customer = loan.customer || ({} as any);
+    const company = loan.company || ({} as any);
+    const companyName = company.name || 'LenQredzo Capital Private Limited';
+    const upiVpa = (company as any).upiVpa || 'lenqredzo.pay@axisbank';
+
+    const nameParts = (customer.name || 'Borrower').trim().split(' ');
+    const maskedName = nameParts.length > 1
+      ? `${nameParts[0]} ${nameParts[nameParts.length - 1][0]}.`
+      : nameParts[0];
+
+    const maskedPhone = customer.phone && customer.phone.length >= 4
+      ? `••••••${customer.phone.slice(-4)}`
+      : '••••';
+
+    const pendingEmis = loan.emis
+      .filter((e: any) => e.status !== 'paid')
+      .map((e: any) => {
+        const remaining = e.amount - (e.paidAmount || 0);
+        return {
+          id: e.id,
+          amount: e.amount,
+          paidAmount: e.paidAmount || 0,
+          remaining,
+          dueDate: e.dueDate,
+          dueDateFormatted: new Date(e.dueDate).toLocaleDateString('en-IN', {
+            day: '2-digit', month: 'short', year: 'numeric'
+          }),
+          penalty: e.penalty || 0,
+          status: e.status
+        };
+      });
+
+    const totalOutstanding = pendingEmis.reduce((sum: number, e: any) => sum + e.remaining, 0);
+
+    let activeMandate = null;
+    const mandateAudit = await prisma.auditLog.findFirst({
+      where: {
+        entityType: 'Mandate',
+        entityId: loan.id
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    if (mandateAudit && mandateAudit.details) {
+      try {
+        const p = JSON.parse(mandateAudit.details);
+        if (p.status === 'ACTIVE') {
+          activeMandate = {
+            umn: p.umn,
+            bankName: p.bankName,
+            maskedAccount: p.maskedAccount,
+            mandateType: p.mandateType
+          };
+        }
+      } catch {}
+    }
+
+    const rzp = await getCompanyRazorpay(loan.companyId || 0);
+
+    res.json({
+      success: true,
+      loan: {
+        id: loan.id,
+        loanRef: `LN${1000 + loan.id}`,
+        type: loan.type,
+        amount: loan.amount,
+        tenure: loan.tenure,
+        frequency: loan.frequency,
+        status: loan.status,
+        totalOutstanding
+      },
+      borrower: {
+        name: maskedName,
+        phone: maskedPhone
+      },
+      company: {
+        name: companyName,
+        upiVpa,
+        supportPhone: (company as any).phone || '+91 98765 43210',
+        logo: company.logo || null
+      },
+      pendingEmis,
+      activeMandate,
+      razorpayKeyId: rzp ? rzp.keyId : null
+    });
+  } catch (error: any) {
+    console.error('Get public loan payment details error:', error);
+    res.status(500).json({ success: false, error: 'Unable to retrieve loan details' });
+  }
+};
+
+export const submitPublicUpiPayment = async (req: Request, res: Response) => {
+  try {
+    const { loanId, emiId, amount, utr, payerName, payerPhone } = req.body;
+
+    if (!loanId || !emiId || !amount || !utr) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please provide Loan ID, EMI ID, Amount, and the 12-digit UPI UTR reference number.'
+      });
+    }
+
+    const cleanUtr = String(utr).trim();
+    if (cleanUtr.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please enter a valid Bank UTR / UPI Reference Number (at least 6 alphanumeric characters).'
+      });
+    }
+
+    const loan = await prisma.loan.findUnique({
+      where: { id: Number(loanId) },
+      include: { customer: true, company: true }
+    });
+
+    if (!loan) {
+      return res.status(404).json({ success: false, error: 'Loan account not found' });
+    }
+
+    const emi = await prisma.eMI.findUnique({
+      where: { id: Number(emiId) }
+    });
+
+    if (!emi || emi.loanId !== loan.id) {
+      return res.status(404).json({ success: false, error: 'EMI installment record not found' });
+    }
+
+    if (emi.status === 'paid') {
+      return res.status(400).json({ success: false, error: 'This EMI installment has already been settled in full.' });
+    }
+
+    const payAmount = Math.round(Number(amount));
+    if (payAmount <= 0) {
+      return res.status(400).json({ success: false, error: 'Payment amount must be greater than zero.' });
+    }
+
+    const remaining = emi.amount - (emi.paidAmount || 0);
+    if (payAmount > remaining) {
+      return res.status(400).json({
+        success: false,
+        error: `Amount exceeds the remaining EMI balance of ₹${remaining.toLocaleString('en-IN')}`
+      });
+    }
+
+    const newPaid = (emi.paidAmount || 0) + payAmount;
+    const fullyCleared = newPaid >= emi.amount;
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const randSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
+    const receiptNumber = `RCT-UPI-${dateStr}-${randSuffix}`;
+
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.eMI.update({
+        where: { id: emi.id },
+        data: {
+          paidAmount: newPaid,
+          status: fullyCleared ? 'paid' : 'partial'
+        }
+      });
+
+      const payment = await tx.payment.create({
+        data: {
+          loanId: loan.id,
+          amount: payAmount,
+          method: 'upi_borrower_portal',
+          reference: cleanUtr,
+          verified: true,
+          status: 'completed',
+          paidAt: now
+        }
+      });
+
+      const remainingPending = await tx.eMI.count({
+        where: { loanId: loan.id, status: { not: 'paid' } }
+      });
+
+      let loanCompleted = false;
+      if (remainingPending === 0) {
+        await tx.loan.update({
+          where: { id: loan.id },
+          data: { status: 'completed' }
+        });
+        loanCompleted = true;
+      }
+
+      return { payment, loanCompleted };
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        companyId: loan.companyId || 0,
+        action: 'BORROWER_UPI_PAYMENT',
+        entityType: 'Payment',
+        entityId: result.payment.id,
+        details: JSON.stringify({
+          receiptNumber,
+          loanId: loan.id,
+          loanRef: `LN${1000 + loan.id}`,
+          emiId: emi.id,
+          amount: payAmount,
+          utr: cleanUtr,
+          payerName: payerName || loan.customer?.name,
+          payerPhone: payerPhone || loan.customer?.phone,
+          paidAt: now.toISOString(),
+          loanCompleted: result.loanCompleted
+        })
+      }
+    });
+
+    res.json({
+      success: true,
+      message: `Payment of ₹${payAmount.toLocaleString('en-IN')} confirmed successfully!`,
+      receipt: {
+        receiptNumber,
+        loanRef: `LN${1000 + loan.id}`,
+        borrowerName: loan.customer?.name,
+        amount: payAmount,
+        utr: cleanUtr,
+        paidAt: now.toISOString(),
+        companyName: loan.company?.name || 'LenQredzo Capital',
+        loanCompleted: result.loanCompleted,
+        status: fullyCleared ? 'CLEARED' : 'PARTIAL'
+      }
+    });
+  } catch (error: any) {
+    console.error('Submit public UPI payment error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Payment processing failed' });
+  }
+};

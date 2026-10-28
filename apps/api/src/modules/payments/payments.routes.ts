@@ -3,7 +3,9 @@ import {
   sendEmiPaymentLink,
   handleRazorpayWebhook,
   createOrder,
-  verifyPayment
+  verifyPayment,
+  getPublicLoanPaymentDetails,
+  submitPublicUpiPayment
 } from './payments.controller';
 import { protect } from '../../middleware/auth';
 import {
@@ -20,6 +22,10 @@ const router = Router();
 
 // Public webhook route (called by Razorpay servers with cryptographic signature verification)
 router.post('/webhook', handleRazorpayWebhook);
+
+// Public Borrower 1-Tap UPI Payment Portal
+router.get('/public/pay/:loanId', getPublicLoanPaymentDetails);
+router.post('/public/submit-upi', submitPublicUpiPayment);
 
 // Protected routes (called by authenticated finance company staff)
 router.post('/send-payment-link', protect, sendEmiPaymentLink);
