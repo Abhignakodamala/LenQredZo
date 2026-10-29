@@ -29,11 +29,11 @@ const logoStorage = multer.diskStorage({
 });
 
 const logoFileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg', 'image/svg+xml'];
+  const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
   if (allowedMimes.includes(file.mimetype.toLowerCase())) {
     cb(null, true);
   } else {
-    cb(new Error('Only JPEG, PNG, WEBP, and SVG images are allowed as company logo.'));
+    cb(new Error('Only JPEG, PNG, and WEBP images are allowed as company logo.'));
   }
 };
 

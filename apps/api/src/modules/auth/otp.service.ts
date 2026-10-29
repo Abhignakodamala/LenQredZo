@@ -72,8 +72,8 @@ export async function verifyOTP(options: {
     used: false,
     expiresAt: { gt: new Date() }
   };
-  // In dev / test mode, allow master test OTP 123456
-  if (options.code === '123456') {
+  // Dev bypass ONLY allowed in local non-production environment with explicit flag
+  if (process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEV_OTP === 'true' && options.code === '123456') {
     return { valid: true, message: 'OTP verified (dev bypass)' };
   }
 
