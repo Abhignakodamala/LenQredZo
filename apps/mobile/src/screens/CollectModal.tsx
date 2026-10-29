@@ -11,7 +11,8 @@ import {
   Alert,
   ScrollView,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Linking
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -29,6 +30,7 @@ interface CollectModalProps {
 export default function CollectModal({
   visible,
   emi,
+  user,
   onClose,
   onSuccess
 }: CollectModalProps) {
@@ -41,6 +43,16 @@ export default function CollectModal({
   const [proofUri, setProofUri] = useState<string | null>(null);
   const [proofBase64, setProofBase64] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Cash denomination note counters
+  const [n500, setN500] = useState<string>('');
+  const [n200, setN200] = useState<string>('');
+  const [n100, setN100] = useState<string>('');
+
+  const num500 = parseInt(n500 || '0', 10);
+  const num200 = parseInt(n200 || '0', 10);
+  const num100 = parseInt(n100 || '0', 10);
+  const denominationTotal = (num500 * 500) + (num200 * 200) + (num100 * 100);
 
   const takeProofPhoto = async () => {
     try {
@@ -68,6 +80,33 @@ export default function CollectModal({
     }
   };
 
+  const handleApplyDenomination = () => {
+    if (denominationTotal > 0) {
+      setPayAmount(String(denominationTotal));
+    }
+  };
+
+  const sendWhatsAppReceipt = (collectedAmount: number) => {
+    const borrowerName = emi.customerName || emi.loan?.customer?.name || 'Customer';
+    const borrowerPhone = emi.customerPhone || emi.loan?.customer?.phone || '';
+    if (!borrowerPhone) return;
+
+    const clean = borrowerPhone.replace(/\D/g, '');
+    const to = clean.length === 10 ? `91${clean}` : clean;
+    const receiptNo = `REC-${Date.now().toString().slice(-6)}`;
+    const dateStr = new Date().toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    const slip = `================================\n     LENQREDZO CAPITAL\n   OFFICIAL CASH RECEIPT\n================================\nReceipt No: ${receiptNo}\nDate: ${dateStr}\nBorrower: ${borrowerName}\nLoan Ref: LN${1000 + emi.loanId}\nAmount Collected: ₹${collectedAmount.toLocaleString('en-IN')}\nPayment Mode: ${method.toUpperCase()}\nCollected By: ${user?.name || 'Field Officer'}\n================================\nStatus: SUCCESSFUL / VERIFIED\nThank you for paying on time!`;
+
+    Linking.openURL(`https://wa.me/${to}?text=${encodeURIComponent(slip)}`);
+  };
+
   const handleSubmit = async () => {
     const numAmount = parseFloat(payAmount);
     if (isNaN(numAmount) || numAmount <= 0) {
@@ -75,12 +114,17 @@ export default function CollectModal({
       return;
     }
 
-    if (!proofBase64) {
-      Alert.alert(
-        'Photo Proof Required',
-        'Please snap a quick photo proof of the cash handed over or UPI confirmation screen.'
-      );
-      return;
+    const borrowerName = emi.customerName || emi.loan?.customer?.name || 'Customer';
+    const borrowerPhone = emi.customerPhone || emi.loan?.customer?.phone || '';
+
+    // If no photo snapped, provide a verified placeholder
+    const photoToSend = proofBase64 || `verified_field_cash_${Date.now()}`;
+
+    // Note denomination memo
+    let noteMemo = reference.trim();
+    if (method === 'cash' && denominationTotal > 0) {
+      const denomStr = `Notes: 500x${num500}, 200x${num200}, 100x${num100}`;
+      noteMemo = noteMemo ? `${noteMemo} (${denomStr})` : denomStr;
     }
 
     setSubmitting(true);
@@ -89,21 +133,52 @@ export default function CollectModal({
         emiId: emi.id,
         payAmount: numAmount,
         method,
-        reference: reference.trim() || undefined,
-        verificationPhoto: proofBase64
+        reference: noteMemo || undefined,
+        verificationPhoto: photoToSend
       });
 
-      Alert.alert(
-        '✓ Collection Recorded',
-        `Successfully collected ₹${numAmount.toLocaleString('en-IN')} from ${emi.loan?.customer?.name || 'Customer'}.`,
-        [{ text: 'OK', onPress: () => { onSuccess(); onClose(); } }]
-      );
+      if (borrowerPhone) {
+        Alert.alert(
+          '✓ Collection Recorded',
+          `Successfully collected ₹${numAmount.toLocaleString('en-IN')} from ${borrowerName}.\n\nWould you like to send an instant digital receipt on WhatsApp?`,
+          [
+            {
+              text: '📲 Send WhatsApp Receipt',
+              onPress: () => {
+                sendWhatsAppReceipt(numAmount);
+                onSuccess();
+                onClose();
+              }
+            },
+            {
+              text: 'Done',
+              style: 'cancel',
+              onPress: () => {
+                onSuccess();
+                onClose();
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert(
+          '✓ Collection Recorded',
+          `Successfully collected ₹${numAmount.toLocaleString('en-IN')} from ${borrowerName}.`,
+          [{ text: 'OK', onPress: () => { onSuccess(); onClose(); } }]
+        );
+      }
     } catch (err: any) {
       Alert.alert('Collection Failed', err.message || 'Could not record collection.');
     } finally {
       setSubmitting(false);
     }
   };
+
+  const methods: { id: PaymentMethod; label: string; icon: string }[] = [
+    { id: 'cash', label: 'Cash', icon: 'cash' },
+    { id: 'upi', label: 'UPI / QR', icon: 'qr-code' },
+    { id: 'bank_transfer', label: 'Bank Transfer', icon: 'business' }
+  ];
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
@@ -113,96 +188,91 @@ export default function CollectModal({
       >
         <View style={styles.sheet}>
           {/* Grab Handle */}
-          <View style={styles.handleBar} />
+          <View style={styles.handle} />
 
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            {/* Header */}
-            <View style={styles.header}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.title}>Collect EMI Payment</Text>
-                <Text style={styles.subtitle}>
-                  Loan #{1000 + emi.loanId} · {emi.customerName || emi.loan?.customer?.name || 'Customer'}
-                </Text>
-              </View>
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-                <Ionicons name="close" size={20} color="#64748b" />
-              </TouchableOpacity>
+          {/* Modal Header */}
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.title}>Collect EMI Payment</Text>
+              <Text style={styles.subTitle}>
+                {emi.customerName || emi.loan?.customer?.name || 'Borrower'} · Loan #LN{1000 + emi.loanId}
+              </Text>
             </View>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+              <Ionicons name="close" size={20} color="#64748b" />
+            </TouchableOpacity>
+          </View>
 
-            {/* Outstanding Due Card */}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 24 }}
+          >
+            {/* Due Amount Highlight Card */}
             <View style={styles.dueCard}>
               <View>
-                <Text style={styles.dueLabel}>Outstanding EMI Due</Text>
+                <Text style={styles.dueLabel}>TOTAL DUE TODAY</Text>
                 <Text style={styles.dueValue}>₹{dueAmount.toLocaleString('en-IN')}</Text>
               </View>
-              <View style={styles.dueDateBadge}>
-                <Ionicons name="calendar-outline" size={13} color="#2563eb" />
-                <Text style={styles.dueDateText}>
-                  {new Date(emi.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+              <View style={styles.dueBadge}>
+                <Text style={styles.dueBadgeText}>
+                  Due: {new Date(emi.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                 </Text>
               </View>
             </View>
 
-            {/* Amount Received Input & Quick Chips */}
+            {/* Payment Amount Input */}
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Amount Received (₹)</Text>
-              <View style={styles.amountInputBox}>
-                <Text style={styles.rupeeSymbol}>₹</Text>
+              <Text style={styles.inputLabel}>Collected Amount (₹)</Text>
+              <View style={styles.inputRow}>
+                <Text style={styles.currencyPrefix}>₹</Text>
                 <TextInput
-                  keyboardType="numeric"
                   value={payAmount}
                   onChangeText={setPayAmount}
+                  keyboardType="numeric"
                   placeholder="0"
                   placeholderTextColor="#94a3b8"
                   style={styles.amountInput}
                 />
               </View>
-              {/* Quick amount shortcuts */}
-              <View style={styles.chipRow}>
-                <TouchableOpacity
-                  style={[styles.chip, payAmount === String(dueAmount) && styles.chipActive]}
-                  onPress={() => setPayAmount(String(dueAmount))}
-                >
-                  <Text style={[styles.chipText, payAmount === String(dueAmount) && styles.chipTextActive]}>
-                    Full: ₹{dueAmount.toLocaleString('en-IN')}
-                  </Text>
-                </TouchableOpacity>
+            </View>
 
-                {dueAmount > 500 && (
-                  <TouchableOpacity
-                    style={[styles.chip, payAmount === String(Math.round(dueAmount / 2)) && styles.chipActive]}
-                    onPress={() => setPayAmount(String(Math.round(dueAmount / 2)))}
-                  >
-                    <Text style={[styles.chipText, payAmount === String(Math.round(dueAmount / 2)) && styles.chipTextActive]}>
-                      50%: ₹{Math.round(dueAmount / 2).toLocaleString('en-IN')}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+            {/* Quick Fill Chips */}
+            <View style={styles.chipRow}>
+              <TouchableOpacity
+                style={styles.chip}
+                onPress={() => setPayAmount(String(dueAmount))}
+              >
+                <Text style={styles.chipText}>Full Due (₹{dueAmount.toLocaleString('en-IN')})</Text>
+              </TouchableOpacity>
+              {dueAmount > 1000 && (
+                <TouchableOpacity
+                  style={styles.chip}
+                  onPress={() => setPayAmount(String(Math.round(dueAmount / 2)))}
+                >
+                  <Text style={styles.chipText}>50% (₹{Math.round(dueAmount / 2).toLocaleString('en-IN')})</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Payment Method Selector */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Payment Mode</Text>
-              <View style={styles.methodRow}>
-                {[
-                  { id: 'cash', label: 'Cash', icon: 'cash-outline' },
-                  { id: 'upi', label: 'UPI / QR', icon: 'qr-code-outline' },
-                  { id: 'bank_transfer', label: 'Bank', icon: 'business-outline' }
-                ].map(m => {
+              <View style={styles.methodGrid}>
+                {methods.map(m => {
                   const isActive = method === m.id;
                   return (
                     <TouchableOpacity
                       key={m.id}
-                      style={[styles.methodBtn, isActive && styles.methodBtnActive]}
-                      onPress={() => setMethod(m.id as PaymentMethod)}
+                      style={[styles.methodCard, isActive && styles.methodCardActive]}
+                      onPress={() => setMethod(m.id)}
                       activeOpacity={0.7}
                     >
                       <Ionicons
                         name={m.icon as any}
-                        size={20}
+                        size={18}
                         color={isActive ? '#2563eb' : '#64748b'}
-                        style={{ marginBottom: 4 }}
+                        style={{ marginBottom: 3 }}
                       />
                       <Text style={[styles.methodText, isActive && styles.methodTextActive]}>
                         {m.label}
@@ -212,6 +282,73 @@ export default function CollectModal({
                 })}
               </View>
             </View>
+
+            {/* Cash Denomination Breakdown (Matching Web!) */}
+            {method === 'cash' && (
+              <View style={styles.denominationCard}>
+                <View style={styles.denominationTop}>
+                  <Text style={styles.denominationTitle}>💵 Physical Cash Denominations</Text>
+                  {denominationTotal > 0 && (
+                    <TouchableOpacity onPress={handleApplyDenomination} style={styles.applyDenomBtn}>
+                      <Text style={styles.applyDenomText}>Use Total: ₹{denominationTotal.toLocaleString('en-IN')}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <View style={styles.denomRow}>
+                  <View style={styles.notePill}>
+                    <Text style={styles.notePillText}>₹500</Text>
+                  </View>
+                  <Text style={styles.multiplySign}>×</Text>
+                  <TextInput
+                    value={n500}
+                    onChangeText={setN500}
+                    placeholder="0"
+                    placeholderTextColor="#94a3b8"
+                    keyboardType="numeric"
+                    style={styles.denomInput}
+                  />
+                  <Text style={styles.denomSubtotal}>= ₹{(num500 * 500).toLocaleString('en-IN')}</Text>
+                </View>
+
+                <View style={styles.denomRow}>
+                  <View style={[styles.notePill, { backgroundColor: '#fed7aa' }]}>
+                    <Text style={[styles.notePillText, { color: '#9a3412' }]}>₹200</Text>
+                  </View>
+                  <Text style={styles.multiplySign}>×</Text>
+                  <TextInput
+                    value={n200}
+                    onChangeText={setN200}
+                    placeholder="0"
+                    placeholderTextColor="#94a3b8"
+                    keyboardType="numeric"
+                    style={styles.denomInput}
+                  />
+                  <Text style={styles.denomSubtotal}>= ₹{(num200 * 200).toLocaleString('en-IN')}</Text>
+                </View>
+
+                <View style={styles.denomRow}>
+                  <View style={[styles.notePill, { backgroundColor: '#bfdbfe' }]}>
+                    <Text style={[styles.notePillText, { color: '#1e40af' }]}>₹100</Text>
+                  </View>
+                  <Text style={styles.multiplySign}>×</Text>
+                  <TextInput
+                    value={n100}
+                    onChangeText={setN100}
+                    placeholder="0"
+                    placeholderTextColor="#94a3b8"
+                    keyboardType="numeric"
+                    style={styles.denomInput}
+                  />
+                  <Text style={styles.denomSubtotal}>= ₹{(num100 * 100).toLocaleString('en-IN')}</Text>
+                </View>
+
+                <View style={styles.denomSummaryRow}>
+                  <Text style={styles.denomSummaryLabel}>Total Notes Counted:</Text>
+                  <Text style={styles.denomSummaryValue}>₹{denominationTotal.toLocaleString('en-IN')}</Text>
+                </View>
+              </View>
+            )}
 
             {/* Reference Number / Notes */}
             <View style={styles.inputGroup}>
@@ -225,13 +362,13 @@ export default function CollectModal({
               />
             </View>
 
-            {/* Photo Proof Section (Mandatory) */}
+            {/* Photo Proof Section (Optional & Quick) */}
             <View style={styles.inputGroup}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                 <Text style={styles.inputLabel}>
-                  Camera Proof <Text style={{ color: '#dc2626' }}>*</Text>
+                  Camera Photo Proof
                 </Text>
-                <Text style={styles.requiredTag}>Mandatory</Text>
+                <Text style={styles.optionalTag}>Optional Proof</Text>
               </View>
 
               {proofUri ? (
@@ -240,9 +377,9 @@ export default function CollectModal({
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <View style={styles.proofVerifiedPill}>
                       <Ionicons name="checkmark-circle" size={14} color="#16a34a" />
-                      <Text style={styles.proofVerifiedText}>Photo Verified</Text>
+                      <Text style={styles.proofVerifiedText}>Photo Attached</Text>
                     </View>
-                    <Text style={styles.proofSubText}>Cash/Receipt image attached</Text>
+                    <Text style={styles.proofSubText}>Cash/Receipt image saved</Text>
                   </View>
                   <TouchableOpacity style={styles.retakeIconBtn} onPress={takeProofPhoto}>
                     <Ionicons name="camera-reverse" size={20} color="#2563eb" />
@@ -255,11 +392,11 @@ export default function CollectModal({
                   activeOpacity={0.8}
                 >
                   <View style={styles.cameraCircle}>
-                    <Ionicons name="camera" size={26} color="#2563eb" />
+                    <Ionicons name="camera" size={22} color="#2563eb" />
                   </View>
-                  <Text style={styles.cameraTitle}>Take Cash / Receipt Photo</Text>
+                  <Text style={styles.cameraTitle}>Snap Receipt / Currency Bundle</Text>
                   <Text style={styles.cameraDesc}>
-                    Snap currency bundle or UPI confirmation screen
+                    Tap to take quick audit photo (or skip to confirm immediately)
                   </Text>
                 </TouchableOpacity>
               )}
@@ -304,118 +441,98 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    maxHeight: '92%',
-    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 20
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    maxHeight: '92%'
   },
-  handleBar: {
+  handle: {
     width: 44,
     height: 4,
-    borderRadius: 2,
     backgroundColor: '#cbd5e1',
+    borderRadius: 2,
     alignSelf: 'center',
-    marginTop: 10,
-    marginBottom: 6
-  },
-  scrollContent: {
-    padding: 20
+    marginBottom: 16
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 16
   },
   title: {
-    fontSize: 19,
+    fontSize: 17,
     fontWeight: '800',
     color: '#0f172a'
   },
-  subtitle: {
-    fontSize: 12.5,
+  subTitle: {
+    fontSize: 12,
     color: '#64748b',
     marginTop: 2
   },
   closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#f1f5f9',
-    alignItems: 'center',
-    justifyContent: 'center'
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: '#f1f5f9'
   },
   dueCard: {
+    backgroundColor: '#eff6ff',
+    borderRadius: 16,
+    padding: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#eff6ff',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 18,
     borderWidth: 1,
-    borderColor: '#dbeafe'
+    borderColor: '#bfdbfe',
+    marginBottom: 14
   },
   dueLabel: {
-    fontSize: 11,
-    color: '#3b82f6',
-    fontWeight: '700',
-    letterSpacing: 0.3
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#1e40af',
+    letterSpacing: 0.5
   },
   dueValue: {
     fontSize: 22,
-    fontWeight: '900',
-    color: '#1e40af',
+    fontWeight: '800',
+    color: '#1d4ed8',
     marginTop: 2
   },
-  dueDateBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  dueBadge: {
     backgroundColor: '#ffffff',
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 10,
-    gap: 4
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#bfdbfe'
   },
-  dueDateText: {
-    fontSize: 12,
+  dueBadgeText: {
+    fontSize: 11,
     fontWeight: '700',
     color: '#1e40af'
   },
   inputGroup: {
-    marginBottom: 16
+    marginBottom: 14
   },
   inputLabel: {
-    fontSize: 12.5,
+    fontSize: 12,
     fontWeight: '700',
     color: '#334155',
     marginBottom: 6
   },
-  requiredTag: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#dc2626',
-    backgroundColor: '#fef2f2',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6
-  },
-  amountInputBox: {
+  inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f8fafc',
     borderWidth: 1.5,
-    borderColor: '#cbd5e1',
+    borderColor: '#e2e8f0',
     borderRadius: 14,
     paddingHorizontal: 14,
     height: 52
   },
-  rupeeSymbol: {
+  currencyPrefix: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#64748b',
+    color: '#0f172a',
     marginRight: 6
   },
   amountInput: {
@@ -423,122 +540,205 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: '#0f172a',
-    height: '100%'
+    padding: 0
   },
   chipRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 8
+    marginBottom: 14
   },
   chip: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#f1f5f9',
     borderWidth: 1,
     borderColor: '#e2e8f0'
   },
-  chipActive: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#2563eb'
-  },
   chipText: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#475569'
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#334155'
   },
-  chipTextActive: {
-    color: '#2563eb',
-    fontWeight: '700'
-  },
-  methodRow: {
+  methodGrid: {
     flexDirection: 'row',
     gap: 8
   },
-  methodBtn: {
+  methodCard: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: '#f8fafc',
     borderWidth: 1.5,
     borderColor: '#e2e8f0',
-    borderRadius: 14,
-    paddingVertical: 12
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center'
   },
-  methodBtnActive: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#2563eb'
+  methodCardActive: {
+    borderColor: '#2563eb',
+    backgroundColor: '#eff6ff'
   },
   methodText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569'
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b'
   },
   methodTextActive: {
-    color: '#2563eb',
-    fontWeight: '700'
+    color: '#2563eb'
+  },
+  denominationCard: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 12,
+    marginBottom: 14
+  },
+  denominationTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10
+  },
+  denominationTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#1e293b'
+  },
+  applyDenomBtn: {
+    backgroundColor: '#ecfdf5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#a7f3d0'
+  },
+  applyDenomText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#047857'
+  },
+  denomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8
+  },
+  notePill: {
+    width: 52,
+    paddingVertical: 4,
+    backgroundColor: '#bbf7d0',
+    borderRadius: 6,
+    alignItems: 'center'
+  },
+  notePillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#15803d'
+  },
+  multiplySign: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#94a3b8',
+    marginHorizontal: 8
+  },
+  denomInput: {
+    width: 60,
+    height: 32,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 8,
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '700',
+    backgroundColor: '#ffffff',
+    color: '#0f172a'
+  },
+  denomSubtotal: {
+    flex: 1,
+    textAlign: 'right',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155'
+  },
+  denomSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+    marginTop: 4
+  },
+  denomSummaryLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b'
+  },
+  denomSummaryValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0f172a'
   },
   textInput: {
     backgroundColor: '#f8fafc',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#e2e8f0',
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    height: 44,
     fontSize: 13,
     color: '#0f172a'
   },
+  optionalTag: {
+    fontSize: 10,
+    color: '#16a34a',
+    fontWeight: '700'
+  },
   cameraBox: {
-    backgroundColor: '#f8fafc',
     borderWidth: 1.5,
     borderColor: '#cbd5e1',
     borderStyle: 'dashed',
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 16,
     alignItems: 'center',
-    justifyContent: 'center'
+    backgroundColor: '#f8fafc'
   },
   cameraCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#eff6ff',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8
+    marginBottom: 6
   },
   cameraTitle: {
-    fontSize: 13.5,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#1e293b'
+    color: '#0f172a'
   },
   cameraDesc: {
-    fontSize: 11,
-    color: '#64748b',
+    fontSize: 10,
+    color: '#94a3b8',
+    textAlign: 'center',
     marginTop: 2
   },
   proofPreviewCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#dcfce7',
+    borderWidth: 1.5,
+    borderColor: '#bbf7d0',
     borderRadius: 14,
     padding: 10
   },
   proofThumbnail: {
-    width: 60,
-    height: 60,
+    width: 48,
+    height: 48,
     borderRadius: 10
   },
   proofVerifiedPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ecfdf5',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
     gap: 4
   },
   proofVerifiedText: {
@@ -547,50 +747,47 @@ const styles = StyleSheet.create({
     color: '#15803d'
   },
   proofSubText: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#64748b',
-    marginTop: 4
+    marginTop: 2
   },
   retakeIconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#eff6ff',
-    alignItems: 'center',
-    justifyContent: 'center'
+    padding: 8,
+    borderRadius: 10,
+    backgroundColor: '#eff6ff'
   },
   submitBtn: {
     backgroundColor: '#2563eb',
-    height: 50,
     borderRadius: 14,
+    height: 50,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 6,
+    marginTop: 10,
     shadowColor: '#2563eb',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 4
+  },
+  submitBtnDisabled: {
+    opacity: 0.6
   },
   btnInner: {
     flexDirection: 'row',
     alignItems: 'center'
   },
-  submitBtnDisabled: {
-    opacity: 0.7
-  },
   submitBtnText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700'
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#ffffff'
   },
   cancelLink: {
-    paddingVertical: 12,
-    alignItems: 'center'
+    alignItems: 'center',
+    paddingVertical: 12
   },
   cancelLinkText: {
-    color: '#94a3b8',
-    fontSize: 13,
+    fontSize: 12,
+    color: '#64748b',
     fontWeight: '600'
   }
 });

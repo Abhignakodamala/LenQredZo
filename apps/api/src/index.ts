@@ -107,6 +107,10 @@ app.get('/', (req, res) => {
   res.json({ message: 'LenQredZo AI API is running!' });
 });
 
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', server: 'LenQredzo API', ip: '192.168.1.20', time: new Date().toISOString() });
+});
+
 app.listen(PORT, () => {
   console.log('Server running on port ' + PORT);
 });

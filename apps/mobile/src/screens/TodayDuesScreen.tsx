@@ -127,15 +127,18 @@ export default function TodayDuesScreen({ user, onSwitchToExecutiveMode }: Today
     Linking.openURL(`tel:${phone}`);
   };
 
-  const handleWhatsApp = (phone: string, customerName: string, amount: number) => {
+  const handleWhatsApp = (phone: string, customerName: string, amount: number, loanId?: number) => {
     if (!phone) {
       Alert.alert('No Phone', 'No contact number available for this borrower.');
       return;
     }
     const cleanPhone = phone.replace(/\D/g, '');
     const fullPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+    const loanRef = loanId ? `LN${1000 + loanId}` : 'your active loan';
+    const payUrl = loanId ? `http://192.168.1.20:3000/pay/${loanId}` : 'http://192.168.1.20:3000';
+
     const msg = encodeURIComponent(
-      `Hello ${customerName}, this is ${user.name} from LenQredzo. Your EMI payment of ₹${amount.toLocaleString('en-IN')} is scheduled for collection. Please keep it ready or tap to pay via UPI.`
+      `Namaste ${customerName} garu,\n\nThis is a reminder from LenQredzo Capital regarding your loan (${loanRef}).\nYour EMI payment of ₹${amount.toLocaleString('en-IN')} is scheduled for collection.\n\nYou can pay instantly via 1-Tap UPI link:\n👉 ${payUrl}\n\n(Pay securely via Google Pay, PhonePe, Paytm or BHIM UPI). Thank you!`
     );
     Linking.openURL(`https://wa.me/${fullPhone}?text=${msg}`);
   };
@@ -221,7 +224,7 @@ export default function TodayDuesScreen({ user, onSwitchToExecutiveMode }: Today
 
               <TouchableOpacity
                 style={[styles.actionPill, styles.waPill]}
-                onPress={() => handleWhatsApp(borrowerPhone, borrowerName, dueAmount)}
+                onPress={() => handleWhatsApp(borrowerPhone, borrowerName, dueAmount, item.loanId)}
                 activeOpacity={0.7}
               >
                 <Ionicons name="logo-whatsapp" size={14} color="#16a34a" />

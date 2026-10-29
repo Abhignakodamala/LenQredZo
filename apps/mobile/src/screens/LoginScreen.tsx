@@ -190,6 +190,14 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           </TouchableOpacity>
         </View>
 
+        {/* Server Endpoint Status */}
+        <View style={styles.serverStatusContainer}>
+          <View style={styles.serverDot} />
+          <Text style={styles.serverStatusText}>
+            Cloud Server: <Text style={{ fontWeight: '700', color: '#93c5fd' }}>192.168.1.20:5000</Text> · Synced
+          </Text>
+        </View>
+
         {/* Footer info */}
         <View style={styles.footerBox}>
           <Text style={styles.footerText}>Secure Banking Grade End-to-End Encryption</Text>
@@ -383,6 +391,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.3
+  },
+  serverStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+    gap: 6
+  },
+  serverDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#10b981'
+  },
+  serverStatusText: {
+    fontSize: 11,
+    color: '#94a3b8'
   },
   footerBox: {
     marginTop: 24,

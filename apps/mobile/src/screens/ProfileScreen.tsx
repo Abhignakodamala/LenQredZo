@@ -46,6 +46,20 @@ export default function ProfileScreen({ user, onLogout, appMode = 'executive', o
     }
   };
 
+  const handleTestConnection = async () => {
+    try {
+      const url = apiUrl.trim() || DEFAULT_API_URL;
+      const res = await fetch(`${url}/api/health`);
+      if (res.ok) {
+        Alert.alert('🟢 Server Connected', `Connection successful to ${url}. 100% Synced with Web & Cloud!`);
+      } else {
+        Alert.alert('⚠️ Server Warning', `Server responded with status ${res.status}`);
+      }
+    } catch (err: any) {
+      Alert.alert('🔴 Connection Failed', `Could not reach ${apiUrl || DEFAULT_API_URL}. Check if your backend is running.`);
+    }
+  };
+
   const handleResetApiUrl = async () => {
     setApiUrlState(DEFAULT_API_URL);
     await setApiUrl(DEFAULT_API_URL);
@@ -187,7 +201,7 @@ export default function ProfileScreen({ user, onLogout, appMode = 'executive', o
         <TextInput
           value={apiUrl}
           onChangeText={setApiUrlState}
-          placeholder="http://192.168.0.186:5000"
+          placeholder="http://192.168.1.20:5000"
           placeholderTextColor="#94a3b8"
           autoCapitalize="none"
           autoCorrect={false}
@@ -198,7 +212,10 @@ export default function ProfileScreen({ user, onLogout, appMode = 'executive', o
             <Text style={styles.saveBtnText}>Save Endpoint</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.resetBtn} onPress={handleResetApiUrl} activeOpacity={0.7}>
-            <Text style={styles.resetBtnText}>Reset Default</Text>
+            <Text style={styles.resetBtnText}>Reset</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.resetBtn, { backgroundColor: '#eff6ff', borderColor: '#bfdbfe' }]} onPress={handleTestConnection} activeOpacity={0.7}>
+            <Text style={[styles.resetBtnText, { color: '#2563eb', fontWeight: '700' }]}>Test Ping</Text>
           </TouchableOpacity>
         </View>
       </View>
