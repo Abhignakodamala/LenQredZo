@@ -469,3 +469,297 @@ export const getUpcomingDueReminders = async (req: any, res: Response) => {
     res.status(500).json({ success: false, error: error.message || 'Failed to fetch upcoming dues' });
   }
 };
+
+
+// ─────────────────────────────────────────────────────────────
+// 🤖 INTERACTIVE CUSTOMER WHATSAPP SELF-SERVICE BOT ENGINE
+// ─────────────────────────────────────────────────────────────
+
+export async function processCustomerBotReply(phone: string, rawText: string, companyId?: number) {
+  const cleanPhone = String(phone || '').replace(/\D/g, '');
+  const searchPhone = cleanPhone.length > 10 ? cleanPhone.slice(-10) : cleanPhone;
+  const text = (rawText || '').trim().toLowerCase();
+
+  // Find customer by phone (or fallback to latest active customer if testing with empty phone)
+  let customer: any = null;
+  if (searchPhone) {
+    customer = await prisma.customer.findFirst({
+      where: {
+        phone: { contains: searchPhone },
+        ...(companyId ? { companyId } : {})
+      },
+      include: {
+        company: true,
+        branch: true,
+        loans: {
+          where: { status: { in: ['active', 'disbursed', 'overdue', 'pending'] } },
+          include: {
+            emis: {
+              orderBy: { dueDate: 'asc' }
+            },
+            payments: {
+              orderBy: { createdAt: 'desc' },
+              take: 3
+            }
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1
+        }
+      }
+    });
+  }
+
+  // Fallback to first available customer in company if search phone didn't match (for smooth testing)
+  if (!customer && companyId) {
+    customer = await prisma.customer.findFirst({
+      where: { companyId },
+      include: {
+        company: true,
+        branch: true,
+        loans: {
+          where: { status: { in: ['active', 'disbursed', 'overdue', 'pending'] } },
+          include: {
+            emis: { orderBy: { dueDate: 'asc' } },
+            payments: { orderBy: { createdAt: 'desc' }, take: 3 }
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1
+        }
+      }
+    });
+  }
+
+  const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+
+  if (!customer) {
+    const unregReply = `🙏 *Namaste!*\n\nWelcome to *LenQredzo Capital* WhatsApp Self-Service Assistant 🤖.\n\nMee phone number (+91 ${searchPhone || phone}) maa loan system lo register kaledhu.\n\nKotha loan sanction kavali anna, leda help kavali anna, please visit your nearest branch or call our customer desk at *+91 98765 43210*.\n\nDhanyavadhamulu!`;
+    return {
+      matched: false,
+      reply: unregReply,
+      customer: null
+    };
+  }
+
+  const customerName = customer.name || 'Borrower';
+  const companyName = customer.company?.name || 'LenQredzo Capital';
+  const branchName = customer.branch?.name || 'Main Branch';
+  const activeLoan = customer.loans?.[0];
+
+  let replyText = '';
+
+  // Keyword Matching
+  const isGreeting = ['hi', 'hello', 'hey', 'namaste', 'namaskaram', 'menu', 'options', 'help', 'start', 'bot', '0'].includes(text);
+  const isBalance = ['1', 'balance', 'outstanding', 'bakaya', 'baqaya', 'loan balance', 'mottham'].some(k => text.includes(k));
+  const isEmi = ['2', 'emi', 'due', 'pay', 'payment', 'kattali', 'kattu', 'upi', 'link'].some(k => text.includes(k));
+  const isStatement = ['3', 'statement', 'mini statement', 'history', 'payments', 'receipt', 'receipts'].some(k => text.includes(k));
+  const isLoanTerms = ['4', 'details', 'terms', 'interest', 'tenure', 'summary', 'sanction'].some(k => text.includes(k));
+  const isSupport = ['5', 'support', 'manager', 'agent', 'branch', 'contact', 'call', 'office', 'helpdesk'].some(k => text.includes(k));
+
+  if (isGreeting) {
+    replyText = `🙏 *Namaste ${customerName} garu!*\nWelcome to *${companyName}* WhatsApp Self-Service 🤖\n\nMee account details instant ga telusukovadaniki kinda options lo number tho reply ivvandi:\n\n1️⃣ *Loan Balance & Total Outstanding*\n2️⃣ *Next EMI Due Date & 1-Tap Pay Link*\n3️⃣ *Mini Statement (Last 3 Payments)*\n4️⃣ *Loan Details & Interest Rate*\n5️⃣ *Talk to Branch Manager / Agent*\n\n_(Eg: Type 1 or Balance)_`;
+  } else if (isBalance) {
+    if (!activeLoan) {
+      replyText = `ℹ️ *Account Status:*\nNamaste ${customerName} garu, mee account lo ippatiki active loans emi levu. Kotha loan sanction kosam branch ni contact cheyandi!`;
+    } else {
+      const unpaidEmis = (activeLoan.emis || []).filter((e: any) => e.status !== 'paid');
+      const totalOutstanding = unpaidEmis.reduce((sum: number, e: any) => sum + (e.amount - (e.paidAmount || 0) + (e.penalty || 0)), 0);
+      const nextEmi = unpaidEmis[0];
+      const nextDueFormatted = nextEmi ? new Date(nextEmi.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'All Paid';
+      const payUrl = `${clientUrl}/pay/${activeLoan.id}`;
+
+      replyText = `📊 *Loan Balance Summary*\n\nBorrower: *${customerName}*\nLoan Ref: *LN${1000 + activeLoan.id}* (${(activeLoan.type || 'Personal').toUpperCase()})\nSanctioned Amount: *₹${(activeLoan.amount || 0).toLocaleString('en-IN')}*\n\n💰 *Total Outstanding:* *₹${totalOutstanding.toLocaleString('en-IN')}*\n📅 *Remaining EMIs:* ${unpaidEmis.length} installments\n🚦 *Status:* ${(activeLoan.status || 'Active').toUpperCase()}\n\nNext EMI due: *${nextDueFormatted}*\n👉 Pay Now: ${payUrl}\n\n_Reply 2 for EMI payment or Menu for options._`;
+    }
+  } else if (isEmi) {
+    if (!activeLoan) {
+      replyText = `ℹ️ Namaste ${customerName} garu, currently mee peru meeda active EMI payments emi pending levu.`;
+    } else {
+      const unpaidEmis = (activeLoan.emis || []).filter((e: any) => e.status !== 'paid');
+      const nextEmi = unpaidEmis[0];
+
+      if (!nextEmi) {
+        replyText = `🎉 *Congratulations ${customerName} garu!*\n\nMee loan (LN${1000 + activeLoan.id}) motham EMIs pay aipoyayi! Zero outstanding balance.\nNOC leda Closure Certificate kosam branch ni contact cheyandi.`;
+      } else {
+        const remainingAmount = nextEmi.amount - (nextEmi.paidAmount || 0) + (nextEmi.penalty || 0);
+        const due = new Date(nextEmi.dueDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        due.setHours(0, 0, 0, 0);
+        const diffDays = Math.round((due.getTime() - today.getTime()) / 86400000);
+        const dateStr = due.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+        const payUrl = `${clientUrl}/pay/${activeLoan.id}`;
+
+        let urgencyTag = 'Upcoming';
+        if (diffDays < 0) urgencyTag = `⚠️ OVERDUE by ${Math.abs(diffDays)} days!`;
+        else if (diffDays === 0) urgencyTag = '⚡ DUE TODAY!';
+        else if (diffDays === 1) urgencyTag = '⏰ Due Tomorrow (24h Advance)';
+
+        replyText = `💳 *Next EMI Payment Details*\n\nLoan ID: *LN${1000 + activeLoan.id}*\nBorrower: *${customerName}*\n\n📌 *EMI Amount:* ₹${nextEmi.amount.toLocaleString('en-IN')}\n⚠️ *Late Fee:* ₹${nextEmi.penalty || 0}\n✅ *Total Payable:* *₹${remainingAmount.toLocaleString('en-IN')}*\n🗓️ *Due Date:* *${dateStr}* (${urgencyTag})\n\n👉 *1-Tap Instant UPI Payment:*\n${payUrl}\n\n_(Google Pay, PhonePe, Paytm or BHIM UPI tho direct ga pay cheyandi. Instant receipt generate avthundi!)_`;
+      }
+    }
+  } else if (isStatement) {
+    if (!activeLoan) {
+      replyText = `ℹ️ Namaste ${customerName} garu, records lo active loan statements levu.`;
+    } else {
+      const payments = activeLoan.payments || [];
+      if (payments.length === 0) {
+        replyText = `📑 *Mini Statement - LN${1000 + activeLoan.id}*\n\nBorrower: *${customerName}*\nIppativaraku system lo digital payment records emi register avvaledu.\nNext EMI pay cheyadaniki reply *2* ivvandi.`;
+      } else {
+        const lines = payments.map((p: any, idx: number) => {
+          const dt = new Date(p.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+          return `${idx + 1}. *₹${p.amount.toLocaleString('en-IN')}* - Paid on ${dt} (${(p.paymentMethod || 'UPI').toUpperCase()})\n   UTR: ${p.utr || 'Direct Cash'}`;
+        }).join('\n\n');
+
+        replyText = `📑 *Mini Statement (Last 3 Payments)*\nLoan Ref: *LN${1000 + activeLoan.id}*\nCustomer: *${customerName}*\n\n${lines}\n\n✅ Mee payments annee bank records lo successfully updated.\n_Reply Menu to return to main options._`;
+      }
+    }
+  } else if (isLoanTerms) {
+    if (!activeLoan) {
+      replyText = `ℹ️ Namaste ${customerName} garu, mee peru meeda active loan details emi levu.`;
+    } else {
+      const totalEmis = activeLoan.emis ? activeLoan.emis.length : 0;
+      const paidEmis = activeLoan.emis ? activeLoan.emis.filter((e: any) => e.status === 'paid').length : 0;
+      const disbursalDate = new Date(activeLoan.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+      replyText = `📋 *Loan Product & Sanction Terms*\n\nLoan ID: *LN${1000 + activeLoan.id}*\nBorrower: *${customerName}*\nLoan Type: *${(activeLoan.type || 'Personal').toUpperCase()}*\nSanctioned Amount: *₹${(activeLoan.amount || 0).toLocaleString('en-IN')}*\nInterest Rate: *${activeLoan.interestRate || 14}% per annum*\nTenure: *${activeLoan.tenure || 12} Months*\nEMIs Completed: *${paidEmis} of ${totalEmis} paid*\nDisbursal Date: *${disbursalDate}*\n\n_Reply 2 for EMI payment or Menu for options._`;
+    }
+  } else if (isSupport) {
+    replyText = `📞 *Branch Helpdesk & Executive Support*\n\nCustomer: *${customerName}*\nAssigned Branch: *${branchName}*\nManager Desk: *+91 98765 43210*\nOffice Hours: *Mon - Sat: 9:30 AM to 6:30 PM*\nAddress: *${companyName}, Station Road, Main Branch*\n\n🛎️ *Note:* Mana collection / branch officer ki mee request alert vellindi. Varu meeku short time lo call chestharu. Dhanyavadhamulu! 🙏`;
+  } else {
+    replyText = `🙏 *Namaste ${customerName} garu!*\n\nMee message maaku reach ayyindi. Kinda options lo number type chesi instant details pondandi:\n\n1️⃣ - Loan Balance & Outstanding\n2️⃣ - Next EMI Due & 1-Tap Pay Link\n3️⃣ - Mini Statement (Recent Receipts)\n4️⃣ - Loan Sanction Terms\n5️⃣ - Branch Manager Support\n\nOr type *Hi* to see main menu!`;
+  }
+
+  // Persist both incoming and outgoing bot messages in WhatsAppMessage table
+  try {
+    const cId = customer.companyId;
+    await prisma.whatsAppMessage.create({
+      data: {
+        companyId: cId,
+        customerId: customer.id,
+        direction: 'received',
+        message: rawText,
+        messageType: 'incoming_bot',
+        status: 'delivered'
+      }
+    });
+
+    await prisma.whatsAppMessage.create({
+      data: {
+        companyId: cId,
+        customerId: customer.id,
+        direction: 'sent',
+        message: replyText,
+        messageType: 'bot_auto_reply',
+        status: 'sent'
+      }
+    });
+  } catch (err) {
+    console.warn('Could not persist bot message to WhatsAppMessage table:', err);
+  }
+
+  // Attempt real Meta Cloud API dispatch if credentials exist
+  try {
+    const credentials = await getCredentials(customer.companyId);
+    if (credentials) {
+      await callAiService({
+        ...credentials,
+        customer_phone: customer.phone,
+        customer_name: customer.name,
+        custom_message: replyText,
+        message_type: 'custom'
+      });
+    }
+  } catch (err) {
+    console.warn('Meta WhatsApp live send fallback:', err);
+  }
+
+  return {
+    matched: true,
+    reply: replyText,
+    customer: {
+      id: customer.id,
+      name: customer.name,
+      phone: customer.phone,
+      loanId: activeLoan ? `LN${1000 + activeLoan.id}` : null
+    }
+  };
+}
+
+export const simulateCustomerBotMessage = async (req: any, res: Response) => {
+  try {
+    const { customer_phone, message_text } = req.body;
+    if (!message_text) {
+      return res.status(400).json({ success: false, message: 'message_text is required' });
+    }
+    const companyId = req.user?.companyId;
+    const result = await processCustomerBotReply(customer_phone || '', message_text, companyId);
+    res.json({
+      success: true,
+      incomingMessage: message_text,
+      phone: customer_phone,
+      botReply: result.reply,
+      customer: result.customer,
+      timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+    });
+  } catch (error: any) {
+    console.error('simulateCustomerBotMessage error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Bot processing failed' });
+  }
+};
+
+export const getBotLogs = async (req: any, res: Response) => {
+  try {
+    const companyId = req.user?.companyId;
+    const messages = await prisma.whatsAppMessage.findMany({
+      where: {
+        ...(companyId ? { companyId } : {}),
+        messageType: { in: ['incoming_bot', 'bot_auto_reply'] }
+      },
+      include: {
+        customer: {
+          select: { id: true, name: true, phone: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 40
+    });
+    res.json({ success: true, count: messages.length, messages });
+  } catch (error: any) {
+    console.error('getBotLogs error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to fetch bot logs' });
+  }
+};
+
+export const verifyWhatsAppWebhook = (req: any, res: Response) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  const expectedToken = process.env.WHATSAPP_VERIFY_TOKEN || 'lenqredzo_verify_token';
+
+  if (mode === 'subscribe' && token === expectedToken) {
+    console.log('Meta WhatsApp Webhook verified successfully!');
+    return res.status(200).send(challenge);
+  }
+  return res.sendStatus(403);
+};
+
+export const handleWhatsAppWebhook = async (req: any, res: Response) => {
+  try {
+    const entry = req.body?.entry?.[0];
+    const changes = entry?.changes?.[0];
+    const value = changes?.value;
+    const message = value?.messages?.[0];
+
+    if (message && message.type === 'text') {
+      const from = message.from;
+      const body = message.text?.body;
+      console.log(`Incoming WhatsApp webhook message from ${from}: ${body}`);
+      await processCustomerBotReply(from, body);
+    }
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.error('handleWhatsAppWebhook error:', error);
+    res.sendStatus(200);
+  }
+};

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { API_URL } from '@/lib/api';
 import WhatsAppDueReminderModal from '@/components/WhatsAppDueReminderModal';
+import WhatsAppBotConsoleModal from '@/components/WhatsAppBotConsoleModal';
 import {
   Search,
   Phone,
@@ -25,6 +26,7 @@ import {
   MessageSquare,
   Sparkles,
   Zap,
+  Bot,
   ArrowUpRight,
   Clock,
   X
@@ -330,6 +332,7 @@ export default function WhatsAppHubPage() {
   const [inputText, setInputText] = useState('');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showAdvanceModal, setShowAdvanceModal] = useState(false);
+  const [showBotModal, setShowBotModal] = useState(false);
   const [phoneNumberId, setPhoneNumberId] = useState('');
   const [accessToken, setAccessToken] = useState('');
   const [isMetaConfigured, setIsMetaConfigured] = useState(false);
@@ -613,6 +616,14 @@ export default function WhatsAppHubPage() {
                 {isMetaConfigured ? 'Meta Cloud API: Connected' : 'Meta API: Sandbox Simulator'}
               </span>
             </div>
+
+            <button
+              onClick={() => setShowBotModal(true)}
+              className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer border border-slate-700"
+            >
+              <Bot className="w-4 h-4 text-emerald-400" />
+              🤖 AI Customer Bot
+            </button>
 
             <button
               onClick={() => setShowAdvanceModal(true)}
@@ -1177,6 +1188,12 @@ export default function WhatsAppHubPage() {
       {showAdvanceModal && (
         <WhatsAppDueReminderModal
           onClose={() => setShowAdvanceModal(false)}
+        />
+      )}
+
+      {showBotModal && (
+        <WhatsAppBotConsoleModal
+          onClose={() => setShowBotModal(false)}
         />
       )}
 
