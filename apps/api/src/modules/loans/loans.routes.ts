@@ -23,13 +23,13 @@ import {
   exportCreditBureauData
 } from './loans.controller';
 import { protect } from '../../middleware/auth';
-import { requirePermission } from '../../utils/permissions';
+import { requirePermission, requireAnyPermission } from '../../utils/permissions';
 
 const router = Router();
 
 // Bureau Export & NPA Analytics (Before :id param route)
 router.get('/analytics/npa-ageing', protect, getNpaAgeingMatrix);
-router.get('/bureau/export', protect, requirePermission('loan:approve'), exportCreditBureauData);
+router.get('/bureau/export', protect, requireAnyPermission(['data:export', 'loan:approve']), exportCreditBureauData);
 
 // Viewing is open to all logged-in staff.
 router.get('/', protect, getAllLoans);

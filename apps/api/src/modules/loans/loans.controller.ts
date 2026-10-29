@@ -1679,7 +1679,7 @@ export const getNpaAgeingMatrix = async (req: any, res: Response) => {
         customerId: customer.id,
         customerName: customer.name || 'Borrower',
         customerPhone: customer.phone || '',
-        customerCity: customer.city || '—',
+        customerCity: customer.city || 'N/A',
         loanType: loan.type,
         sanctionAmount: loan.amount,
         outstandingPrincipal,
@@ -1712,6 +1712,13 @@ export const getNpaAgeingMatrix = async (req: any, res: Response) => {
     const par30Amount = sma1Sum + sma2Sum + npaSum;
     const par60Amount = sma2Sum + npaSum;
 
+    const calcProvision = (arr: any[]) => arr.reduce((s, i) => s + i.provisionAmount, 0);
+    const standardProv = calcProvision(standardLoans);
+    const sma0Prov = calcProvision(sma0Loans);
+    const sma1Prov = calcProvision(sma1Loans);
+    const sma2Prov = calcProvision(sma2Loans);
+    const npaProv = calcProvision(npaLoans);
+
     const par30Ratio = totalAum > 0 ? Number(((par30Amount / totalAum) * 100).toFixed(2)) : 0;
     const par60Ratio = totalAum > 0 ? Number(((par60Amount / totalAum) * 100).toFixed(2)) : 0;
     const grossNpaRatio = totalAum > 0 ? Number(((npaSum / totalAum) * 100).toFixed(2)) : 0;
@@ -1732,11 +1739,11 @@ export const getNpaAgeingMatrix = async (req: any, res: Response) => {
         totalActiveLoans: standardLoans.length + sma0Loans.length + sma1Loans.length + sma2Loans.length + npaLoans.length
       },
       buckets: {
-        standard: { label: 'Standard (0 DPD)', count: standardLoans.length, amount: standardSum, provisionRate: '0.40%', color: '#16a34a', items: standardLoans },
-        sma0: { label: 'SMA-0 (1–30 DPD)', count: sma0Loans.length, amount: sma0Sum, provisionRate: '0.40%', color: '#eab308', items: sma0Loans },
-        sma1: { label: 'SMA-1 (31–60 DPD)', count: sma1Loans.length, amount: sma1Sum, provisionRate: '5.00%', color: '#f97316', items: sma1Loans },
-        sma2: { label: 'SMA-2 (61–90 DPD)', count: sma2Loans.length, amount: sma2Sum, provisionRate: '10.00%', color: '#ef4444', items: sma2Loans },
-        npa: { label: 'NPA (>90 DPD)', count: npaLoans.length, amount: npaSum, provisionRate: '15.00%', color: '#991b1b', items: npaLoans }
+        standard: { label: 'Standard (0 DPD)', count: standardLoans.length, amount: standardSum, sum: standardSum, provisionRate: 0.4, provisionAmount: standardProv, color: '#16a34a', items: standardLoans, loans: standardLoans },
+        sma0: { label: 'SMA-0 (1-30 DPD)', count: sma0Loans.length, amount: sma0Sum, sum: sma0Sum, provisionRate: 0.4, provisionAmount: sma0Prov, color: '#0284c7', items: sma0Loans, loans: sma0Loans },
+        sma1: { label: 'SMA-1 (31-60 DPD)', count: sma1Loans.length, amount: sma1Sum, sum: sma1Sum, provisionRate: 5.0, provisionAmount: sma1Prov, color: '#d97706', items: sma1Loans, loans: sma1Loans },
+        sma2: { label: 'SMA-2 (61-90 DPD)', count: sma2Loans.length, amount: sma2Sum, sum: sma2Sum, provisionRate: 10.0, provisionAmount: sma2Prov, color: '#ea580c', items: sma2Loans, loans: sma2Loans },
+        npa: { label: 'NPA (>90 DPD)', count: npaLoans.length, amount: npaSum, sum: npaSum, provisionRate: 15.0, provisionAmount: npaProv, color: '#dc2626', items: npaLoans, loans: npaLoans }
       }
     });
   } catch (error: any) {
@@ -1860,6 +1867,7 @@ export const exportCreditBureauData = async (req: any, res: Response) => {
       }
       tudfContent += `TRL|${records.length}|${totalCurrentBalance}|${totalOverdue}\n`;
 
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
       res.setHeader('Content-Type', 'text/plain; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${String(bureau).toUpperCase()}_TUDF_${reportingMonth.replace('-', '')}.txt"`);
       return res.send(tudfContent);
@@ -1887,6 +1895,7 @@ export const exportCreditBureauData = async (req: any, res: Response) => {
 
     const csvContent = headers.join(',') + '\n' + rows.join('\n');
 
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${String(bureau).toUpperCase()}_BUREAU_DATA_${reportingMonth.replace('-', '')}.csv"`);
     return res.send(csvContent);

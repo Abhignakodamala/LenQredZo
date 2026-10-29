@@ -82,6 +82,20 @@ export function can(role: string, permission: Permission): boolean {
 }
 
 // Express middleware: block the request unless req.user.role has the permission.
+export function requireAnyPermission(permissions: Permission[]) {
+  return (req: any, res: any, next: any) => {
+    const role = req.user?.role;
+    if (!role) return res.status(401).json({ message: 'Not authenticated' });
+    const hasPerm = permissions.some(p => can(role, p));
+    if (!hasPerm) {
+      return res.status(403).json({
+        message: 'Forbidden: You do not have permission to perform this action or view this resource.'
+      });
+    }
+    next();
+  };
+}
+
 export function requirePermission(permission: Permission) {
   return (req: any, res: any, next: any) => {
     const role = req.user?.role;
