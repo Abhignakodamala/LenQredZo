@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { API_URL } from '@/lib/api';
+import WhatsAppDueReminderModal from '@/components/WhatsAppDueReminderModal';
 import {
   Search,
   Phone,
@@ -328,6 +329,7 @@ export default function WhatsAppHubPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [inputText, setInputText] = useState('');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showAdvanceModal, setShowAdvanceModal] = useState(false);
   const [phoneNumberId, setPhoneNumberId] = useState('');
   const [accessToken, setAccessToken] = useState('');
   const [isMetaConfigured, setIsMetaConfigured] = useState(false);
@@ -611,6 +613,13 @@ export default function WhatsAppHubPage() {
                 {isMetaConfigured ? 'Meta Cloud API: Connected' : 'Meta API: Sandbox Simulator'}
               </span>
             </div>
+
+            <button
+              onClick={() => setShowAdvanceModal(true)}
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+            >
+              ⏰ 24-Hr Advance Alerts & Dues
+            </button>
 
             <button
               onClick={() => setShowSettingsModal(true)}
@@ -1165,6 +1174,12 @@ export default function WhatsAppHubPage() {
       </main>
 
       {/* Meta WhatsApp Cloud API Settings Modal */}
+      {showAdvanceModal && (
+        <WhatsAppDueReminderModal
+          onClose={() => setShowAdvanceModal(false)}
+        />
+      )}
+
       {showSettingsModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200">

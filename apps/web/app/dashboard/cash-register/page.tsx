@@ -5,6 +5,7 @@ import { getAuthUser } from '@/lib/authUser';
 import { API_URL } from '@/lib/api';
 import CashHandoverModal from '@/components/CashHandoverModal';
 import CashHandoverVoucherModal from '@/components/CashHandoverVoucherModal';
+import BranchVaultDenominationModal from '@/components/BranchVaultDenominationModal';
 
 type UserAuth = {
   userId: number;
@@ -29,6 +30,7 @@ export default function CashRegisterPage() {
   // Modals
   const [showHandoverModal, setShowHandoverModal] = useState(false);
   const [showVoucherModal, setShowVoucherModal] = useState(false);
+  const [showDenominationModal, setShowDenominationModal] = useState(false);
   const [activeVoucher, setActiveVoucher] = useState<any>(null);
 
   // Cashier verification state
@@ -159,6 +161,26 @@ export default function CashRegisterPage() {
                 style={{ border: 'none', outline: 'none', fontSize: '13px', fontWeight: 600, color: '#111827', cursor: 'pointer' }}
               />
             </div>
+
+            <button
+              onClick={() => setShowDenominationModal(true)}
+              style={{
+                background: 'linear-gradient(135deg, #064e3b 0%, #065f46 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 4px rgba(6, 78, 59, 0.25)'
+              }}
+            >
+              🔐 Physical Denomination & Vault Counter
+            </button>
 
             <button
               onClick={loadSummary}

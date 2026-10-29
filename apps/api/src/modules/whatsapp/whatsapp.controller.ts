@@ -367,3 +367,105 @@ export const sendPendingEmiReminders = async (req: any, res: Response) => {
     res.json({ success: true, sent: results.length, results });
   } catch (error: any) { res.status(502).json({ message: error.message || 'Could not send pending EMI reminders' }); }
 };
+
+
+export const getUpcomingDueReminders = async (req: any, res: Response) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const dayAfterTomorrow = new Date(today);
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+
+    const threeDaysAgo = new Date(today);
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+    const companyId = req.user.companyId;
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { name: true }
+    });
+    const companyName = company?.name || 'LenQredzo Capital';
+
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+
+    const emis = await prisma.eMI.findMany({
+      where: {
+        status: { not: 'paid' },
+        dueDate: {
+          gte: threeDaysAgo,
+          lte: dayAfterTomorrow
+        },
+        loan: {
+          companyId,
+          status: 'active'
+        }
+      },
+      include: {
+        loan: {
+          include: { customer: true }
+        }
+      },
+      orderBy: { dueDate: 'asc' }
+    });
+
+    const items = emis.map((e: any) => {
+      const due = new Date(e.dueDate);
+      due.setHours(0, 0, 0, 0);
+
+      const diffDays = Math.round((due.getTime() - today.getTime()) / 86400000);
+      let timingCategory = 'due_today';
+      if (diffDays === 1) timingCategory = 'due_tomorrow'; // 24-Hr Advance
+      else if (diffDays > 1) timingCategory = 'upcoming';
+      else if (diffDays < 0) timingCategory = 'overdue';
+
+      const customer = e.loan.customer || {};
+      const remainingAmount = e.amount - (e.paidAmount || 0) + (e.penalty || 0);
+      const payUrl = `${clientUrl}/pay/${e.loanId}`;
+
+      const dateStr = due.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+      // English template
+      const msgEn = `Namaste ${customer.name || 'Customer'} garu, this is a gentle 24-hr advance reminder from ${companyName}. Your Loan (${e.loan.loanId || `LN${1000 + e.loanId}`}) EMI of ₹${remainingAmount.toLocaleString('en-IN')} is due on ${dateStr}. Please pay securely via 1-Tap UPI link: ${payUrl} . Thank you!`;
+
+      // Telugu / Tanglish template
+      const msgTe = `Namaste ${customer.name || 'Customer'} garu, ${companyName} nunchi 24-gantala advance reminder. Mee Loan (LN${1000 + e.loanId}) EMI ₹${remainingAmount.toLocaleString('en-IN')} ${diffDays === 1 ? 'repu' : diffDays === 0 ? 'ee roju' : dateStr + ' na'} due undhi. GPay/PhonePe tho direct ga kattadaniki ee link click cheyyandi: ${payUrl} . Dhanyavadhamulu!`;
+
+      return {
+        emiId: e.id,
+        loanId: e.loanId,
+        loanRef: `LN${1000 + e.loanId}`,
+        customerId: customer.id,
+        customerName: customer.name || 'Borrower',
+        customerPhone: customer.phone || '',
+        customerCity: customer.city || '—',
+        emiAmount: e.amount,
+        paidAmount: e.paidAmount || 0,
+        penalty: e.penalty || 0,
+        remainingAmount,
+        dueDate: e.dueDate,
+        dueDateFormatted: dateStr,
+        diffDays,
+        timingCategory,
+        payUrl,
+        msgEn,
+        msgTe
+      };
+    });
+
+    res.json({
+      success: true,
+      totalCount: items.length,
+      dueTomorrowCount: items.filter(i => i.timingCategory === 'due_tomorrow').length,
+      dueTodayCount: items.filter(i => i.timingCategory === 'due_today').length,
+      overdueCount: items.filter(i => i.timingCategory === 'overdue').length,
+      items
+    });
+  } catch (error: any) {
+    console.error('getUpcomingDueReminders error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to fetch upcoming dues' });
+  }
+};

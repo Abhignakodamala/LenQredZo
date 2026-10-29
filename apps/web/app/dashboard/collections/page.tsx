@@ -6,6 +6,9 @@ import CollectionRunSheetModal from '@/components/CollectionRunSheetModal';
 import CashReconciliationModal from '@/components/CashReconciliationModal';
 import BulkCollectionModal from '@/components/BulkCollectionModal';
 import PreDebitNotificationModal from '@/components/PreDebitNotificationModal';
+import BranchVaultDenominationModal from '@/components/BranchVaultDenominationModal';
+import ThermalReceiptModal from '@/components/ThermalReceiptModal';
+import WhatsAppDueReminderModal from '@/components/WhatsAppDueReminderModal';
 import { getAuthUser, can } from '@/lib/authUser';
 import { API_URL } from '@/lib/api';
 
@@ -19,6 +22,9 @@ export default function CollectionsPage() {
   const [showCashReconciliation, setShowCashReconciliation] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [showPreDebitModal, setShowPreDebitModal] = useState(false);
+  const [showVaultModal, setShowVaultModal] = useState(false);
+  const [showWhatsAppReminderModal, setShowWhatsAppReminderModal] = useState(false);
+  const [thermalReceiptData, setThermalReceiptData] = useState<any | null>(null);
 
   // Collect dialog state
   const [dialog, setDialog] = useState<any>(null); // { emi, collectPenalty }
@@ -254,6 +260,48 @@ export default function CollectionsPage() {
             </button>
 
             <button
+              onClick={() => setShowWhatsAppReminderModal(true)}
+              style={{
+                background: 'linear-gradient(135deg, #15803d 0%, #166534 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '10px 18px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 4px rgba(22, 101, 52, 0.25)'
+              }}
+              title="Send 24-hr advance WhatsApp reminders with 1-tap UPI payment link"
+            >
+              💬 24-Hr Advance WhatsApp Alerts
+            </button>
+
+            <button
+              onClick={() => setShowVaultModal(true)}
+              style={{
+                background: 'linear-gradient(135deg, #064e3b 0%, #065f46 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '10px 18px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 4px rgba(6, 78, 59, 0.25)'
+              }}
+              title="Count note denominations and deposit cash into branch safe locker"
+            >
+              🔐 Branch Vault Denomination
+            </button>
+
+            <button
               onClick={() => setShowPreDebitModal(true)}
               style={{
                 background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
@@ -389,6 +437,42 @@ export default function CollectionsPage() {
                       <span style={{ ...badge(e.status), padding: '2px 10px', borderRadius: '20px', fontSize: '11px' }}>{e.status}</span>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
+                      {e.status === 'paid' && (
+                        <button
+                          onClick={() => setThermalReceiptData({
+                            receiptNo: `RCT-${e.id}-${Date.now().toString().slice(-4)}`,
+                            date: e.paidAt || new Date().toISOString(),
+                            companyName: me?.companyName || 'LenQredzo Capital Pvt Ltd',
+                            branchName: me?.branchName || 'Main Branch',
+                            collectorName: me?.name || 'Field Officer',
+                            borrowerName: e.customerName,
+                            borrowerPhone: e.customerPhone,
+                            loanRef: `LN${1000 + e.loanId}`,
+                            emiAmount: e.paidAmount || e.amount,
+                            penaltyAmount: e.penalty || 0,
+                            totalPaid: (e.paidAmount || e.amount) + (e.penalty || 0),
+                            remainingBalance: 0,
+                            paymentMethod: e.paymentMethod || 'cash',
+                            referenceUtr: e.reference || ''
+                          })}
+                          style={{
+                            background: '#f1f5f9',
+                            border: '1px solid #cbd5e1',
+                            color: '#0f172a',
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                          title="Print 58mm Bluetooth thermal POS receipt slip"
+                        >
+                          🖨️ Thermal Slip
+                        </button>
+                      )}
                       {e.status !== 'paid' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           {e.penalty > 0 ? (

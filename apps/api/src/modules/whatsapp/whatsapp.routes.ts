@@ -4,6 +4,7 @@ import { requirePermission } from '../../utils/permissions';
 import {
   sendManualMessage,
   sendPendingEmiReminders,
+  getUpcomingDueReminders,
   saveWhatsAppSettings,
   getWhatsAppSettings,
   getWhatsAppCustomers,
@@ -13,6 +14,7 @@ import {
 
 const router = Router();
 
+router.get('/upcoming-dues', protect, getUpcomingDueReminders);
 router.get('/customers', protect, getWhatsAppCustomers);
 router.get('/settings', protect, requirePermission('whatsapp:settings'), getWhatsAppSettings);
 router.put('/settings', protect, requirePermission('whatsapp:settings'), saveWhatsAppSettings);
