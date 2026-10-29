@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import {
   sendEmiPaymentLink,
   handleRazorpayWebhook,
@@ -18,14 +19,31 @@ import {
 } from './mandates.controller';
 import { requirePermission } from '../../utils/permissions';
 
+// Anti-Scraping & Anti-Brute-Force Limiters for Public Borrower UPI Portal
+const publicPayViewLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60, // Max 60 views per 15 min per IP
+  message: { success: false, error: 'Too many requests. Please wait a few moments.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const publicUpiSubmitLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10, // Max 10 submissions per 15 min per IP
+  message: { success: false, error: 'Too many submission attempts. Please wait before retrying.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 const router = Router();
 
 // Public webhook route (called by Razorpay servers with cryptographic signature verification)
 router.post('/webhook', handleRazorpayWebhook);
 
 // Public Borrower 1-Tap UPI Payment Portal
-router.get('/public/pay/:loanId', getPublicLoanPaymentDetails);
-router.post('/public/submit-upi', submitPublicUpiPayment);
+router.get('/public/pay/:loanId', publicPayViewLimiter, getPublicLoanPaymentDetails);
+router.post('/public/submit-upi', publicUpiSubmitLimiter, submitPublicUpiPayment);
 
 // Protected routes (called by authenticated finance company staff)
 router.post('/send-payment-link', protect, sendEmiPaymentLink);

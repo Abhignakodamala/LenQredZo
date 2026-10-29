@@ -4,6 +4,8 @@ import path from 'path';dotenv.config({ path: path.resolve(__dirname, '../../../
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 dotenv.config(); // also load any platform-provided env (Railway)
 import express from 'express';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import cors from 'cors';
 import authRoutes from './modules/auth/auth.routes';
 import webauthnRoutes from './modules/auth/webauthn.routes';
@@ -28,19 +30,45 @@ import { startMidnightCronScheduler } from './services/penalty-cron.service';
 import fs from 'fs';
 
 const app = express();
+
+// Security: Disable X-Powered-By to prevent technology stack fingerprinting
+app.disable('x-powered-by');
+
+// Security: Enforce HTTP security headers via Helmet
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allows serving uploaded KYC/logos safely
+  contentSecurityPolicy: false // CSP handled per client
+}));
+
+// Security: Global API Rate Limiter against volumetric floods and DDoS
+const globalApiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1500, // 1500 requests per 15 min per IP
+  message: { error: 'Too many requests from this network. Please retry after 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use('/api/', globalApiLimiter);
 const PORT = process.env.PORT || 5000;
 
 // Permissive CORS in dev so frontend never gets blocked on localhost / 127.0.0.1
 app.use(cors({
   origin: (origin, callback) => {
+    // Allow non-browser requests (e.g. mobile apps, server-to-server crons)
     if (!origin) return callback(null, true);
-    if (
-      origin.startsWith('http://localhost:') ||
-      origin.startsWith('http://127.0.0.1:') ||
-      (process.env.CLIENT_URL && process.env.CLIENT_URL.includes(origin))
-    ) {
+
+    const isLocal = origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:');
+    const isAllowedClient = process.env.CLIENT_URL && process.env.CLIENT_URL.split(',').some(u => u.trim() === origin);
+    const isApprovedHost = origin.endsWith('.vercel.app') || origin.endsWith('.railway.app') || origin.endsWith('.up.railway.app');
+
+    if (isLocal || isAllowedClient || isApprovedHost) {
       return callback(null, true);
     }
+
+    if (process.env.NODE_ENV === 'production') {
+      return callback(new Error('Blocked by CORS security policy: origin unauthorized'));
+    }
+
     return callback(null, true);
   },
   credentials: true

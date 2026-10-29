@@ -13,6 +13,14 @@ const loginLimiter = rateLimit({
   legacyHeaders: false
 });
 
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour window
+  max: 10, // Max 10 account creations per hour per IP
+  message: { message: 'Too many account creation attempts from this IP. Please try again after 1 hour.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 const otpLimiter = rateLimit({
   windowMs: 900000,
   max: 5,
@@ -21,7 +29,7 @@ const otpLimiter = rateLimit({
   legacyHeaders: false
 });
 
-router.post('/register', register);
+router.post('/register', registerLimiter, register);
 router.post('/login', loginLimiter, login);
 router.post('/login-photo', protect, logLoginPhoto);
 router.get('/login-history', protect, getLoginHistory);

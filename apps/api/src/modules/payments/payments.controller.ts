@@ -1,3 +1,4 @@
+import { validateReference } from '../../utils/refcheck';
 import { Request, Response } from 'express';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
@@ -539,10 +540,22 @@ export const submitPublicUpiPayment = async (req: Request, res: Response) => {
     }
 
     const cleanUtr = String(utr).trim();
-    if (cleanUtr.length < 6) {
+    const refCheck = validateReference('upi', cleanUtr);
+    if (!refCheck.ok) {
       return res.status(400).json({
         success: false,
-        error: 'Please enter a valid Bank UTR / UPI Reference Number (at least 6 alphanumeric characters).'
+        error: refCheck.message || 'Please enter a valid 12-digit UPI Reference Number / RRN (found in your GPay / PhonePe / Paytm / SMS receipt).'
+      });
+    }
+
+    // Security: Check if this UTR has already been submitted or cleared anywhere in the system
+    const existingPayment = await prisma.payment.findFirst({
+      where: { reference: cleanUtr }
+    });
+    if (existingPayment) {
+      return res.status(400).json({
+        success: false,
+        error: 'This UPI Reference Number / UTR has already been submitted or recorded. Duplicate payment submission is rejected.'
       });
     }
 
