@@ -74,12 +74,14 @@ interface ChatContact {
     time: string;
   }[];
   conversation: ChatMessage[];
+  isDemo?: boolean;
 }
 
 // Mock initial data based on Figma screenshot
 const FIGMA_CONTACTS: ChatContact[] = [
   {
     id: 'srilakshmi',
+    isDemo: true,
     name: 'Srilakshmi Muppareni',
     phone: '+91 98765 43210',
     customerId: 'CUS-1024',
@@ -154,6 +156,7 @@ const FIGMA_CONTACTS: ChatContact[] = [
   },
   {
     id: 'ramesh',
+    isDemo: true,
     name: 'Ramesh Kumar',
     phone: '+91 98451 22334',
     customerId: 'CUS-1025',
@@ -193,6 +196,7 @@ const FIGMA_CONTACTS: ChatContact[] = [
   },
   {
     id: 'madhavi',
+    isDemo: true,
     name: 'Madhavi Rao',
     phone: '+91 97001 88990',
     customerId: 'CUS-1026',
@@ -224,6 +228,7 @@ const FIGMA_CONTACTS: ChatContact[] = [
   },
   {
     id: 'vijayalakshmi',
+    isDemo: true,
     name: 'Vijayalakshmi',
     phone: '+91 98223 44556',
     customerId: 'CUS-1027',
@@ -255,6 +260,7 @@ const FIGMA_CONTACTS: ChatContact[] = [
   },
   {
     id: 'arun',
+    isDemo: true,
     name: 'Arun Kumar',
     phone: '+91 99123 77889',
     customerId: 'CUS-1028',
@@ -293,6 +299,7 @@ const FIGMA_CONTACTS: ChatContact[] = [
   },
   {
     id: 'lakshmi',
+    isDemo: true,
     name: 'Lakshmi Devi',
     phone: '+91 99551 11223',
     customerId: 'CUS-1029',
@@ -338,6 +345,11 @@ export default function WhatsAppHubPage() {
   const [isMetaConfigured, setIsMetaConfigured] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [toastNotice, setToastNotice] = useState<string | null>(null);
+  const [hideDemoContacts, setHideDemoContacts] = useState(false);
+  const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [newChatName, setNewChatName] = useState('');
+  const [newChatPhone, setNewChatPhone] = useState('');
+  const [newChatLoan, setNewChatLoan] = useState('');
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -362,58 +374,51 @@ export default function WhatsAppHubPage() {
       })
       .catch(() => {});
 
-    // Try fetching real database customers to merge into contact book
+    // Load real database customers and prioritize them
     fetch(`${API_URL}/api/customers`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(r => r.ok ? r.json() : null)
       .then(backendCusts => {
         if (Array.isArray(backendCusts) && backendCusts.length > 0) {
-          // Merge real borrowers seamlessly
-          const realFormatted: ChatContact[] = backendCusts.slice(0, 5).map((c: any, idx: number) => ({
+          const realFormatted: ChatContact[] = backendCusts.map((c: any, idx: number) => ({
             id: `real_${c.id}`,
             name: c.name,
             phone: c.phone || '+91 98000 00000',
             customerId: `CUS-${1000 + c.id}`,
-            lastMessage: 'Account verified & loan active.',
-            lastTime: '10:00 AM',
+            lastMessage: 'Borrower registered in database.',
+            lastTime: 'Active',
             unreadCount: 0,
-            online: idx % 2 === 0,
+            online: true,
+            isDemo: false,
             kycStatus: (c.kycStatus === 'verified' ? 'Verified' : 'Pending') as any,
-            creditScore: 720 + (idx * 15),
+            creditScore: c.cibilScore || 720,
             riskLevel: 'Low',
-            activeLoans: c.activeLoansCount || 1,
-            totalOutstanding: '₹1,50,000',
-            nextEmiDate: '10 Oct 2026',
-            loanId: `LN${1000 + c.id}`,
-            loanAmount: '₹1,50,000',
-            disbursedAmount: '₹1,45,000',
+            activeLoans: c.loans?.length || 1,
+            totalOutstanding: c.loans?.[0]?.amount ? `₹${Number(c.loans[0].amount).toLocaleString('en-IN')}` : '₹0',
+            nextEmiDate: c.loans?.[0]?.emis?.[0]?.dueDate ? new Date(c.loans[0].emis[0].dueDate).toLocaleDateString('en-IN') : 'No Due',
+            loanId: c.loans?.[0] ? `LN${1000 + c.loans[0].id}` : `CUS-${1000 + c.id}`,
+            loanAmount: c.loans?.[0]?.amount ? `₹${Number(c.loans[0].amount).toLocaleString('en-IN')}` : '₹0',
+            disbursedAmount: c.loans?.[0]?.amount ? `₹${Number(c.loans[0].amount).toLocaleString('en-IN')}` : '₹0',
             loanStatus: 'Active',
             recentActivity: [
-              { type: 'payment', title: 'EMI Cleared', details: '₹12,500', time: 'Last week' }
+              { type: 'payment', title: 'Account Verified', details: c.phone || 'Phone verified', time: 'Active' }
             ],
             conversation: [
               {
                 id: `msg_init_${c.id}`,
                 sender: 'agent',
-                text: `Hello ${c.name}, welcome to LenQredzo Capital. Your account is active.`,
-                time: '10:00 AM',
+                text: `Hello ${c.name}, welcome to our finance platform. How can we assist you today?`,
+                time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
                 status: 'read'
               }
             ]
           }));
 
-          setContacts(prev => {
-            // Keep unique by customerId
-            const map = new Map<string, ChatContact>();
-            prev.forEach(item => map.set(item.customerId, item));
-            realFormatted.forEach(item => {
-              if (!map.has(item.customerId)) {
-                map.set(item.customerId, item);
-              }
-            });
-            return Array.from(map.values());
-          });
+          // Place real customers first
+          setContacts([...realFormatted, ...FIGMA_CONTACTS]);
+          setSelectedContact(realFormatted[0]);
+          setHideDemoContacts(true); // Default to clean view with real customers
         }
       })
       .catch(() => {});
@@ -422,6 +427,61 @@ export default function WhatsAppHubPage() {
   const showToast = (msg: string) => {
     setToastNotice(msg);
     setTimeout(() => setToastNotice(null), 3500);
+  };
+
+  const handleCreateNewChat = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newChatName.trim() || !newChatPhone.trim()) {
+      showToast('Please enter customer name and phone number');
+      return;
+    }
+    const cleanDigits = newChatPhone.replace(/\D/g, '').slice(-10);
+    if (cleanDigits.length !== 10) {
+      showToast('Please enter a valid 10-digit mobile number');
+      return;
+    }
+
+    const createdContact: ChatContact = {
+      id: `custom_${Date.now()}`,
+      name: newChatName.trim(),
+      phone: `+91 ${cleanDigits}`,
+      customerId: `CUS-${Math.floor(1000 + Math.random() * 9000)}`,
+      lastMessage: 'Chat initiated',
+      lastTime: 'Just now',
+      unreadCount: 0,
+      online: true,
+      isDemo: false,
+      kycStatus: 'Verified',
+      creditScore: 740,
+      riskLevel: 'Low',
+      activeLoans: 1,
+      totalOutstanding: '₹0',
+      nextEmiDate: 'N/A',
+      loanId: newChatLoan.trim() || `LN${Math.floor(1000 + Math.random() * 9000)}`,
+      loanAmount: '₹0',
+      disbursedAmount: '₹0',
+      loanStatus: 'Active',
+      recentActivity: [
+        { type: 'message', title: 'New chat initiated', details: `Direct WhatsApp message to +91 ${cleanDigits}`, time: 'Just now' }
+      ],
+      conversation: [
+        {
+          id: String(Date.now()),
+          sender: 'agent',
+          text: `Hello ${newChatName.trim()}, welcome! How can we assist you today?`,
+          time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+          status: 'sent'
+        }
+      ]
+    };
+
+    setContacts(prev => [createdContact, ...prev]);
+    setSelectedContact(createdContact);
+    setShowNewChatModal(false);
+    setNewChatName('');
+    setNewChatPhone('');
+    setNewChatLoan('');
+    showToast(`✓ Opened chat for ${createdContact.name} (+91 ${cleanDigits})`);
   };
 
   const handleSendMessage = async () => {
@@ -567,8 +627,9 @@ export default function WhatsAppHubPage() {
     }
   };
 
-  // Filtered contacts based on search and tabs
+  // Filtered contacts based on search, tabs and demo toggle
   const filteredContacts = contacts.filter(c => {
+    if (hideDemoContacts && c.isDemo) return false;
     const matchesSearch = `${c.name} ${c.phone} ${c.customerId}`.toLowerCase().includes(searchQuery.toLowerCase());
     if (activeFilter === 'unread') return matchesSearch && (c.unreadCount || 0) > 0;
     if (activeFilter === 'groups') return matchesSearch && c.name.toLowerCase().includes('team');
@@ -659,7 +720,7 @@ export default function WhatsAppHubPage() {
                 />
               </div>
               <button
-                onClick={() => showToast('Select a borrower or enter mobile number to start new chat')}
+                onClick={() => setShowNewChatModal(true)}
                 className="bg-[#25D366] hover:bg-emerald-600 text-white p-2 rounded-xl text-xs font-bold shadow-sm transition-all flex items-center justify-center shrink-0"
                 title="New Message"
               >
@@ -667,38 +728,41 @@ export default function WhatsAppHubPage() {
               </button>
             </div>
 
-            {/* Filter Chips: All 24, Unread 8, Groups 2 */}
-            <div className="px-3 py-2 border-b border-slate-100 flex items-center gap-2">
+            {/* Filter Chips & Demo Toggle */}
+            <div className="px-3 py-2 border-b border-slate-100 flex items-center gap-2 overflow-x-auto">
               <button
                 onClick={() => setActiveFilter('all')}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
                   activeFilter === 'all'
                     ? 'bg-[#25D366] text-white shadow-sm'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                All 24
+                All ({filteredContacts.length})
               </button>
               <button
                 onClick={() => setActiveFilter('unread')}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap ${
                   activeFilter === 'unread'
                     ? 'bg-[#25D366] text-white shadow-sm'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
                 <span>Unread</span>
-                <span className="bg-white/25 text-[10px] px-1.5 py-0.2 rounded-full font-extrabold">8</span>
+                <span className="bg-white/25 text-[10px] px-1 py-0.2 rounded-full font-extrabold">
+                  {contacts.filter(c => (c.unreadCount || 0) > 0).length}
+                </span>
               </button>
               <button
-                onClick={() => setActiveFilter('groups')}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
-                  activeFilter === 'groups'
-                    ? 'bg-[#25D366] text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                onClick={() => setHideDemoContacts(prev => !prev)}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all whitespace-nowrap ${
+                  hideDemoContacts
+                    ? 'bg-amber-50 text-amber-800 border-amber-300'
+                    : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
                 }`}
+                title={hideDemoContacts ? 'Show sample demo records' : 'Hide demo prototype records'}
               >
-                Groups 2
+                {hideDemoContacts ? '👁️ Show Demo' : '🧹 Hide Demo'}
               </button>
             </div>
 
@@ -1195,6 +1259,96 @@ export default function WhatsAppHubPage() {
         <WhatsAppBotConsoleModal
           onClose={() => setShowBotModal(false)}
         />
+      )}
+
+            {/* Start New Chat Modal */}
+      {showNewChatModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-200">
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-[#25D366] text-white flex items-center justify-center font-bold">
+                  <Plus className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Start New WhatsApp Chat</h3>
+                  <p className="text-[11px] text-slate-500">Enter borrower name & mobile number</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowNewChatModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateNewChat} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Customer / Borrower Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Suresh Reddy"
+                  value={newChatName}
+                  onChange={e => setNewChatName(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  WhatsApp Mobile Number (10 Digits) *
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-2 bg-slate-100 border border-slate-300 rounded-xl text-xs font-bold text-slate-600">
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    required
+                    maxLength={10}
+                    placeholder="9849012345"
+                    value={newChatPhone}
+                    onChange={e => setNewChatPhone(e.target.value)}
+                    className="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Loan Reference / Account ID (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. LN1005"
+                  value={newChatLoan}
+                  onChange={e => setNewChatLoan(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowNewChatModal(false)}
+                  className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 rounded-xl bg-[#25D366] hover:bg-emerald-600 text-white text-xs font-bold shadow-sm transition-all"
+                >
+                  💬 Start Chat
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {showSettingsModal && (
