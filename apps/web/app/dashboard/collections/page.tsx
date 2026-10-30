@@ -764,6 +764,32 @@ export default function CollectionsPage() {
           onClose={() => setShowCashReconciliation(false)}
         />
       )}
+
+      {showWhatsAppReminderModal && (
+        <WhatsAppDueReminderModal
+          onClose={() => setShowWhatsAppReminderModal(false)}
+        />
+      )}
+
+      {showVaultModal && (
+        <BranchVaultDenominationModal
+          expectedAmount={emis.filter(e => e.status === 'paid').reduce((s, e) => s + (e.paidAmount || e.amount || 0), 0)}
+          branchName={me?.branchName || 'Headquarters Branch'}
+          cashierName={me?.name || 'Branch Cashier'}
+          onClose={() => setShowVaultModal(false)}
+          onSuccess={() => {
+            setShowVaultModal(false);
+            fetchCollections();
+          }}
+        />
+      )}
+
+      {thermalReceiptData && (
+        <ThermalReceiptModal
+          receipt={thermalReceiptData}
+          onClose={() => setThermalReceiptData(null)}
+        />
+      )}
     </div>
   );
 }

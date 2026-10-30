@@ -995,6 +995,20 @@ export default function CashRegisterPage() {
         />
       )}
 
+      {/* Physical Denomination & Vault Counter Modal */}
+      {showDenominationModal && (
+        <BranchVaultDenominationModal
+          expectedAmount={summaryData?.branchMetrics?.totalSettledToVaultToday || 0}
+          branchName={summaryData?.company?.name || 'Headquarters Branch'}
+          cashierName={me?.name || 'Branch Cashier'}
+          onClose={() => setShowDenominationModal(false)}
+          onSuccess={() => {
+            setShowDenominationModal(false);
+            loadSummary();
+          }}
+        />
+      )}
+
     </div>
   );
 }
