@@ -61,7 +61,8 @@ app.use(cors({
     const isAllowedClient = process.env.CLIENT_URL && process.env.CLIENT_URL.split(',').some(u => u.trim() === origin);
     const isApprovedHost = origin.endsWith('.vercel.app') || origin.endsWith('.railway.app') || origin.endsWith('.up.railway.app');
 
-    if (isLocal || isAllowedClient || isApprovedHost) {
+    // Allow if local, explicitly allowed, approved host, or if CLIENT_URL is not set / wildcard (e.g. self-hosted on VPS IP)
+    if (isLocal || isAllowedClient || isApprovedHost || !process.env.CLIENT_URL || process.env.CLIENT_URL === '*') {
       return callback(null, true);
     }
 

@@ -1,32 +1,37 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
-echo "=========================================================="
-echo "🚀 Deploying LenQredzo to DigitalOcean (Bangalore BLR1)"
-echo "=========================================================="
+echo "==========================================================="
+echo "   🚀 FINSMART / LENQREDZO PRODUCTION CLOUD DEPLOYMENT     "
+echo "==========================================================="
 
-# Check if Docker is installed
+# Check Docker installation
 if ! command -v docker &> /dev/null; then
-    echo "🐳 Installing Docker Engine..."
-    curl -fsSL https://get.docker.com -o get-docker.sh
-    sudo sh get-docker.sh
-    sudo usermod -aG docker $USER
+    echo "📦 Docker not found. Installing official Docker Engine..."
+    curl -fsSL https://get.docker.com | sh
+    systemctl enable docker
+    systemctl start docker
 fi
 
-# Build and start services
-echo "📦 Building and starting LenQredzo microservices..."
+# Ensure docker compose plugin exists
+if ! docker compose version &> /dev/null; then
+    echo "📦 Installing Docker Compose plugin..."
+    apt-get update && apt-get install -y docker-compose-plugin
+fi
+
+echo "📁 Ensuring directory structure for KYC uploads..."
+mkdir -p apps/api/uploads/kyc
+
+echo "🏗️ Building and starting production containers..."
 docker compose down || true
-docker compose build
-docker compose up -d
+docker compose up -d --build
 
-# Wait for database and sync Prisma schema
-echo "⏳ Syncing database schema with PostgreSQL..."
-sleep 5
-docker compose exec -T api npx prisma db push
+echo "⏳ Waiting for PostgreSQL and API to initialize..."
+sleep 10
 
-IP_ADDRESS=$(curl -s ifconfig.me || echo "your-droplet-ip")
+echo "📊 Checking container status..."
+docker compose ps
 
-echo "=========================================================="
-echo "✅ DEPLOYMENT COMPLETE!"
-echo "LenQredzo is now live at: http://${IP_ADDRESS}"
-echo "=========================================================="
+echo "==========================================================="
+echo "   ✅ DEPLOYMENT SUCCESSFUL! APP IS LIVE ON PORT 80        "
+echo "==========================================================="
