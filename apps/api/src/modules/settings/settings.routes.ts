@@ -23,7 +23,7 @@ router.put('/password', protect, changePassword);
 
 // Company branding & configuration (restricted to Owner / Super Admin)
 router.put('/company', protect, requirePermission('settings:manage'), updateCompany);
-router.post('/company/logo', protect, requirePermission('settings:manage'), logoUploadMiddleware, uploadCompanyLogo);
+router.post('/company/logo', protect, requirePermission('settings:manage'), logoUploadMiddleware as any, uploadCompanyLogo);
 router.delete('/company/logo', protect, requirePermission('settings:manage'), deleteCompanyLogo);
 
 // Razorpay & Connected Banking Credentials (restricted to Owner / Super Admin)

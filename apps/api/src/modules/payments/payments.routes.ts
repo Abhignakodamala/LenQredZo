@@ -42,8 +42,8 @@ const router = Router();
 router.post('/webhook', handleRazorpayWebhook);
 
 // Public Borrower 1-Tap UPI Payment Portal
-router.get('/public/pay/:loanId', publicPayViewLimiter, getPublicLoanPaymentDetails);
-router.post('/public/submit-upi', publicUpiSubmitLimiter, submitPublicUpiPayment);
+router.get('/public/pay/:loanId', publicPayViewLimiter as any, getPublicLoanPaymentDetails);
+router.post('/public/submit-upi', publicUpiSubmitLimiter as any, submitPublicUpiPayment);
 
 // Protected routes (called by authenticated finance company staff)
 router.post('/send-payment-link', protect, sendEmiPaymentLink);

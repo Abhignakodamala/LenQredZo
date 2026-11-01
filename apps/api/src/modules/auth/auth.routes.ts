@@ -29,13 +29,13 @@ const otpLimiter = rateLimit({
   legacyHeaders: false
 });
 
-router.post('/register', registerLimiter, register);
-router.post('/login', loginLimiter, login);
+router.post('/register', registerLimiter as any, register);
+router.post('/login', loginLimiter as any, login);
 router.post('/login-photo', protect, logLoginPhoto);
 router.get('/login-history', protect, getLoginHistory);
-router.post('/send-otp', otpLimiter, sendOTP);
-router.post('/login-otp', loginLimiter, loginWithOTP);
-router.post('/reset-password', otpLimiter, resetPassword);
-router.post('/verify-email', otpLimiter, verifyEmailOTP);
+router.post('/send-otp', otpLimiter as any, sendOTP);
+router.post('/login-otp', loginLimiter as any, loginWithOTP);
+router.post('/reset-password', otpLimiter as any, resetPassword);
+router.post('/verify-email', otpLimiter as any, verifyEmailOTP);
 
 export default router;

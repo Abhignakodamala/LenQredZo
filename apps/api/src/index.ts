@@ -48,7 +48,7 @@ const globalApiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false
 });
-app.use('/api/', globalApiLimiter);
+app.use('/api/', globalApiLimiter as any);
 const PORT = process.env.PORT || 5000;
 
 // Permissive CORS in dev so frontend never gets blocked on localhost / 127.0.0.1
