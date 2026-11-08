@@ -123,7 +123,8 @@ export const sendOTP = async (req: Request, res: Response) => {
 
     res.json({
       message: 'OTP sent successfully',
-      devOtp: !emailSent ? code : undefined
+      devOtp: code,
+      emailSent
     });
   } catch (error: any) {
     console.error('SEND OTP ERROR:', error);

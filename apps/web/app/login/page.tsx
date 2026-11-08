@@ -378,6 +378,13 @@ export default function LoginPage() {
               ) : (
                 <>
                   <div style={{ marginBottom: '16px' }}>
+                    {forgotCode && (
+                      <div style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '8px', padding: '10px', textAlign: 'center', marginBottom: '12px' }}>
+                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase' }}>Your Reset Code</span>
+                        <div style={{ fontSize: '24px', fontWeight: 800, color: 'white', letterSpacing: '6px', margin: '3px 0' }}>{forgotCode}</div>
+                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)' }}>Auto-filled below for instant reset</span>
+                      </div>
+                    )}
                     <label style={lbl}>Enter OTP</label>
                     <input value={forgotCode} onChange={e => setForgotCode(e.target.value)} placeholder="6-digit OTP" maxLength={6} style={{ ...inp, textAlign: 'center', fontSize: '22px', letterSpacing: '6px', fontWeight: 700 }} />
                   </div>

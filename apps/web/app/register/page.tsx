@@ -209,6 +209,27 @@ export default function RegisterPage() {
             </div>
           )}
 
+          {otpCode && (
+            <div style={{
+              background: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              borderRadius: '10px',
+              padding: '12px 16px',
+              textAlign: 'center',
+              marginBottom: '16px'
+            }}>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Your Verification Code
+              </span>
+              <div style={{ fontSize: '26px', fontWeight: 800, color: '#1e40af', letterSpacing: '8px', margin: '4px 0' }}>
+                {otpCode}
+              </div>
+              <p style={{ fontSize: '11.5px', color: '#6b7280', margin: 0 }}>
+                Auto-filled below for instant verification (also sent to {form.email})
+              </p>
+            </div>
+          )}
+
           <div style={{ marginBottom: '20px' }}>
             <label style={{ ...lbl, textAlign: 'center', display: 'block' }}>Enter OTP</label>
             <input
