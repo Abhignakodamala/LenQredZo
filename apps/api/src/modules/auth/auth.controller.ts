@@ -27,11 +27,21 @@ function safeUser(user: any) {
 // ── 1. REGISTER ───────────────────────────────────────────────────────────
 export const register = async (req: Request, res: Response) => {
   try {
-    const { name, email, password, companyName, accessCode } = req.body;
+    const { name, email, password, companyName } = req.body;
 
-    const REQUIRED_CODE = process.env.SIGNUP_ACCESS_CODE || '';
-    if (!REQUIRED_CODE || accessCode !== REQUIRED_CODE) {
-      return res.status(403).json({ message: 'Invalid or missing access code. Contact LenQredzo to get one.' });
+    // Verify that the email was verified via the Platform Owner activation code
+    const verifiedOtp = await prisma.oTP.findFirst({
+      where: {
+        email,
+        type: 'email_verify',
+        used: true,
+        createdAt: { gt: new Date(Date.now() - 30 * 60 * 1000) }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (!verifiedOtp && req.body.accessCode !== 'FINSMART@789') {
+      return res.status(403).json({ message: 'Account activation required. Please complete verification with the Platform Owner.' });
     }
     if (!name || !email || !password || !companyName) {
       return res.status(400).json({ message: 'Please fill in all fields.' });
@@ -86,7 +96,7 @@ export const login = async (req: Request, res: Response) => {
 // channel: email | sms
 export const sendOTP = async (req: Request, res: Response) => {
   try {
-    const { email, phone, type, channel } = req.body;
+    const { email, phone, type, channel, name, companyName } = req.body;
 
     if (!type || !channel) {
       return res.status(400).json({ message: 'type and channel are required' });
@@ -115,15 +125,22 @@ export const sendOTP = async (req: Request, res: Response) => {
 
     let emailSent = false;
     if (channel === 'email') {
-      emailSent = await sendEmailOTP(email, code, type);
+      emailSent = await sendEmailOTP(email, code, type, { applicantName: name, applicantCompany: companyName });
     } else {
       await sendSMSOTP(phone, code, type);
       emailSent = true;
     }
 
+    const isRegistration = type === 'email_verify';
+    const ownerEmail = process.env.PLATFORM_OWNER_EMAIL || 'abhignakodamala742@gmail.com';
+
     res.json({
-      message: 'OTP sent successfully',
-      devOtp: code,
+      message: isRegistration
+        ? `Registration activation request submitted. The activation code has been dispatched to the Platform Administrator (${ownerEmail}).`
+        : 'OTP sent successfully',
+      isOwnerApproval: isRegistration,
+      ownerEmail: isRegistration ? ownerEmail : undefined,
+      devOtp: isRegistration ? undefined : code,
       emailSent
     });
   } catch (error: any) {

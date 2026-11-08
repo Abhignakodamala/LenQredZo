@@ -8,7 +8,7 @@ type Step = 'form' | 'verify' | 'done';
 export default function RegisterPage() {
   const [step, setStep] = useState<Step>('form');
   const [form, setForm] = useState({
-    name: '', email: '', password: '', companyName: '', accessCode: ''
+    name: '', email: '', password: '', companyName: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [otpCode, setOtpCode] = useState('');
@@ -19,10 +19,10 @@ export default function RegisterPage() {
   const update = (k: string, v: string) => setForm({ ...form, [k]: v });
   const clearMessages = () => { setError(''); setSuccess(''); };
 
-  // ── Step 1: Validate form + send email OTP ───────────────────────────────
+  // ── Step 1: Validate form + send activation request to Platform Owner ─────────
   const handleSendOTP = async () => {
     clearMessages();
-    if (!form.name || !form.email || !form.password || !form.companyName || !form.accessCode) {
+    if (!form.name || !form.email || !form.password || !form.companyName) {
       setError('Please fill in all fields.'); return;
     }
     if (form.password.length < 6) {
@@ -37,19 +37,20 @@ export default function RegisterPage() {
       const res = await fetch(`${API_URL}/api/auth/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: form.email, type: 'email_verify', channel: 'email' })
+        body: JSON.stringify({
+          email: form.email,
+          name: form.name,
+          companyName: form.companyName,
+          type: 'email_verify',
+          channel: 'email'
+        })
       });
       const data = await res.json();
       if (res.ok) {
         setStep('verify');
-        if (data.devOtp) {
-          setSuccess(`OTP generated! For instant testing, your code is: ${data.devOtp}`);
-          setOtpCode(data.devOtp);
-        } else {
-          setSuccess(`OTP sent to ${form.email}. Check your inbox.`);
-        }
+        setSuccess(`Activation request submitted! The activation code was routed to the Platform Administrator (${data.ownerEmail || 'abhignakodamala742@gmail.com'}).`);
       } else {
-        setError(data.message || 'Failed to send OTP');
+        setError(data.message || 'Failed to submit registration request');
       }
     } catch {
       setError('Could not reach the server. Please try again.');
@@ -57,16 +58,16 @@ export default function RegisterPage() {
     setSaving(false);
   };
 
-  // ── Step 2: Verify OTP + create account ─────────────────────────────────
+  // ── Step 2: Verify activation code + create company account ───────────────────
   const handleVerifyAndRegister = async () => {
     clearMessages();
     if (!otpCode || otpCode.length !== 6) {
-      setError('Please enter the 6-digit OTP.'); return;
+      setError('Please enter the 6-digit Activation Code provided by the Platform Owner.'); return;
     }
 
     setSaving(true);
     try {
-      // First verify the OTP
+      // First verify the activation code
       const verifyRes = await fetch(`${API_URL}/api/auth/verify-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -74,12 +75,12 @@ export default function RegisterPage() {
       });
       const verifyData = await verifyRes.json();
       if (!verifyRes.ok) {
-        setError(verifyData.message || 'Invalid OTP');
+        setError(verifyData.message || 'Invalid or expired activation code. Please check with the Platform Owner.');
         setSaving(false);
         return;
       }
 
-      // Then create the account
+      // Then create the company account
       const regRes = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -99,7 +100,7 @@ export default function RegisterPage() {
     setSaving(false);
   };
 
-  // ── Resend OTP ───────────────────────────────────────────────────────────
+  // ── Resend activation request to owner ───────────────────────────────────────
   const handleResendOTP = async () => {
     clearMessages();
     setSaving(true);
@@ -107,18 +108,20 @@ export default function RegisterPage() {
       const res = await fetch(`${API_URL}/api/auth/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: form.email, type: 'email_verify', channel: 'email' })
+        body: JSON.stringify({
+          email: form.email,
+          name: form.name,
+          companyName: form.companyName,
+          type: 'email_verify',
+          channel: 'email'
+        })
       });
       const data = await res.json();
       if (res.ok) {
-        if (data.devOtp) {
-          setSuccess(`OTP resent! Verification code: ${data.devOtp}`);
-          setOtpCode(data.devOtp);
-        } else {
-          setSuccess('OTP resent! Check your inbox.');
-        }
+        setSuccess(`Activation request re-sent to Platform Administrator (${data.ownerEmail || 'abhignakodamala742@gmail.com'}).`);
+      } else {
+        setError('Failed to resend activation request. Please try again.');
       }
-      else setError('Failed to resend OTP. Please try again.');
     } catch {
       setError('Server not reachable.');
     }
@@ -148,53 +151,69 @@ export default function RegisterPage() {
     padding: '32px 20px'
   };
   const card: React.CSSProperties = {
-    background: 'rgba(255,255,255,0.92)', padding: '32px 28px', borderRadius: '24px',
+    background: 'rgba(255,255,255,0.95)', padding: '32px 28px', borderRadius: '24px',
     border: '1px solid rgba(255,255,255,0.75)', backdropFilter: 'blur(14px)',
-    boxShadow: '0 18px 48px rgba(15,23,42,0.18)', width: '100%', maxWidth: '420px'
+    boxShadow: '0 18px 48px rgba(15,23,42,0.18)', width: '100%', maxWidth: '440px'
   };
 
-  // ── Done screen ──────────────────────────────────────────────────────────
+  // ── Step 3: Done screen ──────────────────────────────────────────────────
   if (step === 'done') {
     return (
       <div style={wrapper}>
         <div style={{ ...card, textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: '12px' }}>✅</div>
+          <div style={{ fontSize: '48px', marginBottom: '12px' }}>🎉</div>
           <h2 style={{ fontSize: '22px', fontWeight: 'bold', color: '#111827', margin: '0 0 8px' }}>
-            Account created!
+            Company Workspace Activated!
           </h2>
-          <p style={{ color: '#6b7280', fontSize: '14px', margin: '0 0 8px' }}>
-            Your email has been verified and your company account is ready.
+          <p style={{ color: '#4b5563', fontSize: '14px', margin: '0 0 8px' }}>
+            <strong>{form.companyName}</strong> has been successfully licensed and registered on LenQredzo.
           </p>
-          <p style={{ color: '#6b7280', fontSize: '14px', margin: '0 0 24px' }}>
-            You can now sign in as the owner.
+          <p style={{ color: '#6b7280', fontSize: '13.5px', margin: '0 0 24px' }}>
+            You can now sign in with your owner credentials and configure your branches and staff.
           </p>
           <a href="/login" style={{
             display: 'inline-block', background: '#1e40af', color: 'white',
-            textDecoration: 'none', padding: '11px 32px', borderRadius: '8px',
-            fontSize: '14px', fontWeight: 600
+            textDecoration: 'none', padding: '12px 36px', borderRadius: '8px',
+            fontSize: '14px', fontWeight: 600, boxShadow: '0 4px 14px rgba(30,64,175,0.3)'
           }}>
-            Go to Login →
+            Sign In to Dashboard →
           </a>
         </div>
       </div>
     );
   }
 
-  // ── Verify OTP screen ────────────────────────────────────────────────────
+  // ── Step 2: Awaiting Owner Activation Code ────────────────────────────────
   if (step === 'verify') {
     return (
       <div style={wrapper}>
         <div style={card}>
-          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '22px' }}>
             <Image src="/lenqredzo-logo.png" alt="LenQredzo" width={150} height={83} style={{ width: '150px', maxWidth: '100%', height: 'auto', objectFit: 'contain', margin: '0 auto' }} />
-            <h1 style={{ fontSize: '22px', fontWeight: 'bold', color: '#111827', margin: '8px 0 4px' }}>
-              Verify your email
+            <h1 style={{ fontSize: '22px', fontWeight: 'bold', color: '#111827', margin: '10px 0 4px' }}>
+              Activate Company Workspace
             </h1>
-            <p style={{ color: '#6b7280', fontSize: '14px', margin: 0 }}>
-              We sent a 6-digit OTP to
+            <p style={{ color: '#6b7280', fontSize: '13px', margin: 0 }}>
+              Software licensing approval required
             </p>
-            <p style={{ color: '#1e40af', fontSize: '14px', fontWeight: '600', margin: '4px 0 0' }}>
-              {form.email}
+          </div>
+
+          <div style={{
+            background: '#f0f9ff',
+            border: '1px solid #bae6fd',
+            borderRadius: '10px',
+            padding: '14px',
+            marginBottom: '18px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <span style={{ fontSize: '16px' }}>🔒</span>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#0369a1' }}>Owner Activation Required</span>
+            </div>
+            <p style={{ fontSize: '12.5px', color: '#334155', margin: '0 0 6px', lineHeight: 1.5 }}>
+              Your registration request for <strong>{form.companyName}</strong> has been routed to the LenQredzo Platform Administrator.
+            </p>
+            <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: 1.4 }}>
+              Enter the 6-digit Activation Code provided to you by the Platform Owner to unlock and create your workspace.
             </p>
           </div>
 
@@ -209,29 +228,8 @@ export default function RegisterPage() {
             </div>
           )}
 
-          {otpCode && (
-            <div style={{
-              background: '#eff6ff',
-              border: '1px solid #bfdbfe',
-              borderRadius: '10px',
-              padding: '12px 16px',
-              textAlign: 'center',
-              marginBottom: '16px'
-            }}>
-              <span style={{ fontSize: '12px', fontWeight: 600, color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Your Verification Code
-              </span>
-              <div style={{ fontSize: '26px', fontWeight: 800, color: '#1e40af', letterSpacing: '8px', margin: '4px 0' }}>
-                {otpCode}
-              </div>
-              <p style={{ fontSize: '11.5px', color: '#6b7280', margin: 0 }}>
-                Auto-filled below for instant verification (also sent to {form.email})
-              </p>
-            </div>
-          )}
-
           <div style={{ marginBottom: '20px' }}>
-            <label style={{ ...lbl, textAlign: 'center', display: 'block' }}>Enter OTP</label>
+            <label style={{ ...lbl, textAlign: 'center', display: 'block' }}>Enter 6-Digit Activation Code</label>
             <input
               value={otpCode}
               onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -245,22 +243,22 @@ export default function RegisterPage() {
               }}
             />
             <p style={{ fontSize: '12px', color: '#9ca3af', textAlign: 'center', margin: '0 0 16px' }}>
-              OTP valid for 10 minutes
+              Code provided directly by LenQredzo Platform Owner
             </p>
           </div>
 
           <button onClick={handleVerifyAndRegister} disabled={saving} style={btn}>
-            {saving ? 'Verifying...' : 'Verify & Create Account'}
+            {saving ? 'Activating...' : 'Activate Company & Launch →'}
           </button>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px' }}>
             <button onClick={() => { setStep('form'); clearMessages(); }}
               style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '13px', cursor: 'pointer' }}>
-              ← Change email
+              ← Edit Details
             </button>
             <button onClick={handleResendOTP} disabled={saving}
               style={{ background: 'none', border: 'none', color: '#1e40af', fontSize: '13px', cursor: 'pointer', fontWeight: '500' }}>
-              Resend OTP
+              Resend Alert to Owner
             </button>
           </div>
         </div>
@@ -268,17 +266,17 @@ export default function RegisterPage() {
     );
   }
 
-  // ── Registration form ────────────────────────────────────────────────────
+  // ── Step 1: Initial Registration Form (No access code needed!) ─────────────
   return (
     <div style={wrapper}>
       <div style={card}>
-        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '22px' }}>
           <Image src="/lenqredzo-logo.png" alt="LenQredzo" width={150} height={83} style={{ width: '150px', maxWidth: '100%', height: 'auto', objectFit: 'contain', margin: '0 auto' }} />
           <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '8px 0 0' }}>
-            Create your company
+            Register Your Company
           </h1>
-          <p style={{ color: '#6b7280', fontSize: '14px', margin: '4px 0 0' }}>
-            Set up your LenQredzo owner account
+          <p style={{ color: '#6b7280', fontSize: '13.5px', margin: '4px 0 0' }}>
+            Set up your LenQredzo finance management portal
           </p>
         </div>
 
@@ -288,14 +286,14 @@ export default function RegisterPage() {
           </div>
         )}
 
-        <label style={lbl}>Your Name</label>
-        <input style={inp} value={form.name} onChange={e => update('name', e.target.value)} placeholder="Ramesh Babu" />
+        <label style={lbl}>Your Full Name</label>
+        <input style={inp} value={form.name} onChange={e => update('name', e.target.value)} placeholder="e.g. Ramesh Babu" />
 
-        <label style={lbl}>Company Name</label>
-        <input style={inp} value={form.companyName} onChange={e => update('companyName', e.target.value)} placeholder="ABC Finance" />
+        <label style={lbl}>Finance Company Name</label>
+        <input style={inp} value={form.companyName} onChange={e => update('companyName', e.target.value)} placeholder="e.g. Sri Krishna Finance" />
 
-        <label style={lbl}>Email</label>
-        <input style={inp} type="email" value={form.email} onChange={e => update('email', e.target.value)} placeholder="you@company.com" />
+        <label style={lbl}>Company Work Email</label>
+        <input style={inp} type="email" value={form.email} onChange={e => update('email', e.target.value)} placeholder="e.g. ramesh@srikrishnafinance.com" />
 
         <label style={lbl}>Password</label>
         <div style={{ position: 'relative', marginBottom: '14px' }}>
@@ -312,19 +310,16 @@ export default function RegisterPage() {
           </button>
         </div>
 
-        <label style={lbl}>Access Code</label>
-        <input style={inp} value={form.accessCode} onChange={e => update('accessCode', e.target.value)} placeholder="Code provided by LenQredzo" />
-
-        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px', marginBottom: '16px', fontSize: '12px', color: '#92400e' }}>
-          📧 After clicking Continue, we'll send a verification OTP to your email address.
+        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 12px', marginBottom: '16px', fontSize: '12px', color: '#475569', lineHeight: 1.45 }}>
+          🛡️ <strong>Platform License Security:</strong> When you click Continue, your registration details are routed to the Platform Owner for activation code generation.
         </div>
 
         <button onClick={handleSendOTP} disabled={saving} style={btn}>
-          {saving ? 'Sending OTP...' : 'Continue →'}
+          {saving ? 'Submitting Request...' : 'Continue to Activation →'}
         </button>
 
         <p style={{ textAlign: 'center', fontSize: '13px', color: '#6b7280', margin: '18px 0 0' }}>
-          Already have an account?{' '}
+          Already have an active account?{' '}
           <a href="/login" style={{ color: '#1e40af', fontWeight: 600, textDecoration: 'none' }}>Sign in</a>
         </p>
       </div>
