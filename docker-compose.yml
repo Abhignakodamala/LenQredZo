@@ -39,6 +39,7 @@ services:
       SIGNUP_ACCESS_CODE: ${SIGNUP_ACCESS_CODE:-FINSMART@789}
       AI_SERVICE_URL: http://ai-service:8000
       RESEND_API_KEY: ${RESEND_API_KEY:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-834188366603-voe0e2ebsug8j2pbmu1tcnp4750mmrsr.apps.googleusercontent.com}
       GMAIL_USER: ${GMAIL_USER:-}
       GMAIL_PASS: ${GMAIL_PASS:-}
       RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}

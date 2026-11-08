@@ -19,6 +19,8 @@ COPY apps/web ./apps/web
 WORKDIR /app/apps/web
 
 # Build Next.js application
+ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID=834188366603-voe0e2ebsug8j2pbmu1tcnp4750mmrsr.apps.googleusercontent.com
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build

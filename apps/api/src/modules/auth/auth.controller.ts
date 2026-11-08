@@ -113,13 +113,18 @@ export const sendOTP = async (req: Request, res: Response) => {
     const code = generateOTP();
     await saveOTP({ email, phone, code, type });
 
+    let emailSent = false;
     if (channel === 'email') {
-      await sendEmailOTP(email, code, type);
+      emailSent = await sendEmailOTP(email, code, type);
     } else {
       await sendSMSOTP(phone, code, type);
+      emailSent = true;
     }
 
-    res.json({ message: 'OTP sent successfully' });
+    res.json({
+      message: 'OTP sent successfully',
+      devOtp: !emailSent ? code : undefined
+    });
   } catch (error: any) {
     console.error('SEND OTP ERROR:', error);
     res.status(500).json({ message: error.message || 'Failed to send OTP' });

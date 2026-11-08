@@ -159,7 +159,15 @@ export default function LoginPage() {
         })
       });
       const data = await res.json();
-      if (res.ok) { setForgotStep('verify'); setSuccess('OTP sent! Check your ' + (forgotChannel === 'email' ? 'email' : 'phone')); }
+      if (res.ok) {
+        setForgotStep('verify');
+        if (data.devOtp) {
+          setSuccess(`OTP sent! Your verification code is: ${data.devOtp}`);
+          setForgotCode(data.devOtp);
+        } else {
+          setSuccess('OTP sent! Check your ' + (forgotChannel === 'email' ? 'email' : 'phone'));
+        }
+      }
       else setError(data.message || 'Failed to send OTP');
     } catch { setError('Server not reachable.'); }
     setLoading(false);

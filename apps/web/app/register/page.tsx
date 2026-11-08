@@ -42,7 +42,12 @@ export default function RegisterPage() {
       const data = await res.json();
       if (res.ok) {
         setStep('verify');
-        setSuccess(`OTP sent to ${form.email}. Check your inbox.`);
+        if (data.devOtp) {
+          setSuccess(`OTP generated! For instant testing, your code is: ${data.devOtp}`);
+          setOtpCode(data.devOtp);
+        } else {
+          setSuccess(`OTP sent to ${form.email}. Check your inbox.`);
+        }
       } else {
         setError(data.message || 'Failed to send OTP');
       }
@@ -104,7 +109,15 @@ export default function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: form.email, type: 'email_verify', channel: 'email' })
       });
-      if (res.ok) setSuccess('OTP resent! Check your inbox.');
+      const data = await res.json();
+      if (res.ok) {
+        if (data.devOtp) {
+          setSuccess(`OTP resent! Verification code: ${data.devOtp}`);
+          setOtpCode(data.devOtp);
+        } else {
+          setSuccess('OTP resent! Check your inbox.');
+        }
+      }
       else setError('Failed to resend OTP. Please try again.');
     } catch {
       setError('Server not reachable.');
