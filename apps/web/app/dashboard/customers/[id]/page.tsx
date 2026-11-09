@@ -291,9 +291,34 @@ export default function CustomerDetailPage() {
       <div style={{ marginLeft: '220px', flex: 1, padding: '24px' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <button onClick={() => router.push('/dashboard/customers')} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', fontSize: '13px', color: '#374151' }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '16px',
+          marginBottom: '24px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              onClick={() => router.push('/dashboard/customers')}
+              style={{
+                height: '36px',
+                background: 'white',
+                border: '1px solid #d1d5db',
+                borderRadius: '8px',
+                padding: '0 14px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: 600,
+                color: '#374151',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+              }}
+            >
               ← Back
             </button>
             <div>
@@ -303,13 +328,14 @@ export default function CustomerDetailPage() {
                   background: currentBadge.bg,
                   color: currentBadge.text,
                   border: `1px solid ${currentBadge.border}`,
-                  padding: '3px 12px',
+                  padding: '4px 12px',
                   borderRadius: '20px',
                   fontSize: '12px',
-                  fontWeight: 600,
+                  fontWeight: 700,
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '5px'
+                  gap: '5px',
+                  whiteSpace: 'nowrap'
                 }}>
                   {kycStatus === 'verified' ? '✓' : kycStatus === 'rejected' ? '✕' : '●'} {currentBadge.label}
                 </span>
@@ -321,22 +347,24 @@ export default function CustomerDetailPage() {
           </div>
 
           {/* Header Action Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <button
               onClick={() => setShowPassbookModal(true)}
               style={{
+                height: '36px',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                background: '#1e3a8a',
+                background: '#1e40af',
                 color: 'white',
                 border: 'none',
-                padding: '7px 14px',
+                padding: '0 16px',
                 borderRadius: '8px',
                 fontWeight: 600,
                 fontSize: '13px',
                 cursor: 'pointer',
-                boxShadow: '0 1px 3px rgba(30, 58, 138, 0.2)'
+                whiteSpace: 'nowrap',
+                boxShadow: '0 1px 3px rgba(30, 64, 175, 0.25)'
               }}
             >
               📖 Account Passbook / SOA
@@ -344,8 +372,8 @@ export default function CustomerDetailPage() {
 
             {/* Quick Staff KYC Status Override / Read-only Indicator */}
             {!['collection_agent', 'recovery_officer', 'Agent'].includes(currentUserRole) ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', padding: '6px 12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>KYC Status:</span>
+              <div style={{ height: '36px', display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'white', padding: '0 12px', borderRadius: '8px', border: '1px solid #d1d5db', boxSizing: 'border-box' }}>
+                <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 600 }}>KYC Status:</span>
                 <select
                   value={kycStatus}
                   disabled={kycUpdating}

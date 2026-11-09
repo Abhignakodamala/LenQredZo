@@ -274,32 +274,60 @@ const [guarantors, setGuarantors] = useState<Guarantor[]>([{ ...emptyGuarantor }
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Sidebar />
       <div style={{ marginLeft: '220px', flex: 1, padding: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '16px',
+          marginBottom: '24px'
+        }}>
           <div>
             <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Loans</h2>
-            <p style={{ color: '#6b7280', margin: 0 }}>Manage all loans and EMI schedules</p>
+            <p style={{ color: '#6b7280', margin: '4px 0 0', fontSize: '13px' }}>Manage all loans and EMI schedules</p>
           </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <button
               onClick={() => setShowBureauModal(true)}
               style={{
-                background: 'white',
-                border: '1px solid #cbd5e1',
-                color: '#0369a1',
-                padding: '10px 16px',
+                height: '38px',
+                background: '#ffffff',
+                border: '1px solid #d1d5db',
+                color: '#374151',
+                padding: '0 16px',
                 borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: '600',
+                fontSize: '13px',
+                fontWeight: 600,
                 cursor: 'pointer',
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
               }}
             >
               📑 Export Bureau Data
             </button>
             {canCreateLoan && (
-              <button onClick={() => setShowForm(!showForm)} style={{ background: '#1e40af', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
+              <button
+                onClick={() => setShowForm(!showForm)}
+                style={{
+                  height: '38px',
+                  background: '#1e40af',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0 18px',
+                  borderRadius: '8px',
+                  fontSize: '13.5px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 1px 3px rgba(30, 64, 175, 0.25)'
+                }}
+              >
                 + New Loan
               </button>
             )}
@@ -681,9 +709,9 @@ const [guarantors, setGuarantors] = useState<Guarantor[]>([{ ...emptyGuarantor }
         )}
 
         <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ fontWeight: '600', margin: 0 }}>All Loans ({filteredLoans.length})</h3>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, type, ID..." style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', width: '280px' }} />
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <h3 style={{ fontWeight: '600', margin: 0, fontSize: '15px' }}>All Loans ({filteredLoans.length})</h3>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search by name, type, ID..." style={{ height: '36px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px', width: '280px', boxSizing: 'border-box', outline: 'none' }} />
           </div>
           {loading ? (
             <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Loading...</div>

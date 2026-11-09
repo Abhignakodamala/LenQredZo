@@ -381,14 +381,14 @@ export default function CollectionsPage() {
 
         <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <h3 style={{ fontWeight: '600', margin: 0 }}>EMI Collections ({filtered.length})</h3>
-              <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+              <h3 style={{ fontWeight: '600', margin: 0, fontSize: '15px' }}>EMI Collections ({filtered.length})</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <input value={search} onChange={e => setSearch(e.target.value)}
                   placeholder="🔍 Search customer or loan ID..."
-                  style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px', width: '260px' }} />
+                  style={{ height: '36px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px', width: '260px', boxSizing: 'border-box', outline: 'none' }} />
                 <button onClick={() => setSortOrder(s => s === 'asc' ? 'desc' : 'asc')}
-                  style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', background: 'white' }}>
+                  style={{ height: '36px', padding: '0 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: 'white', color: '#374151', whiteSpace: 'nowrap', boxSizing: 'border-box' }}>
                   📅 {sortOrder === 'asc' ? 'Oldest ↑' : 'Newest ↓'}
                 </button>
               </div>

@@ -117,13 +117,38 @@ export default function StaffPage() {
       <Sidebar />
       <div style={{ marginLeft: '220px', flex: 1, padding: '24px' }}>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '16px',
+          marginBottom: '24px'
+        }}>
           <div>
             <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Staff</h2>
-            <p style={{ color: '#6b7280', margin: 0 }}>Manage your team and their roles</p>
+            <p style={{ color: '#6b7280', margin: '4px 0 0', fontSize: '13px' }}>Manage your loan officers, collection agents and roles</p>
           </div>
-          <button onClick={openAdd}
-            style={{ background: '#1e40af', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
+          <button
+            onClick={openAdd}
+            style={{
+              height: '38px',
+              background: '#1e40af',
+              color: 'white',
+              border: 'none',
+              padding: '0 18px',
+              borderRadius: '8px',
+              fontSize: '13.5px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 1px 3px rgba(30,64,175,0.25)',
+              boxSizing: 'border-box'
+            }}
+          >
             + Add Staff
           </button>
         </div>

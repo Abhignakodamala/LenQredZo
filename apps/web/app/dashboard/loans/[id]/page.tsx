@@ -365,290 +365,372 @@ export default function LoanDetailPage() {
       <Sidebar />
       <div style={{ marginLeft: '220px', flex: 1, padding: '24px' }}>
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-          <button onClick={() => router.push('/dashboard/loans')} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', fontSize: '13px', color: '#374151' }}>← Back</button>
-          <div>
-            <h2 style={{ fontSize: '22px', fontWeight: 'bold', color: '#111827', margin: 0 }}>
-              LN{1000 + loan.id} — {loan.type}
-            </h2>
-            <p style={{ color: '#6b7280', margin: 0, fontSize: '13px' }}>
-              {loan.customer?.name} · Created {fmtDate(loan.createdAt)}
-            </p>
+        {/* Header Block */}
+        <div style={{ marginBottom: '22px' }}>
+          {/* Row 1: Back + Title + Status */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button
+                onClick={() => router.push('/dashboard/loans')}
+                style={{
+                  height: '36px',
+                  background: 'white',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  padding: '0 14px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: '#374151',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                }}
+              >
+                ← Back
+              </button>
+              <div>
+                <h2 style={{ fontSize: '22px', fontWeight: 'bold', color: '#111827', margin: 0 }}>
+                  LN{1000 + loan.id} — {loan.type}
+                </h2>
+                <p style={{ color: '#6b7280', margin: '2px 0 0', fontSize: '13px' }}>
+                  {loan.customer?.name} · Created {fmtDate(loan.createdAt)}
+                </p>
+              </div>
+            </div>
+
+            <span style={{
+              background: loan.status === 'completed' ? '#dcfce7' : loan.disbursedAt ? '#dcfce7' : loan.status === 'active' ? '#e0f2fe' : '#f3f4f6',
+              color: loan.status === 'completed' ? '#15803d' : loan.disbursedAt ? '#15803d' : loan.status === 'active' ? '#0369a1' : '#6b7280',
+              padding: '6px 16px', borderRadius: '20px', fontSize: '12.5px', fontWeight: '700',
+              display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap'
+            }}>
+              {loan.status === 'completed' ? '✅ Completed / Settled' : loan.disbursedAt ? '🟢 Disbursed & Active' : '🟡 Approved / Ready for Disbursal'}
+            </span>
           </div>
-          <span style={{
-            marginLeft: 'auto',
-            background: loan.status === 'completed' ? '#dcfce7' : loan.disbursedAt ? '#dcfce7' : loan.status === 'active' ? '#e0f2fe' : '#f3f4f6',
-            color: loan.status === 'completed' ? '#15803d' : loan.disbursedAt ? '#15803d' : loan.status === 'active' ? '#0369a1' : '#6b7280',
-            padding: '4px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '700',
-            display: 'inline-flex', alignItems: 'center', gap: '6px'
+
+          {/* Row 2: Standardized Action Toolbar - Uniform 36px height, nowrap, flex-wrap */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '8px',
+            background: 'white',
+            padding: '10px 14px',
+            borderRadius: '12px',
+            border: '1px solid #e5e7eb',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
           }}>
-            {loan.status === 'completed' ? '✅ Completed / Settled' : loan.disbursedAt ? '🟢 Disbursed & Active' : '🟡 Approved / Ready for Disbursal'}
-          </span>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginRight: '4px' }}>
+              Actions:
+            </span>
 
-          {/* 1-Click Instant Disbursal Button (IMPS) */}
-          {!loan.disbursedAt && loan.status !== 'completed' && loan.status !== 'rejected' && loan.status !== 'cancelled' && canDisburse && (
+            {/* 1-Click Instant Disbursal Button (IMPS) */}
+            {!loan.disbursedAt && loan.status !== 'completed' && loan.status !== 'rejected' && loan.status !== 'cancelled' && canDisburse && (
+              <button
+                onClick={() => setShowDisburseModal(true)}
+                style={{
+                  height: '36px',
+                  background: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '0 16px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 1px 2px rgba(16, 185, 129, 0.25)'
+                }}
+              >
+                ⚡ 1-Click Disburse (IMPS)
+              </button>
+            )}
+
+            {/* Official Disbursal Voucher Button */}
+            {loan.disbursedAt && (
+              <button
+                onClick={() => {
+                  setActiveVoucher(loan.disbursalVoucher || {
+                    loanId: loan.id,
+                    loanReference: `LN${1000 + loan.id}`,
+                    borrowerName: loan.customer?.name,
+                    borrowerPhone: loan.customer?.phone,
+                    netCreditAmount: loan.disbursedAmount || loan.amount,
+                    grossSanctionAmount: loan.amount,
+                    disbursedAt: loan.disbursedAt,
+                    utr: 'UTR-VERIFIED'
+                  });
+                  setShowVoucherModal(true);
+                }}
+                style={{
+                  height: '36px',
+                  background: '#ffffff',
+                  color: '#047857',
+                  border: '1px solid #a7f3d0',
+                  borderRadius: '8px',
+                  padding: '0 14px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                }}
+              >
+                📄 Disbursal Voucher
+              </button>
+            )}
+
+            {/* Log Field Visit Proof Button */}
             <button
-              onClick={() => setShowDisburseModal(true)}
+              onClick={() => setShowVisitModal(true)}
               style={{
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                color: 'white',
+                height: '36px',
+                background: '#1e40af',
+                color: '#ffffff',
                 border: 'none',
                 borderRadius: '8px',
-                padding: '8px 16px',
+                padding: '0 16px',
                 cursor: 'pointer',
                 fontSize: '13px',
-                fontWeight: '700',
+                fontWeight: 600,
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.35)'
+                whiteSpace: 'nowrap',
+                boxShadow: '0 1px 3px rgba(30,64,175,0.2)'
               }}
             >
-              ⚡ 1-Click Disburse (IMPS)
+              📍 Log Visit Proof
             </button>
-          )}
 
-          {/* Official Disbursal Voucher Button */}
-          {loan.disbursedAt && (
+            {/* Sanction Letter */}
             <button
-              onClick={() => {
-                setActiveVoucher(loan.disbursalVoucher || {
-                  loanId: loan.id,
-                  loanReference: `LN${1000 + loan.id}`,
-                  borrowerName: loan.customer?.name,
-                  borrowerPhone: loan.customer?.phone,
-                  netCreditAmount: loan.disbursedAmount || loan.amount,
-                  grossSanctionAmount: loan.amount,
-                  disbursedAt: loan.disbursedAt,
-                  utr: 'UTR-VERIFIED'
-                });
-                setShowVoucherModal(true);
-              }}
+              onClick={() => setShowSanctionLetter(true)}
               style={{
-                background: '#047857',
-                color: 'white',
-                border: 'none',
+                height: '36px',
+                background: '#ffffff',
+                color: '#1e40af',
+                border: '1px solid #bfdbfe',
                 borderRadius: '8px',
-                padding: '8px 16px',
+                padding: '0 14px',
                 cursor: 'pointer',
                 fontSize: '13px',
-                fontWeight: '700',
+                fontWeight: 600,
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                whiteSpace: 'nowrap',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
               }}
             >
-              📄 Disbursal Voucher
+              📄 Sanction Letter
             </button>
-          )}
 
-          {/* Log Field Visit Proof Button */}
-          <button
-            onClick={() => setShowVisitModal(true)}
-            style={{
-              background: '#1e40af',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '8px 16px',
-              cursor: 'pointer',
-              fontSize: '13px',
-              fontWeight: 600,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              whiteSpace: 'nowrap',
-              boxShadow: '0 1px 2px rgba(30,64,175,0.2)'
-            }}
-          >
-            📍 Log Visit Proof
-          </button>
+            {/* Statutory Legal Demand Notice Button */}
+            {loan.status !== 'completed' && (
+              <button
+                onClick={() => {
+                  if (loan.latestLegalNotice) {
+                    setActiveLegalNotice(loan.latestLegalNotice);
+                    setShowViewNoticeModal(true);
+                  } else {
+                    setShowGenerateNoticeModal(true);
+                  }
+                }}
+                style={{
+                  height: '36px',
+                  background: '#ffffff',
+                  color: '#991b1b',
+                  border: '1px solid #fecaca',
+                  borderRadius: '8px',
+                  padding: '0 14px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                }}
+              >
+                ⚖️ {loan.latestLegalNotice ? 'Legal Notice (Issued)' : 'Legal Notice (Sec 138/25)'}
+              </button>
+            )}
 
-          {/* Statutory Legal Demand Notice Button */}
-          {loan.status !== 'completed' && (
-            <button
-              onClick={() => {
-                if (loan.latestLegalNotice) {
-                  setActiveLegalNotice(loan.latestLegalNotice);
-                  setShowViewNoticeModal(true);
-                } else {
-                  setShowGenerateNoticeModal(true);
-                }
-              }}
-              style={{
-                background: loan.latestLegalNotice ? '#7f1d1d' : '#991b1b',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 16px',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '700',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-              }}
-            >
-              ⚖️ {loan.latestLegalNotice ? 'Legal Notice (Issued)' : 'Legal Notice (Sec 138/25)'}
-            </button>
-          )}
+            {/* Foreclose button: available when loan has pending dues */}
+            {loan.status !== 'completed' && (
+              <button
+                onClick={() => setShowForeclosureModal(true)}
+                style={{
+                  height: '36px',
+                  background: '#ffffff',
+                  color: '#b45309',
+                  border: '1px solid #fde68a',
+                  borderRadius: '8px',
+                  padding: '0 14px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                }}
+              >
+                ⚡ Foreclose Loan
+              </button>
+            )}
 
-          {/* Foreclose button: available when loan has pending dues */}
-          {loan.status !== 'completed' && (
-            <button
-              onClick={() => setShowForeclosureModal(true)}
-              style={{
-                background: '#f59e0b',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 16px',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '700',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-              }}
-            >
-              ⚡ Foreclose Loan
-            </button>
-          )}
+            {/* Official NOC button: available when loan is settled / completed */}
+            {loan.status === 'completed' && (
+              <button
+                onClick={() => setShowNocModal(true)}
+                style={{
+                  height: '36px',
+                  background: '#059669',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '0 16px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 1px 2px rgba(5,150,105,0.2)'
+                }}
+              >
+                📜 Official NOC
+              </button>
+            )}
 
-          {/* Official NOC button: available when loan is settled / completed */}
-          {loan.status === 'completed' && (
-            <button
-              onClick={() => setShowNocModal(true)}
-              style={{
-                background: '#059669',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 16px',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '700',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-              }}
-            >
-              📜 Official NOC Certificate
-            </button>
-          )}
+            {/* Loan Restructuring & Moratorium Button */}
+            {loan.status !== 'completed' && loan.status !== 'rejected' && loan.status !== 'cancelled' && (
+              <button
+                onClick={() => setShowRestructureModal(true)}
+                style={{
+                  height: '36px',
+                  background: '#ffffff',
+                  color: '#4338ca',
+                  border: '1px solid #c7d2fe',
+                  borderRadius: '8px',
+                  padding: '0 14px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                }}
+                title="Reschedule repayment schedule, grant moratorium, or extend tenure"
+              >
+                🔄 Restructure / Moratorium
+              </button>
+            )}
 
-          {/* Loan Restructuring & Moratorium Button */}
-          {loan.status !== 'completed' && loan.status !== 'rejected' && loan.status !== 'cancelled' && (
-            <button
-              onClick={() => setShowRestructureModal(true)}
-              style={{
-                background: 'linear-gradient(135deg, #4338ca 0%, #3730a3 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 16px',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '700',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-              }}
-              title="Reschedule repayment schedule, grant moratorium, or extend tenure"
-            >
-              🔄 Restructure / Moratorium
-            </button>
-          )}
+            {/* View Restructure Addendum Button (if already restructured) */}
+            {(activeAddendum || loan.latestRestructuringAddendum) && (
+              <button
+                onClick={() => {
+                  setActiveAddendum(activeAddendum || loan.latestRestructuringAddendum);
+                  setShowAddendumModal(true);
+                }}
+                style={{
+                  height: '36px',
+                  background: '#ffffff',
+                  color: '#312e81',
+                  border: '1px solid #c7d2fe',
+                  borderRadius: '8px',
+                  padding: '0 14px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                }}
+              >
+                📑 Restructure Addendum
+              </button>
+            )}
 
-          {/* View Restructure Addendum Button (if already restructured) */}
-          {(activeAddendum || loan.latestRestructuringAddendum) && (
-            <button
-              onClick={() => {
-                setActiveAddendum(activeAddendum || loan.latestRestructuringAddendum);
-                setShowAddendumModal(true);
-              }}
-              style={{
-                background: '#312e81',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 16px',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '700',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-              }}
-            >
-              📑 Restructure Addendum
-            </button>
-          )}
+            {/* Send UPI Pay Link Button */}
+            {loan.status !== 'completed' && loan.status !== 'rejected' && loan.status !== 'cancelled' && (
+              <button
+                onClick={() => {
+                  const payUrl = `${window.location.origin}/pay/${loan.id}`;
+                  if (navigator.clipboard) {
+                    navigator.clipboard.writeText(payUrl);
+                  }
+                  const waText = `Dear ${loan.customer?.name || 'Borrower'},\n\nPlease pay your loan EMI for ${loan.type} (Loan Ref: LN${1000 + loan.id}) securely via UPI (PhonePe / GPay / Paytm) using your personalized payment link:\n${payUrl}\n\nRegards,\n${loan.company?.name || 'LenQredzo Capital'}`;
+                  const waUrl = `https://api.whatsapp.com/send?phone=${loan.customer?.phone || ''}&text=${encodeURIComponent(waText)}`;
+                  window.open(waUrl, '_blank');
+                }}
+                style={{
+                  height: '36px',
+                  background: '#ffffff',
+                  color: '#16a34a',
+                  border: '1px solid #86efac',
+                  borderRadius: '8px',
+                  padding: '0 14px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                }}
+                title="Share mobile 1-tap PhonePe/GPay checkout link on WhatsApp"
+              >
+                📱 Share UPI Pay Link
+              </button>
+            )}
 
-          {/* Send UPI Pay Link Button */}
-          {loan.status !== 'completed' && loan.status !== 'rejected' && loan.status !== 'cancelled' && (
-            <button
-              onClick={() => {
-                const payUrl = `${window.location.origin}/pay/${loan.id}`;
-                if (navigator.clipboard) {
-                  navigator.clipboard.writeText(payUrl);
-                }
-                const waText = `Dear ${loan.customer?.name || 'Borrower'},\n\nPlease pay your loan EMI for ${loan.type} (Loan Ref: LN${1000 + loan.id}) securely via UPI (PhonePe / GPay / Paytm) using your personalized payment link:\n${payUrl}\n\nRegards,\n${loan.company?.name || 'LenQredzo Capital'}`;
-                const waUrl = `https://api.whatsapp.com/send?phone=${loan.customer?.phone || ''}&text=${encodeURIComponent(waText)}`;
-                window.open(waUrl, '_blank');
-              }}
-              style={{
-                background: '#25D366',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 16px',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '700',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-              }}
-              title="Share mobile 1-tap PhonePe/GPay checkout link on WhatsApp"
-            >
-              📱 Share UPI Pay Link
-            </button>
-          )}
-
-          <button
-            onClick={() => setShowSanctionLetter(true)}
-            style={{
-              background: '#1e40af',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '8px 16px',
-              cursor: 'pointer',
-              fontSize: '13px',
-              fontWeight: '600',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-            }}
-          >
-            📄 Sanction Letter
-          </button>
-          {canDelete && (
-            <button onClick={deleteLoan} disabled={deleting}
-              style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', opacity: deleting ? 0.6 : 1 }}>
-              {deleting ? 'Deleting...' : '🗑 Delete Loan'}
-            </button>
-          )}
+            {canDelete && (
+              <button
+                onClick={deleteLoan}
+                disabled={deleting}
+                style={{
+                  height: '36px',
+                  background: '#ffffff',
+                  color: '#dc2626',
+                  border: '1px solid #fecaca',
+                  borderRadius: '8px',
+                  padding: '0 14px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  opacity: deleting ? 0.6 : 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                }}
+              >
+                {deleting ? 'Deleting...' : '🗑 Delete'}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Restructuring Addendum Banner */}

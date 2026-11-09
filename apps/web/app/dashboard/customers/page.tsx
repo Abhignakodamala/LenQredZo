@@ -363,19 +363,59 @@ export default function CustomersPage() {
       <Sidebar />
       <div style={{ marginLeft: '220px', flex: 1, padding: '24px' }}>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '16px',
+          marginBottom: '24px'
+        }}>
           <div>
             <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Customers</h2>
-            <p style={{ color: '#6b7280', margin: 0 }}>Manage all your customers</p>
+            <p style={{ color: '#6b7280', margin: '4px 0 0', fontSize: '13px' }}>Manage all your borrowers and KYC records</p>
           </div>
           {canCreate && (
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               <Link href="/dashboard/customers/import"
-                style={{ background: 'white', color: '#1e40af', border: '1px solid #1e40af', padding: '10px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', textDecoration: 'none' }}>
+                style={{
+                  height: '38px',
+                  background: '#ffffff',
+                  color: '#374151',
+                  border: '1px solid #d1d5db',
+                  padding: '0 16px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                  boxSizing: 'border-box'
+                }}>
                 ⬆ Bulk Import
               </Link>
               <button onClick={openAddForm}
-                style={{ background: '#1e40af', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
+                style={{
+                  height: '38px',
+                  background: '#1e40af',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '0 18px',
+                  borderRadius: '8px',
+                  fontSize: '13.5px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 1px 3px rgba(30, 64, 175, 0.25)',
+                  boxSizing: 'border-box'
+                }}>
                 + Add Customer
               </button>
             </div>
@@ -539,11 +579,11 @@ export default function CustomersPage() {
 
         {/*  ── Table ───────────────────────────────────────────────────────  */}
         <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ fontWeight: '600', margin: 0 }}>All Customers ({filtered.length})</h3>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <h3 style={{ fontWeight: '600', margin: 0, fontSize: '15px' }}>All Customers ({filtered.length})</h3>
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="🔍 Search by name, email, phone..."
-              style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', width: '300px' }} />
+              style={{ height: '36px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px', width: '300px', boxSizing: 'border-box', outline: 'none' }} />
           </div>
 
           {loading ? (
