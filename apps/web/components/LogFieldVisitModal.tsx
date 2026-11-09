@@ -553,20 +553,22 @@ export default function LogFieldVisitModal({ customer: initialCustomer, loanId: 
           </div>
 
           {/* Action Buttons */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
               style={{
-                padding: '10px 18px',
+                height: '38px',
+                padding: '0 18px',
                 borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                background: 'white',
+                border: '1px solid #d1d5db',
+                background: '#ffffff',
                 fontSize: '13px',
                 fontWeight: 600,
-                color: '#475569',
-                cursor: loading ? 'not-allowed' : 'pointer'
+                color: '#374151',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                whiteSpace: 'nowrap'
               }}
             >
               Cancel
@@ -575,21 +577,25 @@ export default function LogFieldVisitModal({ customer: initialCustomer, loanId: 
               type="submit"
               disabled={loading}
               style={{
-                padding: '10px 24px',
+                height: '38px',
+                padding: '0 20px',
                 borderRadius: '8px',
                 border: 'none',
-                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                background: '#1e40af',
                 fontSize: '13px',
-                fontWeight: 700,
-                color: 'white',
+                fontWeight: 600,
+                color: '#ffffff',
                 cursor: loading ? 'not-allowed' : 'pointer',
-                boxShadow: '0 2px 8px rgba(2, 132, 199, 0.35)',
+                opacity: loading ? 0.7 : 1,
+                boxShadow: '0 1px 3px rgba(30, 64, 175, 0.25)',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
+                whiteSpace: 'nowrap'
               }}
             >
-              {loading ? 'Submitting Proof...' : '📍 Submit Geo-Tagged Visit Proof'}
+              <span>📍</span>
+              <span>{loading ? 'Submitting Proof...' : 'Submit Visit Proof'}</span>
             </button>
           </div>
         </form>

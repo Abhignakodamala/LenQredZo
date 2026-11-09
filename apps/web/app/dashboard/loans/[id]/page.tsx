@@ -448,18 +448,19 @@ export default function LoanDetailPage() {
           <button
             onClick={() => setShowVisitModal(true)}
             style={{
-              background: '#0284c7',
-              color: 'white',
+              background: '#1e40af',
+              color: '#ffffff',
               border: 'none',
               borderRadius: '8px',
               padding: '8px 16px',
               cursor: 'pointer',
               fontSize: '13px',
-              fontWeight: '700',
+              fontWeight: 600,
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+              whiteSpace: 'nowrap',
+              boxShadow: '0 1px 2px rgba(30,64,175,0.2)'
             }}
           >
             📍 Log Visit Proof

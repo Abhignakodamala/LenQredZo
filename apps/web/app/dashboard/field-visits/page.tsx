@@ -93,7 +93,9 @@ export default function FieldVisitsPage() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '20px'
+          flexWrap: 'wrap',
+          gap: '16px',
+          marginBottom: '22px'
         }}>
           <div>
             <h2 style={{ fontSize: '22px', fontWeight: 'bold', color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -104,14 +106,25 @@ export default function FieldVisitsPage() {
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '4px 10px' }}>
+          {/* Unified Controls Toolbar - Consistent 38px height & No text wrapping */}
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{
+              height: '38px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: '#ffffff',
+              border: '1px solid #d1d5db',
+              borderRadius: '8px',
+              padding: '0 12px',
+              boxSizing: 'border-box'
+            }}>
               <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 600 }}>Date:</span>
               <input
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                style={{ border: 'none', outline: 'none', fontSize: '13px', fontWeight: 600, color: '#111827', cursor: 'pointer' }}
+                style={{ border: 'none', outline: 'none', fontSize: '13px', fontWeight: 600, color: '#111827', cursor: 'pointer', background: 'transparent' }}
               />
             </div>
 
@@ -119,15 +132,17 @@ export default function FieldVisitsPage() {
               value={outcomeFilter}
               onChange={(e) => setOutcomeFilter(e.target.value)}
               style={{
-                background: 'white',
-                border: '1px solid #e5e7eb',
+                height: '38px',
+                background: '#ffffff',
+                border: '1px solid #d1d5db',
                 borderRadius: '8px',
-                padding: '7px 12px',
+                padding: '0 12px',
                 fontSize: '13px',
                 color: '#374151',
                 fontWeight: 600,
                 outline: 'none',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                boxSizing: 'border-box'
               }}
             >
               <option value="all">All Outcomes</option>
@@ -141,40 +156,49 @@ export default function FieldVisitsPage() {
             <button
               onClick={() => setShowLogModal(true)}
               style={{
-                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                color: 'white',
+                height: '38px',
+                background: '#1e40af',
+                color: '#ffffff',
                 border: 'none',
                 borderRadius: '8px',
-                padding: '8px 16px',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: 700,
+                padding: '0 18px',
+                fontSize: '13.5px',
+                fontWeight: 600,
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 2px 8px rgba(2, 132, 199, 0.35)'
+                gap: '8px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 1px 3px rgba(30, 64, 175, 0.25)',
+                transition: 'all 0.15s ease'
               }}
             >
-              <span>📍</span> + Log Field Visit
+              <span style={{ fontSize: '15px' }}>📍</span>
+              <span>Log Field Visit</span>
             </button>
 
             <button
               onClick={loadData}
+              title="Refresh Data"
               style={{
-                background: 'white',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                padding: '8px 14px',
-                cursor: 'pointer',
-                fontSize: '13px',
+                height: '38px',
+                background: '#ffffff',
                 color: '#374151',
+                border: '1px solid #d1d5db',
+                borderRadius: '8px',
+                padding: '0 14px',
+                fontSize: '13px',
                 fontWeight: 600,
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
               }}
             >
-              🔄 Refresh
+              <span>🔄</span>
+              <span>Refresh</span>
             </button>
           </div>
         </div>
