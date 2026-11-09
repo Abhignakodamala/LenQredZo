@@ -175,43 +175,52 @@ export default function AnalyticsPage() {
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
             <button
               onClick={() => { fetchAnalytics(); fetchNpaMatrix(); fetchFyAnalytics(selectedFy); }}
               style={{
+                height: '38px',
                 background: 'white',
                 border: '1px solid #cbd5e1',
                 color: '#475569',
-                padding: '9px 14px',
+                padding: '0 14px',
                 borderRadius: '8px',
                 fontSize: '13px',
                 fontWeight: '600',
                 cursor: 'pointer',
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
+                whiteSpace: 'nowrap',
+                boxSizing: 'border-box',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
               }}
             >
-              🔄 Refresh
+              <span>🔄</span>
+              <span>Refresh</span>
             </button>
             <button
               onClick={() => setShowBureauModal(true)}
               style={{
+                height: '38px',
                 background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
                 color: 'white',
                 border: 'none',
-                padding: '9px 18px',
+                padding: '0 18px',
                 borderRadius: '8px',
                 fontSize: '13px',
                 fontWeight: '700',
                 cursor: 'pointer',
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
                 gap: '8px',
+                whiteSpace: 'nowrap',
+                boxSizing: 'border-box',
                 boxShadow: '0 4px 6px -1px rgba(2, 132, 199, 0.25)'
               }}
             >
-              📑 Export CIBIL / CRIF Bureau File
+              <span>📑</span>
+              <span>Export CIBIL / CRIF Bureau File</span>
             </button>
           </div>
         </div>
@@ -290,13 +299,17 @@ export default function AnalyticsPage() {
                   value={selectedFy}
                   onChange={e => setSelectedFy(e.target.value)}
                   style={{
-                    padding: '8px 14px',
+                    height: '38px',
+                    padding: '0 14px',
                     borderRadius: '8px',
                     border: '1px solid #cbd5e1',
                     fontSize: '13px',
                     fontWeight: '700',
                     color: '#0f172a',
-                    background: '#f8fafc'
+                    background: '#f8fafc',
+                    boxSizing: 'border-box',
+                    outline: 'none',
+                    cursor: 'pointer'
                   }}
                 >
                   <option value="2026-27">FY 2026-27 (Current Financial Year)</option>
@@ -313,21 +326,25 @@ export default function AnalyticsPage() {
                 onClick={handleExportCaAuditPack}
                 disabled={exportingCaPack}
                 style={{
+                  height: '38px',
                   background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
                   color: 'white',
                   border: 'none',
-                  padding: '9px 18px',
+                  padding: '0 18px',
                   borderRadius: '8px',
                   fontSize: '13px',
                   fontWeight: '700',
                   cursor: exportingCaPack ? 'not-allowed' : 'pointer',
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  gap: '8px',
+                  whiteSpace: 'nowrap',
+                  boxSizing: 'border-box',
                   boxShadow: '0 2px 4px rgba(5, 150, 105, 0.25)'
                 }}
               >
-                {exportingCaPack ? '⏳ Generating...' : '📑 Export CA Annual Audit Pack (CSV)'}
+                <span>{exportingCaPack ? '⏳' : '📑'}</span>
+                <span>{exportingCaPack ? 'Generating CA Audit Pack...' : 'Export CA Annual Audit Pack (CSV)'}</span>
               </button>
             </div>
 
@@ -864,11 +881,14 @@ export default function AnalyticsPage() {
                     value={npaSearch}
                     onChange={e => setNpaSearch(e.target.value)}
                     style={{
-                      padding: '7px 12px',
+                      height: '38px',
+                      padding: '0 12px',
                       borderRadius: '8px',
                       border: '1px solid #cbd5e1',
                       fontSize: '13px',
-                      width: '260px'
+                      width: '260px',
+                      boxSizing: 'border-box',
+                      outline: 'none'
                     }}
                   />
                 </div>

@@ -493,20 +493,24 @@ export default function BulkImportPage() {
             )}
 
             {/* Action Buttons */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px', marginTop: '20px', flexWrap: 'wrap' }}>
               {validation.invalid > 0 && (
                 <button
                   onClick={() => doImport(false)}
                   disabled={importing || rows.length === 0}
                   style={{
+                    height: '38px',
                     background: '#f1f5f9',
                     border: '1px solid #cbd5e1',
                     color: '#334155',
-                    padding: '10px 18px',
+                    padding: '0 18px',
                     borderRadius: '8px',
                     fontSize: '13px',
                     fontWeight: 600,
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    whiteSpace: 'nowrap'
                   }}
                 >
                   Import All {rows.length} Records
@@ -516,15 +520,19 @@ export default function BulkImportPage() {
                 onClick={() => doImport(true)}
                 disabled={importing || validation.valid === 0}
                 style={{
+                  height: '38px',
                   background: '#16a34a',
                   border: 'none',
                   color: '#ffffff',
-                  padding: '12px 26px',
-                  borderRadius: '10px',
-                  fontSize: '14px',
+                  padding: '0 22px',
+                  borderRadius: '8px',
+                  fontSize: '13.5px',
                   fontWeight: 700,
                   cursor: (importing || validation.valid === 0) ? 'not-allowed' : 'pointer',
                   opacity: (importing || validation.valid === 0) ? 0.6 : 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  whiteSpace: 'nowrap',
                   boxShadow: '0 2px 4px rgba(22, 163, 74, 0.2)'
                 }}
               >

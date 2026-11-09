@@ -271,7 +271,7 @@ export default function SettingsPage() {
   const inp: CSSProperties = { width: '100%', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' };
   const lbl: CSSProperties = { display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '6px', color: '#374151' };
   const card: CSSProperties = { background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e5e7eb', marginBottom: '20px' };
-  const btn: CSSProperties = { background: '#1e40af', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' };
+  const btn: CSSProperties = { height: '38px', background: '#1e40af', color: 'white', border: 'none', padding: '0 20px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' };
 
   if (loading) return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f9fafb' }}>
@@ -387,15 +387,19 @@ export default function SettingsPage() {
                 onClick={() => logoInputRef.current?.click()}
                 disabled={uploadingLogo}
                 style={{
+                  height: '36px',
                   background: '#1e40af',
                   color: 'white',
                   border: 'none',
-                  padding: '8px 16px',
-                  borderRadius: '6px',
+                  padding: '0 16px',
+                  borderRadius: '8px',
                   fontSize: '13px',
                   fontWeight: 600,
                   cursor: 'pointer',
-                  opacity: uploadingLogo ? 0.7 : 1
+                  opacity: uploadingLogo ? 0.7 : 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  whiteSpace: 'nowrap'
                 }}
               >
                 {uploadingLogo ? 'Uploading...' : (company.logo ? 'Change Logo' : 'Upload Logo')}
@@ -407,14 +411,18 @@ export default function SettingsPage() {
                   onClick={handleRemoveLogo}
                   disabled={uploadingLogo}
                   style={{
+                    height: '36px',
                     background: '#fef2f2',
                     color: '#dc2626',
                     border: '1px solid #fecaca',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
+                    padding: '0 14px',
+                    borderRadius: '8px',
                     fontSize: '13px',
                     fontWeight: 600,
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    whiteSpace: 'nowrap'
                   }}
                 >
                   Remove
@@ -647,7 +655,7 @@ export default function SettingsPage() {
           <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px' }}>Sign out of your account on this device.</p>
           <button
             onClick={() => { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/login'; }}
-            style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '10px 24px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
+            style={{ height: '38px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '0 24px', borderRadius: '8px', fontSize: '13.5px', fontWeight: '600', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
             Logout
           </button>
         </div>

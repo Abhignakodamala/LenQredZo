@@ -644,61 +644,62 @@ export default function WhatsAppHubPage() {
       {/* 2. Main WhatsApp Workspace */}
       <main className="ml-[220px] flex-1 flex flex-col h-full overflow-hidden bg-white">
         {/* Top Header Bar */}
-        <header className="h-[68px] px-6 border-b border-slate-200 bg-white flex items-center justify-between shrink-0">
+        <header className="min-h-[64px] px-6 py-3 border-b border-slate-200 bg-white flex flex-wrap items-center justify-between gap-4 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#25D366] flex items-center justify-center text-white shadow-sm shadow-emerald-500/20">
+            <div className="w-10 h-10 rounded-xl bg-[#25D366] flex items-center justify-center text-white shadow-sm shadow-emerald-500/20 shrink-0">
               <MessageSquare className="w-5 h-5 fill-white stroke-none" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-bold text-slate-900 tracking-tight">WhatsApp</h1>
-                <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-200 uppercase tracking-wider">
+                <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-200 uppercase tracking-wider whitespace-nowrap">
                   Live CRM
                 </span>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 hidden sm:block">
                 Send and receive messages, reminders and notifications to your customers.
               </p>
             </div>
           </div>
 
-          {/* Right Action Bar */}
-          <div className="flex items-center gap-3">
+          {/* Right Action Bar - Standardized 36px Height, Whitespace Nowrap, Uniform Pill Styling */}
+          <div className="flex items-center flex-wrap gap-2.5">
             {toastNotice && (
-              <div className="bg-emerald-50 text-emerald-800 text-xs px-3 py-1.5 rounded-lg border border-emerald-200 flex items-center gap-1.5 animate-fadeIn">
+              <div className="h-[36px] bg-emerald-50 text-emerald-800 text-xs px-3 rounded-lg border border-emerald-200 flex items-center gap-1.5 animate-fadeIn whitespace-nowrap">
                 <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
                 <span className="font-semibold">{toastNotice}</span>
               </div>
             )}
 
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-              <span className={`w-2 h-2 rounded-full ${isMetaConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
+            <div className="h-[36px] flex items-center gap-2 px-3 rounded-lg bg-slate-50 border border-slate-200 text-xs whitespace-nowrap box-border">
+              <span className={`w-2 h-2 rounded-full shrink-0 ${isMetaConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
               <span className="font-medium text-slate-600">
-                {isMetaConfigured ? 'Meta Cloud API: Connected' : 'Meta API: Sandbox Simulator'}
+                {isMetaConfigured ? 'Meta API Connected' : 'Meta Simulator'}
               </span>
             </div>
 
             <button
               onClick={() => setShowBotModal(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer border border-slate-700"
+              className="h-[36px] px-3.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition inline-flex items-center gap-2 shadow-xs cursor-pointer whitespace-nowrap border border-slate-800"
             >
               <Bot className="w-4 h-4 text-emerald-400" />
-              🤖 AI Customer Bot
+              <span>AI Bot</span>
             </button>
 
             <button
               onClick={() => setShowAdvanceModal(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+              className="h-[36px] px-4 rounded-lg bg-[#1e40af] hover:bg-blue-800 text-white text-xs font-semibold transition inline-flex items-center gap-2 shadow-xs cursor-pointer whitespace-nowrap"
             >
-              ⏰ 24-Hr Advance Alerts & Dues
+              <span>⏰</span>
+              <span>24-Hr Advance Alerts</span>
             </button>
 
             <button
               onClick={() => setShowSettingsModal(true)}
-              className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition-all"
+              className="h-[36px] px-3.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 transition-all shadow-xs cursor-pointer whitespace-nowrap"
             >
               <Settings className="w-3.5 h-3.5 text-slate-500" />
-              Meta Settings
+              <span>Meta Settings</span>
             </button>
           </div>
         </header>
@@ -708,21 +709,21 @@ export default function WhatsAppHubPage() {
           {/* ──────── COLUMN 1: CHATS LIST (Width: 320px) ──────── */}
           <div className="w-[320px] border-r border-slate-200 bg-white flex flex-col shrink-0">
             {/* Search & New Message */}
-            <div className="p-3.5 border-b border-slate-100 flex items-center gap-2">
+            <div className="p-3 border-b border-slate-100 flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search or start new chat..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all placeholder:text-slate-400"
+                  placeholder="Search chats..."
+                  className="w-full h-[36px] bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400 box-border"
                 />
               </div>
               <button
                 onClick={() => setShowNewChatModal(true)}
-                className="bg-[#25D366] hover:bg-emerald-600 text-white p-2 rounded-xl text-xs font-bold shadow-sm transition-all flex items-center justify-center shrink-0"
-                title="New Message"
+                className="h-[36px] w-[36px] bg-[#1e40af] hover:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-xs transition-all flex items-center justify-center shrink-0 cursor-pointer"
+                title="New Chat"
               >
                 <Plus className="w-4 h-4 stroke-[2.5]" />
               </button>
@@ -1018,17 +1019,17 @@ export default function WhatsAppHubPage() {
             </div>
 
             {/* Input Composer Dock */}
-            <div className="p-3.5 bg-white border-t border-slate-200 flex items-center gap-3 shrink-0">
+            <div className="p-3 bg-white border-t border-slate-200 flex items-center gap-2.5 shrink-0">
               <button
                 onClick={() => showToast('Attach document or statement')}
-                className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-full transition-colors"
+                className="h-[38px] w-[38px] text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors flex items-center justify-center shrink-0 cursor-pointer"
                 title="Attach"
               >
                 <Paperclip className="w-5 h-5" />
               </button>
               <button
                 onClick={() => setInputText(prev => prev + ' 🙏')}
-                className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-full transition-colors"
+                className="h-[38px] w-[38px] text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors flex items-center justify-center shrink-0 cursor-pointer"
                 title="Emoji"
               >
                 <Smile className="w-5 h-5" />
@@ -1039,14 +1040,15 @@ export default function WhatsAppHubPage() {
                 onChange={e => setInputText(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type a message..."
-                className="flex-1 bg-slate-100 border border-transparent focus:border-emerald-500 focus:bg-white rounded-xl px-4 py-2 text-xs text-slate-900 focus:outline-none transition-all placeholder:text-slate-400"
+                className="flex-1 h-[38px] bg-slate-100 border border-transparent focus:border-blue-500 focus:bg-white rounded-lg px-4 text-xs text-slate-900 focus:outline-none transition-all placeholder:text-slate-400 box-border"
               />
               <button
                 onClick={handleSendMessage}
-                className="w-9 h-9 rounded-full bg-[#25D366] hover:bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/30 transition-all shrink-0 active:scale-95"
+                className="h-[38px] px-4 rounded-lg bg-[#1e40af] hover:bg-blue-800 text-white flex items-center justify-center gap-2 shadow-xs transition-all shrink-0 active:scale-95 text-xs font-semibold cursor-pointer whitespace-nowrap"
                 title="Send"
               >
-                <Send className="w-4 h-4 ml-0.5 fill-white stroke-none" />
+                <span>Send</span>
+                <Send className="w-3.5 h-3.5 fill-white stroke-none" />
               </button>
             </div>
           </div>
