@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { API_URL } from '@/lib/api';
 
 interface CashHandoverVoucherModalProps {
   voucher: any;
@@ -40,7 +41,21 @@ export default function CashHandoverVoucherModal({ voucher, company, onClose }: 
       })
     : '—';
 
-  const companyName = company?.name || 'LENQREDZO CAPITAL PRIVATE LIMITED';
+  const storedCompany = typeof window !== 'undefined' ? (() => {
+    try {
+      const c = localStorage.getItem('company');
+      return c ? JSON.parse(c) : null;
+    } catch {
+      return null;
+    }
+  })() : null;
+
+  const effectiveCompany = company || storedCompany || {};
+  const companyName = effectiveCompany.name || 'LENQREDZO CAPITAL PRIVATE LIMITED';
+  const rawLogo = effectiveCompany.logo;
+  const companyLogo = rawLogo
+    ? (rawLogo.startsWith('http') || rawLogo.startsWith('data:') ? rawLogo : `${API_URL || ''}${rawLogo}`)
+    : null;
   const totalAmount = Number(voucher.totalAmount || 0);
   const denoms = voucher.confirmedDenominations || voucher.denominations || {};
 
@@ -141,10 +156,18 @@ export default function CashHandoverVoucherModal({ voucher, company, onClose }: 
             paddingBottom: '16px',
             marginBottom: '20px'
           }}>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a', letterSpacing: '0.4px' }}>
-                {companyName}
-              </h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              {companyLogo && (
+                <img
+                  src={companyLogo}
+                  alt={companyName}
+                  style={{ maxHeight: '48px', maxWidth: '130px', objectFit: 'contain' }}
+                />
+              )}
+              <div>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a', letterSpacing: '0.4px' }}>
+                  {companyName}
+                </h2>
               <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#64748b' }}>
                 Registered NBFC / Lending Operations · Day-End Cash Desk & Vault Division
               </p>

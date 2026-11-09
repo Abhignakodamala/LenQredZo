@@ -218,63 +218,23 @@ export default function Sidebar() {
 
   const roleLabel = ROLE_LABELS[user?.role || ''] || user?.role || 'Staff Member';
 
-  const renderLogo = () => {
-    const customLogoUrl = company?.logo && !logoError
-      ? (company.logo.startsWith('http') ? company.logo : `${API_URL}${company.logo}`)
-      : null;
-
-    return (
-      <div style={{ padding: '16px 20px', borderBottom: '1px solid #1e293b' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {customLogoUrl ? (
-            <img
-              src={customLogoUrl}
-              alt={company?.name || 'Company Logo'}
-              onError={() => setLogoError(true)}
-              style={{
-                maxHeight: '44px',
-                maxWidth: '170px',
-                objectFit: 'contain',
-                display: 'block'
-              }}
-            />
-          ) : (
-            <Image
-              src="/lenqredzo-logo-transparent.png"
-              alt="LenQredzo"
-              width={140}
-              height={44}
-              priority
-              style={{
-                width: '140px',
-                height: 'auto',
-                maxHeight: '44px',
-                objectFit: 'contain',
-                display: 'block'
-              }}
-            />
-          )}
-
-          {company?.name && (
-            <span
-              style={{
-                fontSize: '11px',
-                color: '#94a3b8',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
-              }}
-            >
-              {company.name}
-            </span>
-          )}
-        </div>
-      </div>
-    );
-  };
+  const renderLogo = () => (
+    <div style={{ padding: '18px 20px', borderBottom: '1px solid #1e293b' }}>
+      <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <Image
+          src="/lenqredzo-logo-transparent.png"
+          alt="LenQredzo"
+          width={140}
+          height={44}
+          priority
+          style={{ width: '140px', height: 'auto', maxHeight: '44px', objectFit: 'contain', display: 'block' }}
+        />
+        <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase' }}>
+          Lending · Credit · Zero Friction
+        </span>
+      </Link>
+    </div>
+  );
 
   const renderNavLinks = () => (
     <nav style={{ flex: 1, padding: '16px 12px', overflowY: 'auto' }}>

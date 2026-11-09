@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useRef } from 'react';
+import { API_URL } from '@/lib/api';
 
 type CollectionItem = {
   id: number;
@@ -25,10 +26,25 @@ type CollectionItem = {
 type RunSheetProps = {
   emis: CollectionItem[];
   companyName?: string;
+  companyLogo?: string | null;
   onClose: () => void;
 };
 
-export default function CollectionRunSheetModal({ emis, companyName = 'LenQredzo Capital Pvt Ltd', onClose }: RunSheetProps) {
+export default function CollectionRunSheetModal({ emis, companyName, companyLogo, onClose }: RunSheetProps) {
+  const storedCompany = typeof window !== 'undefined' ? (() => {
+    try {
+      const c = localStorage.getItem('company');
+      return c ? JSON.parse(c) : null;
+    } catch {
+      return null;
+    }
+  })() : null;
+
+  const resolvedCompanyName = companyName || storedCompany?.name || 'LenQredzo Capital Pvt Ltd';
+  const rawLogo = companyLogo || storedCompany?.logo;
+  const resolvedLogo = rawLogo
+    ? (rawLogo.startsWith('http') || rawLogo.startsWith('data:') ? rawLogo : `${API_URL || ''}${rawLogo}`)
+    : null;
   const printRef = useRef<HTMLDivElement>(null);
 
   // Filters
@@ -326,10 +342,18 @@ export default function CollectionRunSheetModal({ emis, companyName = 'LenQredzo
           >
             {/* Header Letterhead */}
             <div style={{ borderBottom: '2px solid #0f172a', paddingBottom: '12px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#1e40af', margin: '0 0 2px 0' }}>
-                  {companyName}
-                </h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                {resolvedLogo && (
+                  <img
+                    src={resolvedLogo}
+                    alt={resolvedCompanyName}
+                    style={{ maxHeight: '50px', maxWidth: '140px', objectFit: 'contain' }}
+                  />
+                )}
+                <div>
+                  <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#1e40af', margin: '0 0 2px 0' }}>
+                    {resolvedCompanyName}
+                  </h1>
                 <p style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: '#0f172a', letterSpacing: '0.5px' }}>
                   DAILY FIELD COLLECTION RUN SHEET (VASOOL LIST)
                 </p>

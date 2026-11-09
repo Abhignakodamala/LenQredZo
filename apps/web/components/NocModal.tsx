@@ -1,5 +1,6 @@
 'use client';
 import React, { useRef } from 'react';
+import { API_URL } from '@/lib/api';
 
 type NocModalProps = {
   loan: any;
@@ -29,7 +30,20 @@ export default function NocModal({ loan, onClose }: NocModalProps) {
 
   if (!loan) return null;
 
-  const companyName = loan.company?.name || 'ABHI FINANCE';
+  const storedCompany = typeof window !== 'undefined' ? (() => {
+    try {
+      const c = localStorage.getItem('company');
+      return c ? JSON.parse(c) : null;
+    } catch {
+      return null;
+    }
+  })() : null;
+
+  const companyName = loan.company?.name || storedCompany?.name || 'ABHI FINANCE';
+  const rawLogo = loan.company?.logo || storedCompany?.logo;
+  const companyLogo = rawLogo
+    ? (rawLogo.startsWith('http') || rawLogo.startsWith('data:') ? rawLogo : `${API_URL || ''}${rawLogo}`)
+    : null;
   const customer = loan.customer || {};
   const guarantors = loan.guarantors || [];
   const payments = loan.payments || [];
@@ -188,10 +202,18 @@ export default function NocModal({ loan, onClose }: NocModalProps) {
 
             {/* Letterhead */}
             <div style={{ borderBottom: '2px solid #059669', paddingBottom: '16px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#065f46', margin: '0 0 2px 0', letterSpacing: '-0.5px' }}>
-                  {companyName}
-                </h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                {companyLogo && (
+                  <img
+                    src={companyLogo}
+                    alt={companyName}
+                    style={{ maxHeight: '60px', maxWidth: '150px', objectFit: 'contain', display: 'block' }}
+                  />
+                )}
+                <div>
+                  <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#065f46', margin: '0 0 2px 0', letterSpacing: '-0.5px' }}>
+                    {companyName}
+                  </h1>
                 <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: '#475569' }}>
                   Private Lending & Financial Services
                 </p>

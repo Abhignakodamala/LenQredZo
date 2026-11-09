@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { API_URL } from '@/lib/api';
 
 interface DisbursalVoucherModalProps {
   voucher: any;
@@ -14,7 +15,21 @@ export default function DisbursalVoucherModal({ voucher, company, onClose }: Dis
   const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
   const fmtDateTime = (d?: string) => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '—';
 
-  const companyName = company?.name || 'LENQREDZO CAPITAL PRIVATE LIMITED';
+  const storedCompany = typeof window !== 'undefined' ? (() => {
+    try {
+      const c = localStorage.getItem('company');
+      return c ? JSON.parse(c) : null;
+    } catch {
+      return null;
+    }
+  })() : null;
+
+  const effectiveCompany = company || storedCompany || {};
+  const companyName = effectiveCompany.name || 'LENQREDZO CAPITAL PRIVATE LIMITED';
+  const rawLogo = effectiveCompany.logo;
+  const companyLogo = rawLogo
+    ? (rawLogo.startsWith('http') || rawLogo.startsWith('data:') ? rawLogo : `${API_URL || ''}${rawLogo}`)
+    : null;
 
   return (
     <div style={{
@@ -107,10 +122,18 @@ export default function DisbursalVoucherModal({ voucher, company, onClose }: Dis
         }}>
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #0f172a', paddingBottom: '18px', marginBottom: '24px' }}>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.3px' }}>
-                {companyName}
-              </h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              {companyLogo && (
+                <img
+                  src={companyLogo}
+                  alt={companyName}
+                  style={{ maxHeight: '55px', maxWidth: '140px', objectFit: 'contain', display: 'block' }}
+                />
+              )}
+              <div>
+                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.3px' }}>
+                  {companyName}
+                </h2>
               <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#475569', fontWeight: 500 }}>
                 RBI Registered Non-Banking Financial Company (NBFC) · Digital Lending Division
               </p>

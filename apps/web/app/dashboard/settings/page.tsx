@@ -407,7 +407,7 @@ export default function SettingsPage() {
                   Official Company Logo
                 </h4>
                 <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginTop: '2px' }}>
-                  PNG, JPG, WebP · Max 5MB
+                  Printed on Sanction Letters, NOCs, Passbooks & Legal Vouchers
                 </span>
               </div>
             </div>

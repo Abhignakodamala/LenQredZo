@@ -34,7 +34,20 @@ export default function ThermalReceiptModal({ receipt, onClose }: ThermalReceipt
 
   const receiptNo = receipt.receiptNo || `RCT-${Date.now().toString().slice(-8)}`;
   const dateFormatted = fmtDate(receipt.date);
-  const company = receipt.companyName || 'LENQREDZO CAPITAL';
+  const storedCompany = typeof window !== 'undefined' ? (() => {
+    try {
+      const c = localStorage.getItem('company');
+      return c ? JSON.parse(c) : null;
+    } catch {
+      return null;
+    }
+  })() : null;
+
+  const company = receipt.companyName || storedCompany?.name || 'LENQREDZO CAPITAL';
+  const rawLogo = receipt.companyLogo || storedCompany?.logo;
+  const companyLogo = rawLogo
+    ? (rawLogo.startsWith('http') || rawLogo.startsWith('data:') ? rawLogo : `${API_URL || ''}${rawLogo}`)
+    : null;
   const branch = receipt.branchName || 'Main Branch';
   const collector = receipt.collectorName || 'Field Officer';
   const borrower = receipt.borrowerName || 'Borrower';
@@ -186,6 +199,13 @@ export default function ThermalReceiptModal({ receipt, onClose }: ThermalReceipt
           >
             {/* Header / Logo */}
             <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+              {companyLogo && (
+                <img
+                  src={companyLogo}
+                  alt={company}
+                  style={{ maxHeight: '36px', maxWidth: '110px', objectFit: 'contain', margin: '0 auto 6px', display: 'block' }}
+                />
+              )}
               <h3 style={{ margin: 0, fontSize: '13px', fontWeight: '900', letterSpacing: '0.04em' }}>
                 {company.toUpperCase()}
               </h3>

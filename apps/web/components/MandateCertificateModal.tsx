@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { API_URL } from '@/lib/api';
 
 interface MandateCertificateModalProps {
   mandate: any;
@@ -12,7 +13,21 @@ export default function MandateCertificateModal({ mandate, company, onClose }: M
 
   const fmt = (n?: number) => '₹' + Number(n || 0).toLocaleString('en-IN');
   const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-  const companyName = company?.name || 'LENQREDZO CAPITAL PRIVATE LIMITED';
+  const storedCompany = typeof window !== 'undefined' ? (() => {
+    try {
+      const c = localStorage.getItem('company');
+      return c ? JSON.parse(c) : null;
+    } catch {
+      return null;
+    }
+  })() : null;
+
+  const effectiveCompany = company || storedCompany || {};
+  const companyName = effectiveCompany.name || 'LENQREDZO CAPITAL PRIVATE LIMITED';
+  const rawLogo = effectiveCompany.logo;
+  const companyLogo = rawLogo
+    ? (rawLogo.startsWith('http') || rawLogo.startsWith('data:') ? rawLogo : `${API_URL || ''}${rawLogo}`)
+    : null;
 
   return (
     <div style={{
@@ -111,10 +126,18 @@ export default function MandateCertificateModal({ mandate, company, onClose }: M
             paddingBottom: '16px',
             marginBottom: '20px'
           }}>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
-                {companyName}
-              </h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              {companyLogo && (
+                <img
+                  src={companyLogo}
+                  alt={companyName}
+                  style={{ maxHeight: '48px', maxWidth: '130px', objectFit: 'contain' }}
+                />
+              )}
+              <div>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
+                  {companyName}
+                </h2>
               <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#64748b' }}>
                 Registered NBFC · Digital Collections & NPCI Mandate Processing Cell
               </p>

@@ -28,7 +28,15 @@ export default function CustomerPassbookModal({ customer, onClose }: CustomerPas
   if (!customer) return null;
 
   const loans = customer.loans || [];
-  const company = customer.company || {};
+  const storedCompany = typeof window !== 'undefined' ? (() => {
+    try {
+      const c = localStorage.getItem('company');
+      return c ? JSON.parse(c) : null;
+    } catch {
+      return null;
+    }
+  })() : null;
+  const company = { ...(storedCompany || {}), ...(customer.company || {}) };
   const branch = customer.branch || {};
   const companyName = company.name || 'FINSMART ENTERPRISES';
   const branchName = branch.name || 'Headquarters Branch';
