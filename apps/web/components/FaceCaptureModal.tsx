@@ -30,6 +30,7 @@ export default function FaceCaptureModal({
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
   const [isMirrored, setIsMirrored] = useState(true);
   const [capturedPreview, setCapturedPreview] = useState<string | null>(null);
+  const [showChromeTip, setShowChromeTip] = useState(false);
 
   // Stop current stream cleanly
   const stopStream = useCallback(() => {
@@ -69,8 +70,13 @@ export default function FaceCaptureModal({
     setCameraReady(false);
     stopStream();
 
-    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-      setCameraError('Camera access is not supported on this browser or connection. Please use modern Chrome/Edge.');
+    const isHttpInsecure = typeof window !== 'undefined'
+      && !window.isSecureContext
+      && window.location.protocol === 'http:'
+      && !['localhost', '127.0.0.1'].includes(window.location.hostname);
+
+    if (isHttpInsecure || typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      setCameraError('HTTP_INSECURE_BLOCKED');
       return;
     }
 
@@ -116,9 +122,9 @@ export default function FaceCaptureModal({
     if (!stream) {
       console.warn('All camera constraints failed:', lastErr);
       const msg = lastErr?.name === 'NotAllowedError'
-        ? 'Camera permission was denied. Please allow camera access in your browser settings (look for the camera icon in your URL bar).'
+        ? 'Camera permission was denied. Please allow camera access in your browser settings.'
         : lastErr?.name === 'NotReadableError'
-          ? 'Camera is currently locked by another application (like Zoom, Teams, or another tab). Please close other apps and click Retry.'
+          ? 'Camera is currently locked by another application (like Zoom, Teams, or another tab). Close other apps and retry.'
           : 'Unable to start camera. You can switch camera, upload a photo, or retry.';
       setCameraError(msg);
       return;
@@ -133,7 +139,6 @@ export default function FaceCaptureModal({
       video.setAttribute('playsinline', 'true');
       video.setAttribute('autoplay', 'true');
 
-      // Explicit play promise to prevent black frames
       const tryPlay = async () => {
         try {
           await video.play();
@@ -143,21 +148,13 @@ export default function FaceCaptureModal({
         }
       };
 
-      video.onloadedmetadata = () => {
-        tryPlay();
-      };
-      video.oncanplay = () => {
-        tryPlay();
-      };
-      video.onplaying = () => {
-        setCameraReady(true);
-      };
+      video.onloadedmetadata = () => { tryPlay(); };
+      video.oncanplay = () => { tryPlay(); };
+      video.onplaying = () => { setCameraReady(true); };
 
-      // Also trigger immediate play attempt in case metadata already loaded
       tryPlay();
     }
 
-    // Refresh devices list now that permission is granted
     refreshDevices();
   }, [selectedDeviceId, stopStream, refreshDevices]);
 
@@ -234,6 +231,8 @@ export default function FaceCaptureModal({
     reader.readAsDataURL(file);
   };
 
+  const isHttpBlocked = cameraError === 'HTTP_INSECURE_BLOCKED';
+
   return (
     <div
       role="presentation"
@@ -276,190 +275,321 @@ export default function FaceCaptureModal({
           {message}
         </p>
 
-        {/* Camera Selector & Controls Toolbar */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '8px',
-          marginBottom: '10px',
-          padding: '4px 6px'
-        }}>
-          {videoDevices.length > 1 ? (
-            <select
-              value={selectedDeviceId}
-              onChange={(e) => handleDeviceChange(e.target.value)}
-              style={{
-                fontSize: '12px',
-                padding: '6px 8px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                background: '#f8fafc',
-                color: '#334155',
-                flex: 1,
-                maxWidth: '220px',
-                cursor: 'pointer'
-              }}
-            >
-              {videoDevices.map((d, i) => (
-                <option key={d.deviceId || i} value={d.deviceId}>
-                  {d.label || `Camera ${i + 1}`}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span>🎥 Active Camera</span>
+        {/* Camera Selector & Controls Toolbar (Only if camera is supported) */}
+        {!isHttpBlocked && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '8px',
+            marginBottom: '10px',
+            padding: '4px 6px'
+          }}>
+            {videoDevices.length > 1 ? (
+              <select
+                value={selectedDeviceId}
+                onChange={(e) => handleDeviceChange(e.target.value)}
+                style={{
+                  fontSize: '12px',
+                  padding: '6px 8px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  background: '#f8fafc',
+                  color: '#334155',
+                  flex: 1,
+                  maxWidth: '220px',
+                  cursor: 'pointer'
+                }}
+              >
+                {videoDevices.map((d, i) => (
+                  <option key={d.deviceId || i} value={d.deviceId}>
+                    {d.label || `Camera ${i + 1}`}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span>🎥 Active Camera</span>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button
+                type="button"
+                onClick={toggleMirror}
+                title="Flip Mirror"
+                style={{
+                  fontSize: '11.5px',
+                  padding: '5px 9px',
+                  borderRadius: '6px',
+                  border: '1px solid #e2e8f0',
+                  background: isMirrored ? '#e0e7ff' : '#ffffff',
+                  color: isMirrored ? '#3730a3' : '#475569',
+                  cursor: 'pointer',
+                  fontWeight: 600
+                }}
+              >
+                🪞 {isMirrored ? 'Mirrored' : 'Normal'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => startCamera()}
+                title="Restart Video Feed"
+                style={{
+                  fontSize: '11.5px',
+                  padding: '5px 9px',
+                  borderRadius: '6px',
+                  border: '1px solid #e2e8f0',
+                  background: '#f8fafc',
+                  color: '#334155',
+                  cursor: 'pointer',
+                  fontWeight: 600
+                }}
+              >
+                🔄 Refresh
+              </button>
             </div>
-          )}
-
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <button
-              type="button"
-              onClick={toggleMirror}
-              title="Flip Mirror"
-              style={{
-                fontSize: '11.5px',
-                padding: '5px 9px',
-                borderRadius: '6px',
-                border: '1px solid #e2e8f0',
-                background: isMirrored ? '#e0e7ff' : '#ffffff',
-                color: isMirrored ? '#3730a3' : '#475569',
-                cursor: 'pointer',
-                fontWeight: 600
-              }}
-            >
-              🪞 {isMirrored ? 'Mirrored' : 'Normal'}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => startCamera()}
-              title="Restart Video Feed"
-              style={{
-                fontSize: '11.5px',
-                padding: '5px 9px',
-                borderRadius: '6px',
-                border: '1px solid #e2e8f0',
-                background: '#f8fafc',
-                color: '#334155',
-                cursor: 'pointer',
-                fontWeight: 600
-              }}
-            >
-              🔄 Refresh
-            </button>
           </div>
-        </div>
+        )}
 
-        {/* Video Camera Container with Face Frame Overlay */}
+        {/* Video / Photo Container */}
         <div
           style={{
             position: 'relative',
             width: '100%',
             aspectRatio: '4 / 3',
-            background: '#020617',
+            background: isHttpBlocked ? 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)' : '#020617',
             borderRadius: '16px',
             overflow: 'hidden',
             margin: '0 auto 12px',
-            boxShadow: 'inset 0 0 20px rgba(0,0,0,0.8)'
+            boxShadow: 'inset 0 0 20px rgba(0,0,0,0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}
         >
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            style={{
-              display: 'block',
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              transform: isMirrored ? 'scaleX(-1)' : 'none'
-            }}
-          />
-
-          {/* Face Oval Alignment Guide */}
-          {cameraReady && !cameraError && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: '170px',
-                height: '210px',
-                border: '2.5px dashed rgba(59, 130, 246, 0.85)',
-                borderRadius: '85px',
-                pointerEvents: 'none',
-                boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.22)'
-              }}
-            >
+          {/* Captured Photo Preview */}
+          {capturedPreview ? (
+            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+              <img
+                src={capturedPreview}
+                alt="Captured Face"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover'
+                }}
+              />
               <div style={{
                 position: 'absolute',
-                top: '8px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                background: 'rgba(15, 23, 42, 0.75)',
-                color: '#60a5fa',
-                fontSize: '10.5px',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                whiteSpace: 'nowrap',
-                fontWeight: 600
+                top: '12px',
+                right: '12px',
+                background: '#16a34a',
+                color: '#ffffff',
+                padding: '4px 10px',
+                borderRadius: '20px',
+                fontSize: '12px',
+                fontWeight: 700,
+                boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
               }}>
-                Align Face Here
+                ✓ Photo Ready
               </div>
             </div>
-          )}
-
-          {/* Connecting State */}
-          {!cameraReady && !cameraError && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
+          ) : isHttpBlocked ? (
+            /* Friendly HTTP Notice Screen instead of black box */
+            <div style={{
+              padding: '24px 20px',
+              textAlign: 'center',
+              color: '#ffffff',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%'
+            }}>
+              <div style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                background: 'rgba(59, 130, 246, 0.15)',
+                border: '2px solid rgba(59, 130, 246, 0.4)',
                 display: 'flex',
-                flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#94a3b8',
-                fontSize: '13px',
-                gap: '8px',
-                background: 'rgba(2, 6, 23, 0.9)'
-              }}
-            >
-              <div style={{ fontSize: '26px' }}>⏳</div>
-              <span style={{ fontWeight: 600 }}>Initializing Camera Stream...</span>
-              <span style={{ fontSize: '11px', color: '#64748b' }}>Please accept camera permissions if prompted</span>
+                fontSize: '32px',
+                marginBottom: '12px'
+              }}>
+                📷
+              </div>
+              <h4 style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: 700 }}>
+                Live Webcam Blocked by Browser
+              </h4>
+              <p style={{ margin: '0 0 16px', fontSize: '12.5px', color: '#94a3b8', lineHeight: 1.45, maxWidth: '340px' }}>
+                Chrome & Edge disable live webcam on plain HTTP (<code>http://187.127.163.34</code>) without SSL.
+              </p>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    background: '#2563eb',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '9px 18px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(37,99,235,0.4)'
+                  }}
+                >
+                  📁 Snap / Upload Photo
+                </button>
+                {onSkip && (
+                  <button
+                    type="button"
+                    onClick={onSkip}
+                    style={{
+                      background: 'rgba(255,255,255,0.12)',
+                      color: '#ffffff',
+                      border: '1px solid rgba(255,255,255,0.25)',
+                      padding: '9px 16px',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Skip & Enter →
+                  </button>
+                )}
+              </div>
             </div>
+          ) : (
+            /* Live Camera Stream */
+            <>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  transform: isMirrored ? 'scaleX(-1)' : 'none'
+                }}
+              />
+
+              {/* Face Oval Alignment Guide */}
+              {cameraReady && !cameraError && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: '170px',
+                    height: '210px',
+                    border: '2.5px dashed rgba(59, 130, 246, 0.85)',
+                    borderRadius: '85px',
+                    pointerEvents: 'none',
+                    boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.22)'
+                  }}
+                >
+                  <div style={{
+                    position: 'absolute',
+                    top: '8px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: 'rgba(15, 23, 42, 0.75)',
+                    color: '#60a5fa',
+                    fontSize: '10.5px',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    whiteSpace: 'nowrap',
+                    fontWeight: 600
+                  }}>
+                    Align Face Here
+                  </div>
+                </div>
+              )}
+
+              {/* Connecting State */}
+              {!cameraReady && !cameraError && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#94a3b8',
+                    fontSize: '13px',
+                    gap: '8px',
+                    background: 'rgba(2, 6, 23, 0.9)'
+                  }}
+                >
+                  <div style={{ fontSize: '26px' }}>⏳</div>
+                  <span style={{ fontWeight: 600 }}>Initializing Camera Stream...</span>
+                  <span style={{ fontSize: '11px', color: '#64748b' }}>Please accept camera permissions if prompted</span>
+                </div>
+              )}
+            </>
           )}
         </div>
 
-        {/* Helpful Tip for Black Screen */}
-        <div style={{
-          background: '#f8fafc',
-          border: '1px solid #e2e8f0',
-          borderRadius: '8px',
-          padding: '8px 12px',
-          marginBottom: '14px',
-          fontSize: '11.5px',
-          color: '#475569',
-          textAlign: 'left',
-          lineHeight: 1.45
-        }}>
-          💡 <strong>Screen Black?</strong> Check if your laptop&apos;s physical webcam slider is closed, or if another app (Zoom/Teams) is using the camera. You can also switch cameras above or upload a photo below.
-        </div>
-
-        {/* Camera Status Message */}
-        {cameraReady && !cameraError && (
+        {/* Helpful Tip Box */}
+        {isHttpBlocked ? (
+          <div style={{
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '10px',
+            padding: '10px 14px',
+            marginBottom: '14px',
+            fontSize: '12px',
+            color: '#334155',
+            textAlign: 'left',
+            lineHeight: 1.5
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <strong>💡 Want live webcam streaming on this IP?</strong>
+              <button
+                type="button"
+                onClick={() => setShowChromeTip(!showChromeTip)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#2563eb',
+                  fontWeight: 600,
+                  fontSize: '11.5px',
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
+                }}
+              >
+                {showChromeTip ? 'Hide 1-Minute Chrome Tip' : 'Show 1-Minute Chrome Tip'}
+              </button>
+            </div>
+            {showChromeTip && (
+              <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e2e8f0', fontSize: '11.5px', color: '#475569' }}>
+                <p style={{ margin: '0 0 4px' }}>In Chrome or Edge, you can allow webcam on HTTP with 1 toggle:</p>
+                <ol style={{ margin: '0 0 6px', paddingLeft: '18px' }}>
+                  <li>Open a new tab: <code style={{ background: '#e2e8f0', padding: '1px 4px', borderRadius: '4px' }}>chrome://flags/#unsafely-treat-insecure-origin-as-secure</code></li>
+                  <li>Paste this URL: <code style={{ background: '#e2e8f0', padding: '1px 4px', borderRadius: '4px' }}>http://187.127.163.34</code></li>
+                  <li>Select <strong>Enabled</strong> and click <strong>Relaunch</strong>.</li>
+                </ol>
+                <p style={{ margin: 0, fontStyle: 'italic' }}>Or simply click <strong>Skip for now →</strong> below to enter the dashboard immediately!</p>
+              </div>
+            )}
+          </div>
+        ) : cameraReady && !cameraError ? (
           <p style={{ margin: '0 0 14px', color: '#16a34a', fontSize: '13px', fontWeight: 600 }}>
             ✓ Camera stream live! Position your face inside the frame.
           </p>
-        )}
-
-        {/* Camera Error Alert */}
-        {cameraError && (
+        ) : cameraError ? (
           <div
             style={{
               background: '#fef2f2',
@@ -509,7 +639,7 @@ export default function FaceCaptureModal({
               </button>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Hidden File Input for Image Upload Fallback */}
         <input
@@ -523,26 +653,28 @@ export default function FaceCaptureModal({
 
         {/* Action Buttons */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <button
-            type="button"
-            onClick={capturePhoto}
-            disabled={capturing || (!cameraReady && !cameraError)}
-            style={{
-              width: '100%',
-              padding: '13px',
-              border: 'none',
-              borderRadius: '10px',
-              background: capturing ? '#94a3b8' : 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-              color: '#ffffff',
-              fontSize: '15px',
-              fontWeight: 700,
-              cursor: capturing ? 'default' : 'pointer',
-              boxShadow: '0 4px 14px rgba(37, 99, 235, 0.35)',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            {capturing ? 'Processing Photo...' : '📸 Capture Photo & Proceed'}
-          </button>
+          {!isHttpBlocked && (
+            <button
+              type="button"
+              onClick={capturePhoto}
+              disabled={capturing || (!cameraReady && !cameraError)}
+              style={{
+                width: '100%',
+                padding: '13px',
+                border: 'none',
+                borderRadius: '10px',
+                background: capturing ? '#94a3b8' : 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                color: '#ffffff',
+                fontSize: '15px',
+                fontWeight: 700,
+                cursor: capturing ? 'default' : 'pointer',
+                boxShadow: '0 4px 14px rgba(37, 99, 235, 0.35)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {capturing ? 'Processing Photo...' : '📸 Capture Photo & Proceed'}
+            </button>
+          )}
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', alignItems: 'center', marginTop: '2px' }}>
             <button
@@ -552,7 +684,7 @@ export default function FaceCaptureModal({
                 background: 'none',
                 border: 'none',
                 color: '#2563eb',
-                fontSize: '12.5px',
+                fontSize: '13px',
                 fontWeight: 600,
                 cursor: 'pointer',
                 textDecoration: 'underline'
@@ -568,15 +700,17 @@ export default function FaceCaptureModal({
                   type="button"
                   onClick={onSkip}
                   style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#64748b',
-                    fontSize: '12.5px',
-                    fontWeight: 600,
+                    background: '#f1f5f9',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    padding: '5px 12px',
+                    color: '#0f172a',
+                    fontSize: '13px',
+                    fontWeight: 700,
                     cursor: 'pointer'
                   }}
                 >
-                  Skip for now →
+                  Skip for now & Continue →
                 </button>
               </>
             )}
