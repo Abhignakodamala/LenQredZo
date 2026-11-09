@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { API_URL } from '@/lib/api';
 import { getAuthUser, type AuthUser } from '@/lib/authUser';
+import LogFieldVisitModal from '@/components/LogFieldVisitModal';
 
 export default function FieldVisitsPage() {
   const [me, setMe] = useState<AuthUser | null>(null);
@@ -10,6 +11,7 @@ export default function FieldVisitsPage() {
   const [ptps, setPtps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<any | null>(null);
+  const [showLogModal, setShowLogModal] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState(() => {
     const now = new Date();
@@ -135,6 +137,26 @@ export default function FieldVisitsPage() {
               <option value="refused_to_pay">🚫 Refused to Pay</option>
               <option value="shifted_untraceable">📦 Shifted</option>
             </select>
+
+            <button
+              onClick={() => setShowLogModal(true)}
+              style={{
+                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 8px rgba(2, 132, 199, 0.35)'
+              }}
+            >
+              <span>📍</span> + Log Field Visit
+            </button>
 
             <button
               onClick={loadData}
@@ -486,6 +508,17 @@ export default function FieldVisitsPage() {
       </div>
 
       {/* Photo Zoom Modal */}
+      {/* Log Field Visit Modal */}
+      {showLogModal && (
+        <LogFieldVisitModal
+          onClose={() => setShowLogModal(false)}
+          onSuccess={() => {
+            setShowLogModal(false);
+            loadData();
+          }}
+        />
+      )}
+
       {selectedPhoto && (
         <div style={{
           position: 'fixed',

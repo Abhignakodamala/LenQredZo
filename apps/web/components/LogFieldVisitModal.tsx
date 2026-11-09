@@ -3,13 +3,21 @@ import React, { useState, useEffect } from 'react';
 import { API_URL } from '@/lib/api';
 
 interface LogFieldVisitModalProps {
-  customer: any;
+  customer?: any;
   loanId?: number;
   onSuccess: (visit: any) => void;
   onClose: () => void;
 }
 
-export default function LogFieldVisitModal({ customer, loanId, onSuccess, onClose }: LogFieldVisitModalProps) {
+export default function LogFieldVisitModal({ customer: initialCustomer, loanId: initialLoanId, onSuccess, onClose }: LogFieldVisitModalProps) {
+  // Customer selection state (if opened directly from Field Visits page)
+  const [customerList, setCustomerList] = useState<any[]>([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | string>(initialCustomer?.id || '');
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(initialCustomer || null);
+  const [selectedLoanId, setSelectedLoanId] = useState<number | string>(initialLoanId || '');
+  const [customerSearch, setCustomerSearch] = useState('');
+
   const [outcome, setOutcome] = useState<string>('door_locked');
   const [remarks, setRemarks] = useState('');
   const [ptpDate, setPtpDate] = useState('');
@@ -32,6 +40,44 @@ export default function LogFieldVisitModal({ customer, loanId, onSuccess, onClos
     captureLocation();
   }, []);
 
+  // Fetch customers if not pre-provided
+  useEffect(() => {
+    if (!initialCustomer) {
+      setLoadingCustomers(true);
+      fetch(`${API_URL}/api/customers`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          const list = Array.isArray(data) ? data : (data.customers || []);
+          setCustomerList(list);
+          if (list.length > 0 && !selectedCustomerId) {
+            setSelectedCustomerId(list[0].id);
+            setSelectedCustomer(list[0]);
+            if (list[0].loans && list[0].loans.length > 0) {
+              setSelectedLoanId(list[0].loans[0].id);
+            }
+          }
+        })
+        .catch(err => {
+          console.error('Failed to load customers:', err);
+        })
+        .finally(() => setLoadingCustomers(false));
+    }
+  }, [initialCustomer]);
+
+  // Handle changing customer dropdown
+  const handleCustomerChange = (custId: number | string) => {
+    setSelectedCustomerId(custId);
+    const found = customerList.find(c => String(c.id) === String(custId));
+    setSelectedCustomer(found || null);
+    if (found && found.loans && found.loans.length > 0) {
+      setSelectedLoanId(found.loans[0].id);
+    } else {
+      setSelectedLoanId('');
+    }
+  };
+
   const captureLocation = () => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
       setGpsError('Geolocation is not supported by your device or browser.');
@@ -50,7 +96,7 @@ export default function LogFieldVisitModal({ customer, loanId, onSuccess, onClos
       (err) => {
         console.warn('GPS error:', err);
         setGpsError('Could not fetch exact GPS location. Please allow location permissions in your browser.');
-        // Fallback simulated coordinates for office/dev test
+        // Fallback coordinates for test
         setLatitude(17.385044);
         setLongitude(78.486671);
         setAccuracy(15);
@@ -71,12 +117,20 @@ export default function LogFieldVisitModal({ customer, loanId, onSuccess, onClos
     reader.readAsDataURL(file);
   };
 
+  const currentCustomer = selectedCustomer || initialCustomer;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentCustomer) {
+      setError('Please select a borrower before submitting visit proof.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
+      const activeLoanId = selectedLoanId || initialLoanId || null;
       const res = await fetch(`${API_URL}/api/field-visits`, {
         method: 'POST',
         headers: {
@@ -84,12 +138,12 @@ export default function LogFieldVisitModal({ customer, loanId, onSuccess, onClos
           Authorization: `Bearer ${localStorage.getItem('token') || ''}`
         },
         body: JSON.stringify({
-          customerId: customer.id,
-          loanId: loanId || null,
+          customerId: currentCustomer.id,
+          loanId: activeLoanId ? Number(activeLoanId) : null,
           latitude,
           longitude,
           accuracy,
-          addressSnapshot: [customer.street, customer.city, customer.address].filter(Boolean).join(', '),
+          addressSnapshot: [currentCustomer.street, currentCustomer.city, currentCustomer.address].filter(Boolean).join(', ') || 'Doorstep Visit Address',
           outcome,
           ptpDate: outcome === 'ptp_taken' ? ptpDate : null,
           ptpAmount: outcome === 'ptp_taken' && ptpAmount ? Number(ptpAmount) : null,
@@ -112,6 +166,17 @@ export default function LogFieldVisitModal({ customer, loanId, onSuccess, onClos
     }
   };
 
+  // Filter customers based on search text
+  const filteredCustomers = customerList.filter(c => {
+    if (!customerSearch.trim()) return true;
+    const term = customerSearch.toLowerCase();
+    return (
+      (c.name && c.name.toLowerCase().includes(term)) ||
+      (c.phone && c.phone.includes(term)) ||
+      (c.city && c.city.toLowerCase().includes(term))
+    );
+  });
+
   return (
     <div style={{
       position: 'fixed',
@@ -127,7 +192,7 @@ export default function LogFieldVisitModal({ customer, loanId, onSuccess, onClos
       <div style={{
         background: 'white',
         borderRadius: '16px',
-        maxWidth: '620px',
+        maxWidth: '640px',
         width: '100%',
         maxHeight: '92vh',
         display: 'flex',
@@ -164,7 +229,9 @@ export default function LogFieldVisitModal({ customer, loanId, onSuccess, onClos
                 Log Doorstep Field Visit Proof
               </h3>
               <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>
-                Borrower: {customer.name} {loanId ? `· Loan LN${1000 + loanId}` : ''}
+                {currentCustomer
+                  ? `Borrower: ${currentCustomer.name} ${selectedLoanId ? `· Loan #LN${selectedLoanId}` : ''}`
+                  : 'Record doorstep visit with verified GPS & photo proof'}
               </p>
             </div>
           </div>
@@ -194,6 +261,96 @@ export default function LogFieldVisitModal({ customer, loanId, onSuccess, onClos
           {error && (
             <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '10px 14px', borderRadius: '8px', color: '#b91c1c', fontSize: '13px' }}>
               ⚠️ {error}
+            </div>
+          )}
+
+          {/* Borrower Selector (Only if opened from Field Visits page without preselected customer) */}
+          {!initialCustomer && (
+            <div style={{
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '12px',
+              padding: '14px 16px'
+            }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                👤 Select Borrower / Customer *
+              </label>
+
+              {loadingCustomers ? (
+                <div style={{ fontSize: '12.5px', color: '#64748b' }}>⏳ Loading borrowers list...</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <input
+                    type="text"
+                    value={customerSearch}
+                    onChange={(e) => setCustomerSearch(e.target.value)}
+                    placeholder="🔍 Search by borrower name, phone, or city..."
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '13px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+
+                  <select
+                    value={selectedCustomerId}
+                    onChange={(e) => handleCustomerChange(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: '#0f172a',
+                      background: 'white',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {filteredCustomers.length === 0 ? (
+                      <option value="">No matching borrowers found</option>
+                    ) : (
+                      filteredCustomers.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} {c.phone ? `(${c.phone})` : ''} {c.city ? `· ${c.city}` : ''} {c.loans?.length ? `· [${c.loans.length} Loan(s)]` : ''}
+                        </option>
+                      ))
+                    )}
+                  </select>
+
+                  {/* If selected customer has loans, show loan picker */}
+                  {selectedCustomer?.loans && selectedCustomer.loans.length > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                      <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 600 }}>Linked Loan:</span>
+                      <select
+                        value={selectedLoanId}
+                        onChange={(e) => setSelectedLoanId(e.target.value)}
+                        style={{
+                          fontSize: '12px',
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          border: '1px solid #cbd5e1',
+                          background: 'white',
+                          fontWeight: 600,
+                          color: '#0369a1'
+                        }}
+                      >
+                        {selectedCustomer.loans.map((ln: any) => (
+                          <option key={ln.id} value={ln.id}>
+                            Loan #LN{ln.id} · {ln.type || 'Standard'} · ₹{Number(ln.amount || 0).toLocaleString('en-IN')} ({ln.status})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
