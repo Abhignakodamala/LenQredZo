@@ -209,296 +209,303 @@ export default function CollectionsPage() {
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Sidebar />
       <div style={{ marginLeft: '220px', flex: 1, padding: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+        {/* Clean, Modern Header Bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Collections</h2>
-            <p style={{ color: '#6b7280', margin: 0 }}>Track EMIs, penalties and collections</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
+                Collections
+              </h2>
+              <span style={{ fontSize: '12px', background: '#eff6ff', color: '#1e40af', padding: '2px 8px', borderRadius: '12px', fontWeight: '700', border: '1px solid #bfdbfe' }}>
+                Daily Ledger
+              </span>
+            </div>
+            <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: '13.5px' }}>
+              Track due installments, collect EMIs, and monitor overdue accounts
+            </p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button
-              onClick={handleRunAccrual}
-              disabled={runningAccrual}
-              style={{
-                background: '#dc2626',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '10px 18px',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: runningAccrual ? 'not-allowed' : 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                boxShadow: '0 2px 4px rgba(220, 38, 38, 0.2)',
-                opacity: runningAccrual ? 0.7 : 1
-              }}
-              title="Manually trigger midnight penalty calculation and overdue status updates"
-            >
-              {runningAccrual ? '⏳ Accruing Late Fees...' : '⚡ Run Midnight Penalty Job'}
-            </button>
 
-            <button
-              onClick={() => setShowBulkModal(true)}
-              style={{
-                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '10px 18px',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                boxShadow: '0 2px 4px rgba(2, 132, 199, 0.25)'
-              }}
-              title="Collect and clear multiple EMIs in 1 batch voucher"
-            >
-              ⚡ Fast Bulk Collection (Batch Mode)
-            </button>
-
-            <button
-              onClick={() => setShowWhatsAppReminderModal(true)}
-              style={{
-                background: 'linear-gradient(135deg, #15803d 0%, #166534 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '10px 18px',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                boxShadow: '0 2px 4px rgba(22, 101, 52, 0.25)'
-              }}
-              title="Send 24-hr advance WhatsApp reminders with 1-tap UPI payment link"
-            >
-              💬 24-Hr Advance WhatsApp Alerts
-            </button>
-
-            <button
-              onClick={() => setShowVaultModal(true)}
-              style={{
-                background: 'linear-gradient(135deg, #064e3b 0%, #065f46 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '10px 18px',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                boxShadow: '0 2px 4px rgba(6, 78, 59, 0.25)'
-              }}
-              title="Count note denominations and deposit cash into branch safe locker"
-            >
-              🔐 Branch Vault Denomination
-            </button>
-
-            <button
-              onClick={() => setShowPreDebitModal(true)}
-              style={{
-                background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '10px 18px',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                boxShadow: '0 2px 4px rgba(4, 120, 87, 0.25)'
-              }}
-              title="RBI e-Mandate 24-Hour Advance Pre-Debit AutoPay Notifications"
-            >
-              ⏰ 24-Hr Pre-Debit Alerts (AutoPay)
-            </button>
-
+          {/* Decluttered Actions Toolbar - Purely Collections Specific */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <button
               onClick={() => setShowRunSheet(true)}
               style={{
-                background: '#0f172a',
-                color: 'white',
+                height: '38px',
+                background: '#1e40af',
+                color: '#ffffff',
                 border: 'none',
                 borderRadius: '8px',
-                padding: '10px 18px',
+                padding: '0 16px',
                 fontSize: '13px',
-                fontWeight: 700,
+                fontWeight: '700',
                 cursor: 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '8px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                whiteSpace: 'nowrap',
+                boxShadow: '0 1px 3px rgba(30, 64, 175, 0.25)',
+                transition: 'all 0.15s ease'
               }}
+              title="Print morning field collection sheet (Vasool List) for recovery agents"
             >
-              📋 Print Morning Collection Sheet (Vasool List)
+              <span>📋</span>
+              <span>Print Vasool List</span>
             </button>
 
-            <button
-              onClick={() => setShowCashReconciliation(true)}
+            <a
+              href="/dashboard/cash-register"
               style={{
-                background: '#15803d',
-                color: 'white',
-                border: 'none',
+                height: '38px',
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
                 borderRadius: '8px',
-                padding: '10px 18px',
+                padding: '0 14px',
                 fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer',
+                fontWeight: '600',
+                color: '#334155',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '8px',
-                boxShadow: '0 2px 4px rgba(21, 128, 61, 0.2)'
+                gap: '6px',
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
               }}
-              title="Day-End Cash Drawer Reconciliation & Physical Denomination Count"
+              title="View physical vault denomination counter and daily cash register"
             >
-              💵 Day-End Cash Tally
-            </button>
+              <span>🏦</span>
+              <span>Vault & Cash Register</span>
+            </a>
           </div>
         </div>
 
+        {/* KPI Cards Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
           {[
-            { label: 'Total EMI Pending', value: fmt(totalPending), color: '#111827' },
-            { label: 'Total Penalty Due', value: fmt(totalPenalty), color: '#dc2626' },
-            { label: 'Overdue EMIs', value: overdueCount, color: '#dc2626' },
-            { label: 'Collected EMIs', value: paidCount, color: '#16a34a' },
+            { label: 'Total EMI Pending', value: fmt(totalPending), color: '#0f172a', note: `${pendingCount + overdueCount} EMIs due`, badge: null },
+            { label: 'Total Penalty Due', value: fmt(totalPenalty), color: '#dc2626', note: 'Late fee accruals', badge: overdueCount > 0 ? `${overdueCount} accounts` : null },
+            { label: 'Overdue EMIs', value: overdueCount, color: '#dc2626', note: 'Requires doorstep follow-up', badge: overdueCount > 0 ? 'Action Needed' : null },
+            { label: 'Collected EMIs', value: paidCount, color: '#16a34a', note: 'Recovered & verified', badge: `${partialCount} partial` },
           ].map(s => (
-            <div key={s.label} style={{ background: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
-              <p style={{ color: '#6b7280', fontSize: '13px', margin: '0 0 8px' }}>{s.label}</p>
-              <p style={{ fontSize: '20px', fontWeight: 'bold', margin: 0, color: s.color }}>{s.value}</p>
+            <div key={s.label} style={{ background: 'white', padding: '18px 20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <p style={{ color: '#64748b', fontSize: '12px', margin: 0, fontWeight: 600 }}>{s.label}</p>
+                {s.badge && (
+                  <span style={{ fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: '4px', background: s.color === '#dc2626' ? '#fee2e2' : '#f0fdf4', color: s.color }}>
+                    {s.badge}
+                  </span>
+                )}
+              </div>
+              <p style={{ fontSize: '22px', fontWeight: '800', margin: '0 0 4px', color: s.color, letterSpacing: '-0.02em' }}>{s.value}</p>
+              <p style={{ color: '#94a3af', fontSize: '11px', margin: 0 }}>{s.note}</p>
             </div>
           ))}
         </div>
 
-        <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
-              <h3 style={{ fontWeight: '600', margin: 0, fontSize: '15px' }}>EMI Collections ({filtered.length})</h3>
+        {/* Table Container */}
+        <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h3 style={{ fontWeight: '700', margin: 0, fontSize: '15px', color: '#0f172a' }}>EMI Collections</h3>
+                <span style={{ fontSize: '12px', background: '#f1f5f9', color: '#475569', padding: '1px 8px', borderRadius: '10px', fontWeight: 600 }}>
+                  {filtered.length} records
+                </span>
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <input value={search} onChange={e => setSearch(e.target.value)}
                   placeholder="🔍 Search customer or loan ID..."
-                  style={{ height: '36px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px', width: '260px', boxSizing: 'border-box', outline: 'none' }} />
+                  style={{ height: '38px', padding: '0 12px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', width: '260px', boxSizing: 'border-box', outline: 'none' }} />
                 <button onClick={() => setSortOrder(s => s === 'asc' ? 'desc' : 'asc')}
-                  style={{ height: '36px', padding: '0 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: 'white', color: '#374151', whiteSpace: 'nowrap', boxSizing: 'border-box' }}>
-                  📅 {sortOrder === 'asc' ? 'Oldest ↑' : 'Newest ↓'}
+                  style={{ height: '38px', padding: '0 14px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: 'white', color: '#334155', whiteSpace: 'nowrap', boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <span>📅</span>
+                  <span>{sortOrder === 'asc' ? 'Oldest Due ↑' : 'Newest Due ↓'}</span>
                 </button>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              {tabs.map(tab => (
-                <button key={tab.value} onClick={() => setStatusFilter(tab.value)}
-                  style={{ padding: '5px 14px', borderRadius: '20px', border: 'none', fontSize: '13px', cursor: 'pointer', fontWeight: statusFilter === tab.value ? '600' : '400', background: statusFilter === tab.value ? '#1e40af' : '#f3f4f6', color: statusFilter === tab.value ? 'white' : '#374151' }}>
-                  {tab.label} ({tab.count})
-                </button>
-              ))}
+
+            {/* Filter Tabs */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {tabs.map(tab => {
+                const active = statusFilter === tab.value;
+                return (
+                  <button key={tab.value} onClick={() => setStatusFilter(tab.value)}
+                    style={{
+                      height: '32px',
+                      padding: '0 14px',
+                      borderRadius: '8px',
+                      border: '1px solid',
+                      borderColor: active ? '#1e40af' : '#e2e8f0',
+                      fontSize: '12.5px',
+                      cursor: 'pointer',
+                      fontWeight: active ? 700 : 500,
+                      background: active ? '#1e40af' : '#ffffff',
+                      color: active ? '#ffffff' : '#475569',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.15s ease'
+                    }}>
+                    <span>{tab.label}</span>
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      padding: '1px 6px',
+                      borderRadius: '10px',
+                      background: active ? 'rgba(255,255,255,0.2)' : '#f1f5f9',
+                      color: active ? '#ffffff' : '#64748b'
+                    }}>
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {loading ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
+            <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Loading collections ledger...</div>
           ) : filtered.length === 0 ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>No records found</div>
+            <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>No records found matching current filters.</div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                  {['Customer', 'Loan', 'Due Date', 'EMI Amount', 'Paid', 'Penalty', 'Total Due', 'Status', 'Action'].map(h => (
-                    <th key={h} style={{ textAlign: 'left', padding: '12px 16px', fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((e: any) => (
-                  <tr key={e.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '500' }}>{e.customerName}</td>
-                    <td style={{ padding: '12px 16px', fontSize: '13px', color: '#1e40af' }}>LN{1000 + e.loanId}</td>
-                    <td style={{ padding: '12px 16px', fontSize: '13px' }}>{fmtDate(e.dueDate)}</td>
-                    <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '600' }}>{fmt(e.amount)}</td>
-                    <td style={{ padding: '12px 16px', fontSize: '13px', color: e.paidAmount > 0 ? '#16a34a' : '#9ca3af' }}>
-                      {e.paidAmount > 0 ? fmt(e.paidAmount) : '—'}
-                    </td>
-                    <td style={{ padding: '12px 16px', fontSize: '13px', color: e.penalty > 0 ? '#dc2626' : '#9ca3af', fontWeight: e.penalty > 0 ? '600' : '400' }}>
-                      {e.penalty > 0 ? fmt(e.penalty) : '—'}
-                      {e.daysOverdue > 0 && <span style={{ display: 'block', fontSize: '11px', color: '#dc2626' }}>{e.daysOverdue} days late</span>}
-                    </td>
-                    <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: e.penalty > 0 ? '#dc2626' : '#111827' }}>
-                      {fmt(e.totalDue)}
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{ ...badge(e.status), padding: '2px 10px', borderRadius: '20px', fontSize: '11px' }}>{e.status}</span>
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      {e.status === 'paid' && (
-                        <button
-                          onClick={() => setThermalReceiptData({
-                            receiptNo: `RCT-${e.id}-${Date.now().toString().slice(-4)}`,
-                            date: e.paidAt || new Date().toISOString(),
-                            companyName: me?.companyName || 'LenQredzo Capital Pvt Ltd',
-                            branchName: me?.branchName || 'Main Branch',
-                            collectorName: me?.name || 'Field Officer',
-                            borrowerName: e.customerName,
-                            borrowerPhone: e.customerPhone,
-                            loanRef: `LN${1000 + e.loanId}`,
-                            emiAmount: e.paidAmount || e.amount,
-                            penaltyAmount: e.penalty || 0,
-                            totalPaid: (e.paidAmount || e.amount) + (e.penalty || 0),
-                            remainingBalance: 0,
-                            paymentMethod: e.paymentMethod || 'cash',
-                            referenceUtr: e.reference || ''
-                          })}
-                          style={{
-                            background: '#f1f5f9',
-                            border: '1px solid #cbd5e1',
-                            color: '#0f172a',
-                            padding: '4px 10px',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}
-                          title="Print 58mm Bluetooth thermal POS receipt slip"
-                        >
-                          🖨️ Thermal Slip
-                        </button>
-                      )}
-                      {e.status !== 'paid' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          {e.penalty > 0 ? (
-                            <>
-                              <button onClick={() => openDialog(e, true)}
-                                style={{ background: '#dc2626', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                Collect + Penalty
-                              </button>
-                              <button onClick={() => openDialog(e, false)}
-                                style={{ background: '#1e40af', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}>
-                                EMI Only
-                              </button>
-                            </>
-                          ) : (
-                            <button onClick={() => openDialog(e, false)}
-                              style={{ background: '#1e40af', color: 'white', border: 'none', padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>
-                              Collect
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </td>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: '950px', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                    <th style={{ textAlign: 'left', padding: '12px 16px', fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Customer</th>
+                    <th style={{ textAlign: 'left', padding: '12px 16px', fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Loan Ref</th>
+                    <th style={{ textAlign: 'left', padding: '12px 16px', fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Due Date</th>
+                    <th style={{ textAlign: 'right', padding: '12px 16px', fontSize: '12px', color: '#64748b', fontWeight: 600 }}>EMI Amount</th>
+                    <th style={{ textAlign: 'right', padding: '12px 16px', fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Paid</th>
+                    <th style={{ textAlign: 'right', padding: '12px 16px', fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Penalty</th>
+                    <th style={{ textAlign: 'right', padding: '12px 16px', fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Total Due</th>
+                    <th style={{ textAlign: 'center', padding: '12px 16px', fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Status</th>
+                    <th style={{ textAlign: 'right', padding: '12px 20px', fontSize: '12px', color: '#64748b', fontWeight: 600, minWidth: '160px' }}>Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filtered.map((e: any) => (
+                    <tr key={e.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>{e.customerName}</td>
+                      <td style={{ padding: '12px 16px', fontSize: '13px', color: '#1e40af', fontWeight: 600 }}>LN{1000 + e.loanId}</td>
+                      <td style={{ padding: '12px 16px', fontSize: '13px', color: '#475569' }}>{fmtDate(e.dueDate)}</td>
+                      <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: 600, textAlign: 'right' }}>{fmt(e.amount)}</td>
+                      <td style={{ padding: '12px 16px', fontSize: '13px', color: e.paidAmount > 0 ? '#16a34a' : '#94a3b8', fontWeight: e.paidAmount > 0 ? 600 : 400, textAlign: 'right' }}>
+                        {e.paidAmount > 0 ? fmt(e.paidAmount) : '—'}
+                      </td>
+                      <td style={{ padding: '12px 16px', fontSize: '13px', color: e.penalty > 0 ? '#dc2626' : '#94a3b8', fontWeight: e.penalty > 0 ? 700 : 400, textAlign: 'right' }}>
+                        {e.penalty > 0 ? fmt(e.penalty) : '—'}
+                        {e.daysOverdue > 0 && <span style={{ display: 'block', fontSize: '10px', color: '#dc2626', fontWeight: 700 }}>{e.daysOverdue}d late</span>}
+                      </td>
+                      <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: 800, color: e.penalty > 0 ? '#dc2626' : '#0f172a', textAlign: 'right' }}>
+                        {fmt(e.totalDue)}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                        <span style={{ ...badge(e.status), padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 700, textTransform: 'capitalize' }}>
+                          {e.status}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 20px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        {e.status === 'paid' && (
+                          <button
+                            onClick={() => setThermalReceiptData({
+                              receiptNo: `RCT-${e.id}-${Date.now().toString().slice(-4)}`,
+                              date: e.paidAt || new Date().toISOString(),
+                              companyName: me?.companyName || 'LenQredzo Capital Pvt Ltd',
+                              branchName: me?.branchName || 'Main Branch',
+                              collectorName: me?.name || 'Field Officer',
+                              borrowerName: e.customerName,
+                              borrowerPhone: e.customerPhone,
+                              loanRef: `LN${1000 + e.loanId}`,
+                              emiAmount: e.paidAmount || e.amount,
+                              penaltyAmount: e.penalty || 0,
+                              totalPaid: (e.paidAmount || e.amount) + (e.penalty || 0),
+                              remainingBalance: 0,
+                              paymentMethod: e.paymentMethod || 'cash',
+                              referenceUtr: e.reference || ''
+                            })}
+                            style={{
+                              height: '30px',
+                              background: '#f8fafc',
+                              border: '1px solid #cbd5e1',
+                              color: '#0f172a',
+                              padding: '0 10px',
+                              borderRadius: '6px',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                            }}
+                            title="Print 58mm Bluetooth thermal POS receipt slip"
+                          >
+                            <span>🖨️</span>
+                            <span>Slip</span>
+                          </button>
+                        )}
+                        {e.status !== 'paid' && (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                            {e.penalty > 0 ? (
+                              <>
+                                <button onClick={() => openDialog(e, true)}
+                                  style={{
+                                    height: '30px',
+                                    background: '#dc2626',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '0 10px',
+                                    borderRadius: '6px',
+                                    fontSize: '11.5px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    whiteSpace: 'nowrap',
+                                    boxShadow: '0 1px 2px rgba(220, 38, 38, 0.2)'
+                                  }}>
+                                  Collect + ₹{e.penalty}
+                                </button>
+                                <button onClick={() => openDialog(e, false)}
+                                  style={{
+                                    height: '30px',
+                                    background: '#ffffff',
+                                    color: '#1e40af',
+                                    border: '1px solid #bfdbfe',
+                                    padding: '0 9px',
+                                    borderRadius: '6px',
+                                    fontSize: '11.5px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                  EMI Only
+                                </button>
+                              </>
+                            ) : (
+                              <button onClick={() => openDialog(e, false)}
+                                style={{
+                                  height: '30px',
+                                  background: '#1e40af',
+                                  color: 'white',
+                                  border: 'none',
+                                  padding: '0 16px',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  whiteSpace: 'nowrap',
+                                  boxShadow: '0 1px 2px rgba(30, 64, 175, 0.2)'
+                                }}>
+                                Collect
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
