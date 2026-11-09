@@ -258,7 +258,7 @@ export default function LoginPage() {
   );
 
   const LeftPanel = () => (
-    <div style={{
+    <div className="login-left-panel" style={{
       width: '42%', minWidth: '340px', position: 'relative', overflow: 'hidden',
       background: `linear-gradient(160deg, rgba(13,27,46,0.78) 0%, rgba(22,40,63,0.86) 100%), url('/login-hero.jpg') center / cover`,
       color: 'white', padding: '40px 40px 32px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
@@ -330,7 +330,7 @@ export default function LoginPage() {
   if (forgotStep !== 'idle') {
     return (
       <div style={pageWrap}>
-        <div style={cardWrap}>
+        <div className="login-card-wrap" style={cardWrap}>
           <LeftPanel />
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
             <div style={{ width: '100%', maxWidth: '380px' }}>
@@ -418,7 +418,7 @@ export default function LoginPage() {
         onLoad={() => setGsiLoaded(true)}
       />
       <div style={pageWrap}>
-        <div style={cardWrap}>
+        <div className="login-card-wrap" style={cardWrap}>
           <LeftPanel />
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
             <div style={{ width: '100%', maxWidth: '380px' }}>

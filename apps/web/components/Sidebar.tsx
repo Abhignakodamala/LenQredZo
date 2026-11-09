@@ -423,6 +423,76 @@ export default function Sidebar() {
         {renderNavLinks()}
         {renderUserBlock()}
       </div>
+
+      {/* 4. MOBILE STICKY TOP NAVBAR (Visible only on screens <= 768px) */}
+      <header
+        className="mobile-top-navbar"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '54px',
+          background: '#0f172a',
+          borderBottom: '1px solid #1e293b',
+          display: 'none',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 14px',
+          zIndex: 9990,
+          boxShadow: '0 2px 10px rgba(0,0,0,0.25)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            type="button"
+            onClick={() => setMobileDrawerOpen(true)}
+            aria-label="Open navigation menu"
+            style={{
+              background: '#1e293b',
+              border: '1px solid #334155',
+              borderRadius: '8px',
+              width: '36px',
+              height: '36px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '18px',
+              color: '#ffffff',
+              cursor: 'pointer'
+            }}
+          >
+            ☰
+          </button>
+          <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
+            <Image
+              src="/lenqredzo-logo-transparent.png"
+              alt="LenQredzo"
+              width={105}
+              height={30}
+              priority
+              style={{ maxHeight: '30px', width: 'auto', objectFit: 'contain' }}
+            />
+          </Link>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            background: 'linear-gradient(135deg, #1e40af, #7c3aed)',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+            fontSize: '12px',
+            fontWeight: 700
+          }}>
+            {user?.name?.charAt(0) || 'U'}
+          </div>
+        </div>
+      </header>
     </>
   );
 }
