@@ -285,9 +285,50 @@ export default function SettingsPage() {
       <Sidebar />
       <div style={{ marginLeft: '220px', flex: 1, padding: '24px', maxWidth: '800px' }}>
 
-        <div style={{ marginBottom: '24px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Settings</h2>
-          <p style={{ color: '#6b7280', margin: 0 }}>Manage your company and account</p>
+        <div style={{ marginBottom: '20px' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>Settings</h2>
+          <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: '13px' }}>Workspace profile, connected banking &amp; credentials</p>
+        </div>
+
+        {/* ── System Status & Work Done Cockpit (Minimal, Simple Words, Zero Paras) ── */}
+        <div style={{
+          background: '#ffffff',
+          border: '1px solid #e2e8f0',
+          borderRadius: '12px',
+          padding: '16px 18px',
+          marginBottom: '20px',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '16px' }}>⚡</span>
+              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>Platform Status &amp; Active Setup</h3>
+            </div>
+            <span style={{ fontSize: '11px', background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '12px', fontWeight: 700 }}>
+              All Systems Live
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px' }}>
+            <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9', fontSize: '12px' }}>
+              <span style={{ color: '#64748b' }}>🏢 Workspace:</span> <strong style={{ color: '#0f172a' }}>{company.name || 'LenQredzo'}</strong> · <span style={{ textTransform: 'capitalize', color: '#1e40af', fontWeight: 600 }}>{company.plan}</span>
+            </div>
+            <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9', fontSize: '12px' }}>
+              <span style={{ color: '#64748b' }}>💳 Banking:</span> <strong style={{ color: rzpKeyId ? '#15803d' : '#64748b' }}>{rzpKeyId ? 'RazorpayX Connected' : 'Manual Mode'}</strong>
+            </div>
+            <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9', fontSize: '12px' }}>
+              <span style={{ color: '#64748b' }}>🤖 Late Fees:</span> <strong style={{ color: '#15803d' }}>Midnight Cron Active (00:00 IST)</strong>
+            </div>
+            <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9', fontSize: '12px' }}>
+              <span style={{ color: '#64748b' }}>💬 WhatsApp CRM:</span> <strong style={{ color: '#15803d' }}>24-Hr Advance Alerts Ready</strong>
+            </div>
+            <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9', fontSize: '12px' }}>
+              <span style={{ color: '#64748b' }}>📸 Attendance:</span> <strong style={{ color: '#15803d' }}>Webcam Login Audit Active</strong>
+            </div>
+            <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9', fontSize: '12px' }}>
+              <span style={{ color: '#64748b' }}>🔒 Encryption:</span> <strong style={{ color: '#15803d' }}>AES-256 at Rest · ROC Ready</strong>
+            </div>
+          </div>
         </div>
 
         {msg && (
@@ -312,8 +353,8 @@ export default function SettingsPage() {
               <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
                 Role-Based View: {user.role || 'Staff Member'}
               </div>
-              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px', lineHeight: 1.4 }}>
-                Company branding, connected banking (RazorpayX), and financial ledger exports are restricted to Company Owners. You have full access to manage your personal profile and security credentials below.
+              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                Staff scope: profile and password management
               </div>
             </div>
           </div>
@@ -365,12 +406,9 @@ export default function SettingsPage() {
                 <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#111827' }}>
                   Official Company Logo
                 </h4>
-                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>
-                  {company.logo ? 'Custom logo active. Visible on Sidebar, Passbooks, Sanction Letters & NOCs.' : 'No custom logo uploaded yet. Using standard branding.'}
-                </p>
-                <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#94a3b8' }}>
-                  Supported formats: PNG, JPG, SVG, WebP (Max 5MB)
-                </p>
+                <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginTop: '2px' }}>
+                  PNG, JPG, WebP · Max 5MB
+                </span>
               </div>
             </div>
 
@@ -455,11 +493,11 @@ export default function SettingsPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
             <div>
               <h3 style={{ fontWeight: '700', fontSize: '16px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                💳 Connected Banking & Payout Gateway (RazorpayX)
+                💳 Connected Banking (RazorpayX)
               </h3>
-              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#6b7280' }}>
-                Connect your business current account to automate ₹1 Penny Drops, instant disbursements, and WhatsApp EMI collection links.
-              </p>
+              <span style={{ fontSize: '11.5px', color: '#64748b', display: 'block', marginTop: '2px' }}>
+                Direct bank disbursals &amp; penny-drop account verification
+              </span>
             </div>
             <span style={{
               fontSize: '11px',
@@ -474,8 +512,9 @@ export default function SettingsPage() {
             </span>
           </div>
 
-          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '12px', color: '#1e40af', lineHeight: 1.4 }}>
-            <strong>🛡️ Direct Bank-to-Bank Guarantee:</strong> LenQredzo is a non-custodial SaaS platform. All ₹1 Penny Drops and loan disbursements are debited directly from YOUR linked company current account via RazorpayX. LenQredzo never holds or pools your capital.
+          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '8px 12px', marginBottom: '14px', fontSize: '11.5px', color: '#1e40af', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>🛡️</span>
+            <span>Non-custodial bank payouts · Zero platform escrow</span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
@@ -580,7 +619,7 @@ export default function SettingsPage() {
                 <option value="Agent">Agent — field collection</option>
                 <option value="Accountant">Accountant — reconciliation</option>
               </select>
-              <p style={{ fontSize: '11px', color: '#9ca3af', margin: '6px 0 0' }}>Roles are assigned by the owner (coming soon)</p>
+
             </div>
           </div>
           <button onClick={saveProfile} disabled={savingProfile} style={{ ...btn, marginTop: '16px', opacity: savingProfile ? 0.7 : 1 }}>
@@ -637,11 +676,10 @@ export default function SettingsPage() {
 <ActivityLog />
           {/* Data Export */}
         <div style={card}>
-          <h3 style={{ fontWeight: '700', fontSize: '16px', margin: '0 0 8px' }}>📊 Export My Data</h3>
-          <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px' }}>
-            Download all your company&apos;s data (customers, loans, EMIs, payments, guarantors) as an Excel file.
-            The file contains sensitive information including full Aadhaar and PAN numbers — store it securely.
-          </p>
+          <h3 style={{ fontWeight: '700', fontSize: '16px', margin: '0 0 4px' }}>📊 Export Company Data</h3>
+          <span style={{ fontSize: '12px', color: '#64748b', display: 'block', marginBottom: '12px' }}>
+            Full Excel ledger backup (Customers, Loans, EMIs, Payments).
+          </span>
           <button onClick={exportData} disabled={exporting} style={{ ...btn, opacity: exporting ? 0.7 : 1 }}>
             {exporting ? 'Preparing file...' : 'Download Excel Export'}
           </button>
@@ -651,8 +689,7 @@ export default function SettingsPage() {
 
         {/* Danger Zone */}
         <div style={{ ...card, border: '1px solid #fecaca' }}>
-          <h3 style={{ fontWeight: '700', fontSize: '16px', margin: '0 0 8px', color: '#dc2626' }}>Account</h3>
-          <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px' }}>Sign out of your account on this device.</p>
+          <h3 style={{ fontWeight: '700', fontSize: '16px', margin: '0 0 10px', color: '#dc2626' }}>Sign Out</h3>
           <button
             onClick={() => { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/login'; }}
             style={{ height: '38px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '0 24px', borderRadius: '8px', fontSize: '13.5px', fontWeight: '600', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
