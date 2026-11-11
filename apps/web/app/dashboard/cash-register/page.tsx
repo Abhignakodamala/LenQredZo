@@ -177,31 +177,30 @@ export default function CashRegisterPage() {
             </div>
 
             {/* Record Cash Outward / Vault Withdrawal */}
-            {['owner', 'admin', 'Super Admin', 'branch_manager', 'accountant', 'cashier'].includes(summaryData?.user?.role || me?.role || '') && (
-              <button
-                onClick={() => setShowCashOutModal(true)}
-                style={{
-                  height: '38px',
-                  background: '#dc2626',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '0 16px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  whiteSpace: 'nowrap',
-                  boxShadow: '0 1px 3px rgba(220, 38, 38, 0.25)',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <span>➖</span>
-                <span>Cash Out / Vault Withdrawal</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setShowCashOutModal(true)}
+              style={{
+                height: '38px',
+                background: '#dc2626',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '0 16px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 1px 3px rgba(220, 38, 38, 0.25)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <span>➖</span>
+              <span>Cash Out / Vault Withdrawal</span>
+            </button>
 
             <button
               onClick={() => setShowDenominationModal(true)}
@@ -1057,6 +1056,19 @@ export default function CashRegisterPage() {
             setShowDenominationModal(false);
             loadSummary();
           }}
+        />
+      )}
+
+      {/* Cash Outward / Vault Withdrawal Modal */}
+      {showCashOutModal && (
+        <CashOutwardModal
+          currentVaultBalance={summaryData?.branchMetrics?.cumulativeVaultBalance || 0}
+          branchName={summaryData?.company?.name || 'Main Branch'}
+          onSuccess={() => {
+            loadSummary();
+            setShowCashOutModal(false);
+          }}
+          onClose={() => setShowCashOutModal(false)}
         />
       )}
 
