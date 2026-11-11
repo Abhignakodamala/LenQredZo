@@ -138,12 +138,13 @@ export default function MandateCertificateModal({ mandate, company, onClose }: M
                 <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
                   {companyName}
                 </h2>
-              <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#64748b' }}>
-                Registered NBFC · Digital Collections & NPCI Mandate Processing Cell
-              </p>
-              <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#64748b' }}>
-                NPCI UPI AutoPay / e-NACH Standing Instruction Mandate
-              </p>
+                <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#64748b' }}>
+                  Registered NBFC · Digital Collections & NPCI Mandate Processing Cell
+                </p>
+                <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#64748b' }}>
+                  NPCI UPI AutoPay / e-NACH Standing Instruction Mandate
+                </p>
+              </div>
             </div>
 
             <div style={{ textAlign: 'right' }}>

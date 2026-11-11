@@ -214,12 +214,13 @@ export default function NocModal({ loan, onClose }: NocModalProps) {
                   <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#065f46', margin: '0 0 2px 0', letterSpacing: '-0.5px' }}>
                     {companyName}
                   </h1>
-                <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: '#475569' }}>
-                  Private Lending & Financial Services
-                </p>
-                <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#64748b' }}>
-                  Registered Office: Madhapur / Hyderabad, Telangana · Phone: +91 8247798075
-                </p>
+                  <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: '#475569' }}>
+                    Private Lending & Financial Services
+                  </p>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#64748b' }}>
+                    Registered Office: Madhapur / Hyderabad, Telangana · Phone: +91 8247798075
+                  </p>
+                </div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <span style={{

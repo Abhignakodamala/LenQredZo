@@ -354,12 +354,13 @@ export default function CollectionRunSheetModal({ emis, companyName, companyLogo
                   <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#1e40af', margin: '0 0 2px 0' }}>
                     {resolvedCompanyName}
                   </h1>
-                <p style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: '#0f172a', letterSpacing: '0.5px' }}>
-                  DAILY FIELD COLLECTION RUN SHEET (VASOOL LIST)
-                </p>
-                <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#64748b' }}>
-                  Route / Collector: <strong>{agentName}</strong> · Branch: <strong>Headquarters (Hyderabad)</strong>
-                </p>
+                  <p style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: '#0f172a', letterSpacing: '0.5px' }}>
+                    DAILY FIELD COLLECTION RUN SHEET (VASOOL LIST)
+                  </p>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#64748b' }}>
+                    Route / Collector: <strong>{agentName}</strong> · Branch: <strong>Headquarters (Hyderabad)</strong>
+                  </p>
+                </div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <span style={{

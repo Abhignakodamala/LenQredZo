@@ -168,12 +168,13 @@ export default function CashHandoverVoucherModal({ voucher, company, onClose }: 
                 <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a', letterSpacing: '0.4px' }}>
                   {companyName}
                 </h2>
-              <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#64748b' }}>
-                Registered NBFC / Lending Operations · Day-End Cash Desk & Vault Division
-              </p>
-              <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#64748b' }}>
-                Internal Audit Compliant Cash Settlement System
-              </p>
+                <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#64748b' }}>
+                  Registered NBFC / Lending Operations · Day-End Cash Desk & Vault Division
+                </p>
+                <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#64748b' }}>
+                  Internal Audit Compliant Cash Settlement System
+                </p>
+              </div>
             </div>
 
             <div style={{ textAlign: 'right' }}>

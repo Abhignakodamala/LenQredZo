@@ -134,12 +134,13 @@ export default function DisbursalVoucherModal({ voucher, company, onClose }: Dis
                 <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.3px' }}>
                   {companyName}
                 </h2>
-              <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#475569', fontWeight: 500 }}>
-                RBI Registered Non-Banking Financial Company (NBFC) · Digital Lending Division
-              </p>
-              <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#64748b' }}>
-                Reg. Office: Corporate Financial Tower, Bangalore, Karnataka - 560001
-              </p>
+                <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#475569', fontWeight: 500 }}>
+                  RBI Registered Non-Banking Financial Company (NBFC) · Digital Lending Division
+                </p>
+                <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#64748b' }}>
+                  Reg. Office: Corporate Financial Tower, Bangalore, Karnataka - 560001
+                </p>
+              </div>
             </div>
 
             <div style={{ textAlign: 'right' }}>
