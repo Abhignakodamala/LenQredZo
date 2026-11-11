@@ -6,6 +6,7 @@ import { API_URL } from '@/lib/api';
 import CashHandoverModal from '@/components/CashHandoverModal';
 import CashHandoverVoucherModal from '@/components/CashHandoverVoucherModal';
 import BranchVaultDenominationModal from '@/components/BranchVaultDenominationModal';
+import CashOutwardModal from '@/components/CashOutwardModal';
 
 type UserAuth = {
   userId: number;
@@ -31,6 +32,7 @@ export default function CashRegisterPage() {
   const [showHandoverModal, setShowHandoverModal] = useState(false);
   const [showVoucherModal, setShowVoucherModal] = useState(false);
   const [showDenominationModal, setShowDenominationModal] = useState(false);
+  const [showCashOutModal, setShowCashOutModal] = useState(false);
   const [activeVoucher, setActiveVoucher] = useState<any>(null);
 
   // Cashier verification state
@@ -173,6 +175,33 @@ export default function CashRegisterPage() {
                 style={{ border: 'none', outline: 'none', fontSize: '13px', fontWeight: 600, color: '#111827', cursor: 'pointer', background: 'transparent' }}
               />
             </div>
+
+            {/* Record Cash Outward / Vault Withdrawal */}
+            {['owner', 'admin', 'Super Admin', 'branch_manager', 'accountant', 'cashier'].includes(summaryData?.user?.role || me?.role || '') && (
+              <button
+                onClick={() => setShowCashOutModal(true)}
+                style={{
+                  height: '38px',
+                  background: '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '0 16px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 1px 3px rgba(220, 38, 38, 0.25)',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>➖</span>
+                <span>Cash Out / Vault Withdrawal</span>
+              </button>
+            )}
 
             <button
               onClick={() => setShowDenominationModal(true)}
@@ -425,11 +454,12 @@ export default function CashRegisterPage() {
             {activeTab === 'cashier' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 {/* Branch Vault Overview */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px' }}>
                   {[
-                    { label: 'Cumulative Vault Cash', value: fmt(summaryData?.branchMetrics?.cumulativeVaultBalance), color: '#15803d', note: 'Total physical cash settled in safe' },
+                    { label: 'Cumulative Vault Cash', value: fmt(summaryData?.branchMetrics?.cumulativeVaultBalance), color: '#15803d', note: 'Net physical cash in safe' },
+                    { label: 'Today Vault Deposit', value: fmt(summaryData?.branchMetrics?.totalSettledToVaultToday), color: '#1e40af', note: 'Confirmed received into safe today' },
+                    { label: 'Today Cash Outward', value: fmt(summaryData?.branchMetrics?.todayOutwardAmount || 0), color: '#dc2626', note: 'Deductions, loans & expenses' },
                     { label: 'Branch Cash Collected Today', value: fmt(summaryData?.branchMetrics?.branchTotalCashCollectedToday), color: '#111827', note: 'Across all field agents & desk' },
-                    { label: 'Settled to Vault Today', value: fmt(summaryData?.branchMetrics?.totalSettledToVaultToday), color: '#1e40af', note: 'Confirmed received into safe today' },
                     { label: 'Pending Handovers', value: `${summaryData?.branchMetrics?.pendingHandoversCount || 0} (${fmt(summaryData?.branchMetrics?.pendingHandoversAmount)})`, color: '#d97706', note: 'Waiting for cashier verification' },
                   ].map((c) => (
                     <div key={c.label} style={{ background: 'white', padding: '18px 20px', borderRadius: '12px', border: '1px solid #e5e7eb' }}>

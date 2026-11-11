@@ -4,7 +4,8 @@ import {
   getCashRegisterSummary,
   initiateCashHandover,
   acceptCashHandover,
-  getHandoverHistory
+  getHandoverHistory,
+  recordCashOutward
 } from './cash-register.controller';
 
 const router = Router();
@@ -14,5 +15,6 @@ router.get('/summary', protect, getCashRegisterSummary);
 router.post('/handover/initiate', protect, initiateCashHandover);
 router.post('/handover/accept', protect, acceptCashHandover);
 router.get('/handovers/history', protect, getHandoverHistory);
+router.post('/outward', protect, recordCashOutward);
 
 export default router;

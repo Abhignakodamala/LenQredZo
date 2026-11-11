@@ -139,6 +139,35 @@ export const getCashRegisterSummary = async (req: any, res: Response) => {
     const allSettledHandovers = allHandovers.filter((h) => h.status === 'settled');
     const cumulativeVaultInflow = allSettledHandovers.reduce((s, h) => s + Number(h.totalAmount || 0), 0);
 
+    // 3b. Cash Outward state from AuditLog
+    const outwardLogs = await prisma.auditLog.findMany({
+      where: {
+        companyId,
+        entityType: 'CashOutward',
+        action: 'CASH_OUTWARD_RECORDED'
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const allOutwards: any[] = [];
+    for (const log of outwardLogs) {
+      if (!log.details) continue;
+      try {
+        const parsed = JSON.parse(log.details);
+        if (branchId != null && parsed.branchId != null && parsed.branchId !== branchId) {
+          continue;
+        }
+        allOutwards.push({ ...parsed, dbCreatedAt: log.createdAt });
+      } catch {}
+    }
+
+    const cumulativeOutwardAmount = allOutwards.reduce((s, o) => s + Number(o.amount || 0), 0);
+    const todayOutwards = allOutwards.filter(
+      (o) => o.createdAt && o.createdAt >= startOfDay.toISOString() && o.createdAt <= endOfDay.toISOString()
+    );
+    const todayOutwardAmount = todayOutwards.reduce((s, o) => s + Number(o.amount || 0), 0);
+    const netVaultBalance = Math.max(0, cumulativeVaultInflow - cumulativeOutwardAmount);
+
     // Total branch cash collected today
     const branchTotalCashCollectedToday = collectionsWithStaff.reduce((s, c) => s + Number(c.amount || 0), 0);
 
@@ -195,7 +224,12 @@ export const getCashRegisterSummary = async (req: any, res: Response) => {
         totalSettledToVaultToday: settledTodayHandovers.reduce((s, h) => s + Number(h.totalAmount || 0), 0),
         pendingHandoversCount: pendingHandovers.length,
         pendingHandoversAmount: pendingHandovers.reduce((s, h) => s + Number(h.totalAmount || 0), 0),
-        cumulativeVaultBalance: cumulativeVaultInflow,
+        cumulativeVaultInflow,
+        cumulativeOutwardAmount,
+        cumulativeVaultBalance: netVaultBalance,
+        todayOutwardAmount,
+        todayOutwards,
+        allOutwards: allOutwards.slice(0, 50),
         pendingHandovers,
         settledTodayHandovers
       },
@@ -427,5 +461,56 @@ export const getHandoverHistory = async (req: any, res: Response) => {
   } catch (error: any) {
     console.error('Handover history error:', error);
     res.status(500).json({ success: false, error: error.message || 'Failed to fetch handover history.' });
+  }
+};
+
+// POST /api/cash-register/outward
+export const recordCashOutward = async (req: any, res: Response) => {
+  try {
+    const user = req.user;
+    const companyId = user.companyId;
+    const { amount, category, recipientName, loanRef, notes, branchId } = req.body;
+
+    const numAmount = Number(amount);
+    if (!numAmount || numAmount <= 0) {
+      return res.status(400).json({ success: false, error: 'Valid amount greater than ₹0 is required.' });
+    }
+    if (!recipientName || !recipientName.trim()) {
+      return res.status(400).json({ success: false, error: 'Recipient name is required.' });
+    }
+
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    const datePrefix = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const outwardId = `OUT-${datePrefix}-${randomSuffix}`;
+
+    const outwardRecord = {
+      outwardId,
+      amount: numAmount,
+      category: category || 'other',
+      recipientName: recipientName.trim(),
+      loanRef: loanRef ? loanRef.trim().toUpperCase() : null,
+      notes: notes ? notes.trim() : '',
+      authorizedByName: user.name || 'Branch Staff',
+      authorizedByRole: user.role || 'cashier',
+      authorizedById: user.userId,
+      branchId: branchId || user.branchId || null,
+      createdAt: new Date().toISOString()
+    };
+
+    await logAudit({
+      req,
+      action: 'CASH_OUTWARD_RECORDED',
+      entityType: 'CashOutward',
+      details: JSON.stringify(outwardRecord)
+    });
+
+    res.json({
+      success: true,
+      message: `Cash outward of ₹${numAmount.toLocaleString('en-IN')} recorded successfully.`,
+      outward: outwardRecord
+    });
+  } catch (error: any) {
+    console.error('Record cash outward error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to record cash outward.' });
   }
 };
