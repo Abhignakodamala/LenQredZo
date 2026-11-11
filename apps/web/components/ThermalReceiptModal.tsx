@@ -1,5 +1,6 @@
 'use client';
 import React, { useRef } from 'react';
+import { API_URL } from '@/lib/api';
 
 export interface ThermalReceiptModalProps {
   receipt: {

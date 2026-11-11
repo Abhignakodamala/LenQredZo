@@ -121,6 +121,13 @@ export default function CollectionsPage() {
     setDialogError('');
     setPendingPaymentData({
       emiId: dialog.emi.id,
+      customerName: dialog.emi.customerName,
+      customerPhone: dialog.emi.customerPhone,
+      loanId: dialog.emi.loanId,
+      emiNumber: dialog.emi.emiNumber,
+      totalEmis: dialog.emi.totalEmis,
+      penalty: dialog.emi.penalty,
+      remaining: remaining,
       payload: {
         amount: amt,
         collectPenalty: dialog.collectPenalty && clearsEmi,
@@ -135,12 +142,13 @@ export default function CollectionsPage() {
 
   const submitCollectionWithPhoto = async (photoBase64: string) => {
     if (!pendingPaymentData) return;
+    const paymentInfo = { ...pendingPaymentData };
     setShowPaymentCapture(false);
     try {
-      const res = await fetch(`${API_URL}/api/loans/emi/${pendingPaymentData.emiId}/pay`, {
+      const res = await fetch(`${API_URL}/api/loans/emi/${paymentInfo.emiId}/pay`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
-        body: JSON.stringify({ ...pendingPaymentData.payload, verificationPhoto: photoBase64 })
+        body: JSON.stringify({ ...paymentInfo.payload, verificationPhoto: photoBase64 })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -151,6 +159,26 @@ export default function CollectionsPage() {
       }
       closeDialog();
       fetchCollections();
+      // Instantly trigger Thermal POS Receipt + WhatsApp share modal
+      setThermalReceiptData({
+        receiptNo: data.receiptNo || `RCT-${paymentInfo.emiId}-${Date.now().toString().slice(-4)}`,
+        date: new Date().toISOString(),
+        companyName: me?.companyName || 'LenQredzo Capital Pvt Ltd',
+        companyLogo: me?.companyLogo || null,
+        branchName: me?.branchName || 'Main Branch',
+        collectorName: me?.name || 'Field Officer',
+        borrowerName: paymentInfo.customerName,
+        borrowerPhone: paymentInfo.customerPhone,
+        loanRef: `LN${1000 + paymentInfo.loanId}`,
+        emiNumber: paymentInfo.emiNumber,
+        totalEmis: paymentInfo.totalEmis,
+        emiAmount: paymentInfo.payload.amount,
+        penaltyAmount: paymentInfo.payload.collectPenalty ? (paymentInfo.penalty || 0) : 0,
+        totalPaid: paymentInfo.payload.amount,
+        remainingBalance: Math.max(0, (paymentInfo.remaining || 0) - paymentInfo.payload.amount),
+        paymentMethod: paymentInfo.payload.method,
+        referenceUtr: paymentInfo.payload.reference || ''
+      });
     } catch (err) {
       console.error(err);
       setDialogError('Server error. Please try again.');
@@ -586,6 +614,33 @@ export default function CollectionsPage() {
                 <option value="card">Card</option>
               </select>
             </div>
+
+            {method === 'upi' && (
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px', marginBottom: '14px', textAlign: 'center' }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '8px' }}>
+                  📱 Scan & Pay with any UPI App
+                </div>
+                <div style={{ display: 'inline-block', padding: '8px', background: 'white', borderRadius: '8px', border: '1px solid #cbd5e1', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
+                      `upi://pay?pa=finance@upi&pn=${encodeURIComponent(me?.companyName || 'LenQredzo Capital')}&am=${payAmount || dialogRemaining}&tn=${encodeURIComponent(`EMI LN${1000 + dialog.emi.loanId} EMI #${dialog.emi.emiNumber || ''}`)}&cu=INR`
+                    )}`}
+                    alt="UPI QR Code"
+                    width={150}
+                    height={150}
+                    style={{ display: 'block', margin: '0 auto' }}
+                  />
+                </div>
+                <div style={{ fontSize: '14px', fontWeight: 800, color: '#1e40af', marginTop: '6px' }}>
+                  ₹{Number(payAmount || dialogRemaining).toLocaleString('en-IN')}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginTop: '6px' }}>
+                  <span style={{ fontSize: '10px', background: '#dbeafe', color: '#1e40af', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>PhonePe</span>
+                  <span style={{ fontSize: '10px', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>Google Pay</span>
+                  <span style={{ fontSize: '10px', background: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>Paytm</span>
+                </div>
+              </div>
+            )}
 
             {method !== 'cash' && (
               <div style={{ marginBottom: '14px' }}>

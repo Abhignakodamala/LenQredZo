@@ -348,6 +348,59 @@ const [guarantors, setGuarantors] = useState<Guarantor[]>([{ ...emptyGuarantor }
                     onChange={(customerId: string) => setForm({ ...form, customerId })}
                     style={inp}
                   />
+                
+                  {(() => {
+                    if (!form.customerId) return null;
+                    const cLoans = (loans as any[]).filter(l => String(l.customerId || l.customer?.id) === String(form.customerId));
+                    const overdueCount = cLoans.filter(l => l.status === 'overdue' || (Array.isArray(l.emis) && l.emis.some((e: any) => e.status === 'overdue'))).length;
+                    const activeCount = cLoans.filter(l => l.status === 'active' || l.status === 'disbursed').length;
+                    const closedCount = cLoans.filter(l => l.status === 'closed' || l.status === 'settled').length;
+
+                    if (overdueCount > 0) {
+                      return (
+                        <div style={{ marginTop: '10px', background: '#fef2f2', border: '1.5px solid #f87171', borderRadius: '8px', padding: '10px 14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#b91c1c', fontWeight: 800, fontSize: '13px' }}>
+                            <span>{'\uD83D\uDEA8'}</span>
+                            <span>HIGH RISK ALERT: Borrower Has {overdueCount} Overdue Loan(s)!</span>
+                          </div>
+                          <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#991b1b', lineHeight: '1.4' }}>
+                            This customer has unpaid / defaulted EMIs on existing loans. Please recover overdue dues before approving another loan.
+                          </p>
+                        </div>
+                      );
+                    }
+                    if (activeCount > 0) {
+                      return (
+                        <div style={{ marginTop: '10px', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: '8px', padding: '10px 14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1e40af', fontWeight: 700, fontSize: '13px' }}>
+                            <span>{'\u2139\uFE0F'}</span>
+                            <span>Multi-Loan Notice: Borrower currently has {activeCount} active running loan(s)</span>
+                          </div>
+                          <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#1d4ed8', lineHeight: '1.4' }}>
+                            Verify borrower debt-to-income and repayment capacity before sanctioning further exposure.
+                          </p>
+                        </div>
+                      );
+                    }
+                    if (closedCount > 0) {
+                      return (
+                        <div style={{ marginTop: '10px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '8px', padding: '8px 14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#15803d', fontWeight: 700, fontSize: '12.5px' }}>
+                            <span>{'\u2705'}</span>
+                            <span>Verified Track Record: {closedCount} loan(s) successfully settled on time</span>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div style={{ marginTop: '10px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontWeight: 600, fontSize: '12px' }}>
+                          <span>{'\uD83C\uDD95'}</span>
+                          <span>First-Time Borrower: No previous borrowing history recorded</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div>

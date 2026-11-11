@@ -5,6 +5,12 @@ echo "==========================================================="
 echo "   🚀 FINSMART / LENQREDZO PRODUCTION CLOUD DEPLOYMENT     "
 echo "==========================================================="
 
+# Pull latest changes from GitHub if inside a git repository
+if [ -d ".git" ]; then
+    echo "📥 Pulling latest updates from GitHub main branch..."
+    git pull origin main || echo "⚠️ Warning: git pull failed or repo is offline, proceeding with local files..."
+fi
+
 # Check Docker installation
 if ! command -v docker &> /dev/null; then
     echo "📦 Docker not found. Installing official Docker Engine..."
