@@ -6,6 +6,7 @@ export interface ThermalReceiptModalProps {
     receiptNo?: string;
     date?: string;
     companyName?: string;
+    companyLogo?: string | null;
     branchName?: string;
     collectorName?: string;
     borrowerName?: string;
@@ -44,7 +45,7 @@ export default function ThermalReceiptModal({ receipt, onClose }: ThermalReceipt
   })() : null;
 
   const company = receipt.companyName || storedCompany?.name || 'LENQREDZO CAPITAL';
-  const rawLogo = receipt.companyLogo || storedCompany?.logo;
+  const rawLogo = (receipt as any)?.companyLogo || storedCompany?.logo;
   const companyLogo = rawLogo
     ? (rawLogo.startsWith('http') || rawLogo.startsWith('data:') ? rawLogo : `${API_URL || ''}${rawLogo}`)
     : null;
