@@ -55,6 +55,8 @@ services:
       dockerfile: apps/web/Dockerfile
     container_name: lenqredzo_web
     restart: always
+    ports:
+      - "3000:3000"
     depends_on:
       - api
     environment:
