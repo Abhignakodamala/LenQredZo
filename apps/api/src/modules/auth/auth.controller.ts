@@ -1,3 +1,4 @@
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://ai-service:8000';
 import prisma from '../../lib/prisma';
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
@@ -246,6 +247,25 @@ export const logLoginPhoto = async (req: any, res: Response) => {
     const { photoData } = req.body;
     if (!photoData || typeof photoData !== 'string' || photoData.trim().length < 500) {
       return res.status(400).json({ message: 'Valid face attendance snapshot is required' });
+    }
+
+    // Call AI face detection service
+    try {
+      const aiRes = await fetch(`${AI_SERVICE_URL}/detect-face`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoData })
+      });
+      if (aiRes.ok) {
+        const aiData = await aiRes.json();
+        if (aiData.detected === false) {
+          return res.status(400).json({
+            message: aiData.reason || 'No human face detected! Please remove any cover or finger and look directly at the camera.'
+          });
+        }
+      }
+    } catch (aiErr) {
+      console.warn('AI face service call error:', aiErr);
     }
 
     await logAudit({

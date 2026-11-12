@@ -210,3 +210,50 @@ def analyze(req: AnalyzeRequest):
         "insight": text,
         "disclaimer": DISCLAIMER,
     }
+
+class FaceDetectRequest(BaseModel):
+    photoData: str = ""
+
+@app.post("/detect-face")
+def detect_face_endpoint(req: FaceDetectRequest):
+    data = req.photoData
+    if not data:
+        return {"detected": False, "count": 0, "reason": "No image data provided"}
+
+    try:
+        import cv2
+        import numpy as np
+        import base64
+
+        if "," in data:
+            data = data.split(",")[1]
+        img_bytes = base64.b64decode(data)
+        nparr = np.frombuffer(img_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        if img is None:
+            return {"detected": False, "count": 0, "reason": "Could not decode image"}
+
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        faces = face_cascade.detectMultiScale(
+            gray,
+            scaleFactor=1.1,
+            minNeighbors=4,
+            minSize=(40, 40)
+        )
+
+        if len(faces) == 0:
+            return {
+                "detected": False,
+                "count": 0,
+                "reason": "No human face detected! Please ensure your face is clearly visible in the camera."
+            }
+
+        return {
+            "detected": True,
+            "count": int(len(faces))
+        }
+    except Exception as e:
+        print("Face detection error:", e)
+        return {"detected": False, "count": 0, "reason": f"Face detection error: {str(e)}"}

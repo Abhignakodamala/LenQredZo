@@ -52,18 +52,24 @@ export default function LoginPage() {
   }, []);
 
   // Called when photo is captured in the webcam modal
+  // Called when photo is captured in the webcam modal
   const handleLoginPhotoCapture = async (photoBase64: string) => {
     try {
-      await fetch(`${API_URL}/api/auth/login-photo`, {
+      const res = await fetch(`${API_URL}/api/auth/login-photo`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pendingToken}` },
         body: JSON.stringify({ photoData: photoBase64 }),
       });
-    } catch (e) {
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Face attendance verification failed. Please position your face clearly in the camera.');
+      }
+    } catch (e: any) {
       console.warn('Login attendance photo upload error:', e);
+      throw e;
     }
 
-    // Persist session and enter dashboard
+    // Persist session and enter dashboard ONLY after photo verified!
     if (rememberMe && typeof pendingUser?.email === 'string') {
       localStorage.setItem('rememberedLoginEmail', pendingUser.email);
     }

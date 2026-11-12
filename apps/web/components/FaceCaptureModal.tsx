@@ -395,6 +395,10 @@ export default function FaceCaptureModal({
 
     try {
       await onCapture(photoBase64);
+    } catch (err: any) {
+      setCapturedPreview(null);
+      setFaceDetected(false);
+      setFaceValidationMsg(err.message || 'No human face detected! Please position your face clearly in the camera.');
     } finally {
       setCapturing(false);
     }
@@ -433,6 +437,10 @@ export default function FaceCaptureModal({
         setCapturing(true);
         try {
           await onCapture(photoBase64);
+        } catch (err: any) {
+          setCapturedPreview(null);
+          setFaceDetected(false);
+          setFaceValidationMsg(err.message || 'No human face detected! Please position your face clearly in the camera.');
         } finally {
           setCapturing(false);
         }
