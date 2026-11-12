@@ -267,8 +267,12 @@ export default function Dashboard() {
 
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 16 }}>
             {/* Calendar */}
-            <button style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 13, color: '#374151', display: 'flex', alignItems: 'center', gap: 6 }}>
-              📅 <span suppressHydrationWarning>{todayLabel || 'Loading...'}</span>
+            <button
+              onClick={() => router.push('/dashboard/collections')}
+              title="Click to view today's collections and dues"
+              style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 13, color: '#374151', display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              <span>{'\uD83D\uDCC5'}</span> <span suppressHydrationWarning>{todayLabel || 'Loading...'}</span>
             </button>
 
             {/* User */}
