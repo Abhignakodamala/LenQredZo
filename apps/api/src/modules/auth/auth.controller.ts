@@ -257,7 +257,7 @@ export const logLoginPhoto = async (req: any, res: Response) => {
         body: JSON.stringify({ photoData })
       });
       if (aiRes.ok) {
-        const aiData = await aiRes.json();
+        const aiData: any = await aiRes.json();
         if (aiData.detected === false) {
           return res.status(400).json({
             message: aiData.reason || 'No human face detected! Please remove any cover or finger and look directly at the camera.'
