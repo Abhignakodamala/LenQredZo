@@ -244,7 +244,9 @@ export const verifyEmailOTP = async (req: Request, res: Response) => {
 export const logLoginPhoto = async (req: any, res: Response) => {
   try {
     const { photoData } = req.body;
-    if (!photoData) return res.status(400).json({ message: 'No photo provided' });
+    if (!photoData || typeof photoData !== 'string' || photoData.trim().length < 500) {
+      return res.status(400).json({ message: 'Valid face attendance snapshot is required' });
+    }
 
     await logAudit({
       req,

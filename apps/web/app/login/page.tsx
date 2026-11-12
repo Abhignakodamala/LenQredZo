@@ -540,7 +540,6 @@ export default function LoginPage() {
           message="Please capture a clear photo of your face to verify your attendance and proceed to the dashboard."
           onCapture={handleLoginPhotoCapture}
           onCancel={handleLoginPhotoCancel}
-          onSkip={() => handleLoginPhotoCapture('')}
         />
       )}
     </>
