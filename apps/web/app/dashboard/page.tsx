@@ -72,9 +72,17 @@ export default function Dashboard() {
   const [todayLabel, setTodayLabel] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [msgModal, setMsgModal] = useState<{ name: string; phone?: string; amount: number } | null>(null);
+  const [msgModal, setMsgModal] = useState<{ name: string; phone?: string; amount: number; loanId?: number } | null>(null);
+  const [editingPhone, setEditingPhone] = useState('');
+  const [copiedPhone, setCopiedPhone] = useState(false);
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  const openMsgModal = (item: { customerName: string; phone?: string; amount: number; loanId: number }) => {
+    setMsgModal({ name: item.customerName, phone: item.phone, amount: item.amount, loanId: item.loanId });
+    setEditingPhone(item.phone || '');
+    setCopiedPhone(false);
+  };
 
   useEffect(() => {
     const stored = localStorage.getItem('user');
@@ -93,7 +101,11 @@ export default function Dashboard() {
   }, []);
 
   const sendWhatsAppCloudMessage = async () => {
-    if (!msgModal?.phone) return;
+    const rawPhone = editingPhone || msgModal?.phone;
+    if (!rawPhone) {
+      window.alert('Please enter a valid 10-digit mobile number first.');
+      return;
+    }
     setSendingWhatsApp(true);
     try {
       const response = await fetch(`${API_URL}/api/whatsapp/send`, {
@@ -105,7 +117,7 @@ export default function Dashboard() {
         body: JSON.stringify({
           message_type: 'pending_emi',
           customer_name: msgModal.name,
-          customer_phone: `91${msgModal.phone.replace(/\D/g, '').replace(/^91/, '')}`,
+          customer_phone: `91${rawPhone.replace(/\D/g, '').replace(/^91/, '')}`,
           emi_amount: String(msgModal.amount)
         })
       });
@@ -193,42 +205,219 @@ export default function Dashboard() {
       )}
 
       {/* Message modal */}
-      {msgModal && (
-        <div onClick={() => setMsgModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: 14, padding: 24, width: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-            <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>Contact Customer</h3>
-            <p style={{ color: '#6b7280', fontSize: 13, margin: '0 0 16px' }}>EMI due: {fmt(msgModal.amount)}</p>
-            <div style={{ background: '#f9fafb', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
-              <p style={{ margin: 0, fontWeight: 600, fontSize: 14 }}>{msgModal.name}</p>
-              {msgModal.phone && <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>📱 +91 {msgModal.phone}</p>}
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {msgModal.phone && (
-                <button onClick={sendWhatsAppCloudMessage} disabled={sendingWhatsApp}
-                  style={{ flex: 1, padding: '9px', background: '#128C7E', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: sendingWhatsApp ? 'default' : 'pointer', opacity: sendingWhatsApp ? 0.7 : 1 }}>
-                  {sendingWhatsApp ? 'Sending...' : 'Send API'}
+      {msgModal && (() => {
+        const cleanPhone = (editingPhone || msgModal.phone || '').replace(/\D/g, '').replace(/^91/, '');
+        const loanCode = msgModal.loanId ? `LN${1000 + msgModal.loanId}` : '';
+        const waText = encodeURIComponent(`Dear ${msgModal.name}, this is a gentle reminder that your loan EMI ${loanCode ? `(${loanCode}) ` : ''}of ${fmt(msgModal.amount)} is due today. Please complete the payment at the earliest. Thank you! - LenQredzo`);
+
+        return (
+          <div onClick={() => setMsgModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: 18, padding: '24px 22px', width: '100%', maxWidth: 420, boxShadow: '0 25px 60px rgba(0,0,0,0.25)' }}>
+              
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+                <div>
+                  <h3 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700, color: '#0f172a' }}>Contact Customer</h3>
+                  <p style={{ color: '#64748b', fontSize: 13, margin: 0 }}>Send EMI reminder or reach out directly</p>
+                </div>
+                <button type="button" onClick={() => setMsgModal(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748b', fontSize: 14 }}>✕</button>
+              </div>
+
+              {/* Customer & Due Info Card */}
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '14px 16px', marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: '#1e293b' }}>{msgModal.name}</p>
+                  {msgModal.loanId && <span style={{ fontSize: 11, fontWeight: 700, background: '#eff6ff', color: '#1d4ed8', padding: '2px 8px', borderRadius: 12 }}>LN{1000 + msgModal.loanId}</span>}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, color: '#64748b' }}>EMI Due Today</span>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: '#dc2626' }}>{fmt(msgModal.amount)}</span>
+                </div>
+              </div>
+
+              {/* Phone Number Input / Display */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
+                    Customer Mobile Number
+                  </label>
+                  {(editingPhone || msgModal.phone) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const num = (editingPhone || msgModal.phone || '').replace(/\D/g, '').replace(/^91/, '');
+                        navigator.clipboard?.writeText(num);
+                        setCopiedPhone(true);
+                        setTimeout(() => setCopiedPhone(false), 2000);
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                    >
+                      {copiedPhone ? '✓ Copied!' : '📋 Copy Number'}
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ padding: '9px 12px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 13, fontWeight: 700, color: '#334155' }}>
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    value={editingPhone}
+                    onChange={e => setEditingPhone(e.target.value)}
+                    placeholder="Enter 10-digit mobile number"
+                    maxLength={14}
+                    style={{
+                      flex: 1,
+                      padding: '9px 12px',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: 8,
+                      fontSize: 14,
+                      fontWeight: 600,
+                      outline: 'none',
+                      color: '#0f172a'
+                    }}
+                  />
+                </div>
+                {!(editingPhone || msgModal.phone) && (
+                  <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#dc2626' }}>
+                    ⚠️ Mobile number missing in database. Please enter customer mobile number above.
+                  </p>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                <a
+                  href={cleanPhone ? `https://wa.me/91${cleanPhone}?text=${waText}` : '#'}
+                  target={cleanPhone ? '_blank' : undefined}
+                  rel="noreferrer"
+                  onClick={e => {
+                    if (!cleanPhone) {
+                      e.preventDefault();
+                      window.alert('Please enter a valid 10-digit mobile number first.');
+                    }
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: '12px 18px',
+                    background: cleanPhone ? '#25D366' : '#94a3b8',
+                    color: 'white',
+                    borderRadius: 10,
+                    fontSize: 14,
+                    fontWeight: 700,
+                    textDecoration: 'none',
+                    boxShadow: cleanPhone ? '0 4px 14px rgba(37, 211, 102, 0.35)' : 'none',
+                    cursor: cleanPhone ? 'pointer' : 'not-allowed'
+                  }}
+                >
+                  <span style={{ fontSize: 18 }}>💬</span> Open in WhatsApp
+                </a>
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <a
+                    href={cleanPhone ? `tel:+91${cleanPhone}` : '#'}
+                    onClick={e => {
+                      if (!cleanPhone) {
+                        e.preventDefault();
+                        window.alert('Please enter a valid 10-digit mobile number first.');
+                      }
+                    }}
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      padding: '10px 12px',
+                      background: '#eff6ff',
+                      color: '#1d4ed8',
+                      border: '1px solid #bfdbfe',
+                      borderRadius: 8,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      textDecoration: 'none',
+                      cursor: cleanPhone ? 'pointer' : 'not-allowed'
+                    }}
+                  >
+                    <span>📞</span> Call
+                  </a>
+
+                  <a
+                    href={cleanPhone ? `sms:+91${cleanPhone}?body=Dear ${encodeURIComponent(msgModal.name)}, your EMI of ${fmt(msgModal.amount)} is due today. Please pay soon.` : '#'}
+                    onClick={e => {
+                      if (!cleanPhone) {
+                        e.preventDefault();
+                        window.alert('Please enter a valid 10-digit mobile number first.');
+                      }
+                    }}
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      padding: '10px 12px',
+                      background: '#f8fafc',
+                      color: '#334155',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: 8,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      textDecoration: 'none',
+                      cursor: cleanPhone ? 'pointer' : 'not-allowed'
+                    }}
+                  >
+                    <span>✉️</span> SMS
+                  </a>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={sendWhatsAppCloudMessage}
+                  disabled={sendingWhatsApp || !cleanPhone}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    padding: '9px 12px',
+                    background: '#075E54',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: cleanPhone && !sendingWhatsApp ? 'pointer' : 'not-allowed',
+                    opacity: cleanPhone && !sendingWhatsApp ? 1 : 0.6
+                  }}
+                >
+                  {sendingWhatsApp ? 'Sending...' : '⚡ Send via WhatsApp Cloud API Bot'}
                 </button>
-              )}
-              {msgModal.phone && (
-                <a href={`https://wa.me/91${msgModal.phone}?text=Dear ${encodeURIComponent(msgModal.name)}, your EMI of ${fmt(msgModal.amount)} is due. Please pay at the earliest.`}
-                  target="_blank" rel="noreferrer"
-                  style={{ flex: 1, padding: '9px', background: '#25D366', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', textDecoration: 'none', textAlign: 'center' }}>
-                  💬 WhatsApp
-                </a>
-              )}
-              {msgModal.phone && (
-                <a href={`sms:${msgModal.phone}?body=Dear ${msgModal.name}, your EMI of ${fmt(msgModal.amount)} is due. Please pay at the earliest.`}
-                  style={{ flex: 1, padding: '9px', background: '#1e40af', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', textDecoration: 'none', textAlign: 'center' }}>
-                  📱 SMS
-                </a>
-              )}
-              <button onClick={() => setMsgModal(null)} style={{ flex: 1, padding: '9px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
-                Close
-              </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMsgModal(null)}
+                  style={{
+                    padding: '7px',
+                    background: 'transparent',
+                    color: '#64748b',
+                    border: 'none',
+                    fontSize: 12.5,
+                    cursor: 'pointer',
+                    marginTop: 2
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <div className="dashboard-main-layout" style={{ marginLeft: 220, flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
 
@@ -377,10 +566,10 @@ export default function Dashboard() {
                           <p style={{ margin: 0, fontSize: 11, color: '#1e40af' }}>LN{1000 + e.loanId}</p>
                         </div>
                         <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#111827', flexShrink: 0 }}>{fmt(e.amount)}</p>
-                        {/* Message button */}
-                        <button onClick={() => setMsgModal({ name: e.customerName, phone: e.phone, amount: e.amount })}
-                          style={{ padding: '5px 8px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: '#16a34a', flexShrink: 0 }} title="Send reminder">
-                          💬
+                        {/* WhatsApp / Contact button */}
+                        <button onClick={() => openMsgModal({ customerName: e.customerName, phone: e.phone, amount: e.amount, loanId: e.loanId })}
+                          style={{ padding: '5px 10px', background: '#dcfce7', border: '1px solid #86efac', borderRadius: 8, cursor: 'pointer', fontSize: 12.5, color: '#15803d', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }} title="Contact on WhatsApp / Call">
+                          <span>💬</span> WhatsApp
                         </button>
                       </div>
                     ))}
