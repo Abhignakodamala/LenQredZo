@@ -76,12 +76,38 @@ export const register = async (req: Request, res: Response) => {
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
 
-    const user = await prisma.user.findUnique({ where: { email }, include: { company: true } });
-    if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+    const cleanEmail = String(email).trim().toLowerCase();
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
+    // Use mode: 'insensitive' to match case-insensitively across all systems
+    const user = await prisma.user.findFirst({
+      where: {
+        email: {
+          equals: cleanEmail,
+          mode: 'insensitive'
+        }
+      },
+      include: { company: true }
+    });
+
+    if (!user) {
+      console.warn(`[AUTH] Login failed: User not found for email "${cleanEmail}"`);
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
+
+    let isMatch = await bcrypt.compare(password, user.password);
+    // Also test trimmed password in case a trailing space was copied
+    if (!isMatch && typeof password === 'string' && password.trim() !== password) {
+      isMatch = await bcrypt.compare(password.trim(), user.password);
+    }
+
+    if (!isMatch) {
+      console.warn(`[AUTH] Login failed: Incorrect password for email "${cleanEmail}"`);
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
 
     await recordSuccessfulLogin(req, user.id, 'password');
     const token = makeToken(user);
