@@ -78,16 +78,6 @@ export default function LoginPage() {
     window.location.href = '/dashboard';
   };
 
-  // Called if user skips camera (e.g. Smart TV browser, conference room display, or device without camera)
-  const handleLoginPhotoSkip = () => {
-    if (rememberMe && typeof pendingUser?.email === 'string') {
-      localStorage.setItem('rememberedLoginEmail', pendingUser.email);
-    }
-    localStorage.setItem('token', pendingToken);
-    localStorage.setItem('user', JSON.stringify(pendingUser));
-    window.location.href = '/dashboard';
-  };
-
   // Called if user cancels the camera modal without capturing
   const handleLoginPhotoCancel = () => {
     setShowLoginCapture(false);
@@ -556,7 +546,6 @@ export default function LoginPage() {
           message="Please capture a clear photo of your face to verify your attendance and proceed to the dashboard."
           onCapture={handleLoginPhotoCapture}
           onCancel={handleLoginPhotoCancel}
-          onSkip={handleLoginPhotoSkip}
         />
       )}
     </>
