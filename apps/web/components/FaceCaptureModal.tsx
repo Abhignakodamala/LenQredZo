@@ -665,6 +665,25 @@ export default function FaceCaptureModal({
                 >
                   📁 Snap / Upload Selfie Photo
                 </button>
+                {onSkip && (
+                  <button
+                    type="button"
+                    onClick={onSkip}
+                    style={{
+                      background: '#334155',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '9px 18px',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 12px rgba(51,65,85,0.4)'
+                    }}
+                  >
+                    📺 TV / Big Screen Mode (Skip Camera)
+                  </button>
+                )}
               </div>
             </div>
           ) : (
@@ -886,6 +905,24 @@ export default function FaceCaptureModal({
               >
                 📁 Upload Photo Instead
               </button>
+              {onSkip && (
+                <button
+                  type="button"
+                  onClick={onSkip}
+                  style={{
+                    background: '#334155',
+                    border: 'none',
+                    padding: '5px 12px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: '#ffffff',
+                    cursor: 'pointer'
+                  }}
+                >
+                  📺 Skip (TV / No Camera)
+                </button>
+              )}
             </div>
           </div>
         ) : null}
@@ -949,6 +986,23 @@ export default function FaceCaptureModal({
             >
               📁 Upload selfie photo instead
             </button>
+            {onSkip && (
+              <button
+                type="button"
+                onClick={onSkip}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#64748b',
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
+                }}
+              >
+                📺 TV / No Camera Mode (Skip)
+              </button>
+            )}
           </div>
 
           <button
