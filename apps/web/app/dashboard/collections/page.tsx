@@ -40,8 +40,14 @@ export default function CollectionsPage() {
   const [pendingPaymentData, setPendingPaymentData] = useState<any>(null);
   const [runningAccrual, setRunningAccrual] = useState(false);
   const [accrualResult, setAccrualResult] = useState<any>(null);
+  const [receivingUpiId, setReceivingUpiId] = useState('');
 
-  useEffect(() => { fetchCollections(); setMe(getAuthUser()); }, []);
+  useEffect(() => {
+    fetchCollections();
+    setMe(getAuthUser());
+    const saved = localStorage.getItem('receivingUpiId');
+    if (saved) setReceivingUpiId(saved);
+  }, []);
 
   const handleRunAccrual = async () => {
     if (!confirm('Run Automated Midnight Overdue & Late Fee Accrual now?\\n\\nThis will scan all active loans, mark past-due EMIs as "Overdue", calculate fixed/daily late penalty fees, and log an audit record.')) return;
@@ -616,28 +622,67 @@ export default function CollectionsPage() {
             </div>
 
             {method === 'upi' && (
-              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px', marginBottom: '14px', textAlign: 'center' }}>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '8px' }}>
-                  📱 Scan & Pay with any UPI App
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px', marginBottom: '14px', textAlign: 'center' }}>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>
+                  📱 Scan & Pay with any UPI App (Real Bank Transfer)
                 </div>
+
+                {/* Real Receiving UPI ID Input */}
+                <div style={{ marginBottom: 10, textAlign: 'left' }}>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 3 }}>
+                    Your Real Receiving UPI ID (Bank VPA):
+                  </label>
+                  <input
+                    type="text"
+                    value={receivingUpiId}
+                    onChange={e => {
+                      const val = e.target.value.trim();
+                      setReceivingUpiId(val);
+                      localStorage.setItem('receivingUpiId', val);
+                    }}
+                    placeholder="e.g. yourname@okhdfcbank, 9876543210@paytm"
+                    style={{
+                      width: '100%',
+                      padding: '7px 10px',
+                      fontSize: 12,
+                      borderRadius: 6,
+                      border: '1px solid #cbd5e1',
+                      outline: 'none',
+                      background: 'white',
+                      fontWeight: 600,
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  {!receivingUpiId ? (
+                    <span style={{ fontSize: 10.5, color: '#dc2626', display: 'block', marginTop: 2 }}>
+                      ⚠️ Type your real PhonePe/GPay UPI ID above so payments transfer directly into your bank account!
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 10.5, color: '#16a34a', display: 'block', marginTop: 2 }}>
+                      ✓ Real money will transfer directly to: <strong>{receivingUpiId}</strong>
+                    </span>
+                  )}
+                </div>
+
                 <div style={{ display: 'inline-block', padding: '8px', background: 'white', borderRadius: '8px', border: '1px solid #cbd5e1', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
                   <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
-                      `upi://pay?pa=finance@upi&pn=${encodeURIComponent(me?.companyName || 'LenQredzo Capital')}&am=${payAmount || dialogRemaining}&tn=${encodeURIComponent(`EMI LN${1000 + dialog.emi.loanId} EMI #${dialog.emi.emiNumber || ''}`)}&cu=INR`
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
+                      `upi://pay?pa=${encodeURIComponent(receivingUpiId || 'finance@upi')}&pn=${encodeURIComponent(me?.companyName || 'LenQredzo')}&am=${payAmount || dialogRemaining}&tn=${encodeURIComponent(`EMI LN${1000 + dialog.emi.loanId}`)}&cu=INR`
                     )}`}
                     alt="UPI QR Code"
-                    width={150}
-                    height={150}
+                    width={160}
+                    height={160}
                     style={{ display: 'block', margin: '0 auto' }}
                   />
                 </div>
-                <div style={{ fontSize: '14px', fontWeight: 800, color: '#1e40af', marginTop: '6px' }}>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: '#16a34a', marginTop: '6px' }}>
                   ₹{Number(payAmount || dialogRemaining).toLocaleString('en-IN')}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginTop: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '10px', background: '#dbeafe', color: '#1e40af', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>PhonePe</span>
                   <span style={{ fontSize: '10px', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>Google Pay</span>
                   <span style={{ fontSize: '10px', background: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>Paytm</span>
+                  <span style={{ fontSize: '10px', background: '#fef3c7', color: '#b45309', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>BHIM / CRED</span>
                 </div>
               </div>
             )}
