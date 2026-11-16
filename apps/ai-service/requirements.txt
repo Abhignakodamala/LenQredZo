@@ -4,5 +4,5 @@ google-genai
 python-dotenv
 pydantic
 httpx
-opencv-python-headless
+opencv-python-headless<5
 numpy

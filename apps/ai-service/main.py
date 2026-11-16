@@ -256,4 +256,8 @@ def detect_face_endpoint(req: FaceDetectRequest):
         }
     except Exception as e:
         print("Face detection error:", e)
-        return {"detected": False, "count": 0, "reason": f"Face detection error: {str(e)}"}
+        return {
+            "detected": False,
+            "count": 0,
+            "reason": f"Face detection scan issue ({str(e)}). Please ensure face is centered with adequate room lighting."
+        }
