@@ -1803,6 +1803,26 @@ export const exportCreditBureauData = async (req: any, res: Response) => {
       const panDecrypted = safeDecrypt(customer.pan);
       const aadharDecrypted = safeDecrypt(customer.aadhar);
 
+      // Clean PAN: Must be valid 10-char PAN [A-Z]{5}[0-9]{4}[A-Z], otherwise 'PANNOTAVBL'
+      const cleanPan = (panDecrypted && /^[A-Z]{5}[0-9]{4}[A-Z]$/i.test(panDecrypted.trim()))
+        ? panDecrypted.trim().toUpperCase()
+        : 'PANNOTAVBL';
+
+      // Clean Aadhaar: Must be 12 digits, otherwise blank
+      const rawAadhaarDigits = (aadharDecrypted || '').replace(/\D/g, '');
+      const cleanAadhaar = rawAadhaarDigits.length === 12 ? rawAadhaarDigits : '';
+
+      // Helper to sanitize single-line text for TUDF (no newlines, no pipe delimiter)
+      const cleanText = (str?: string | null, maxLen = 60) => {
+        if (!str) return '';
+        return String(str)
+          .replace(/[\r\n\t|]+/g, ' ')
+          .replace(/,/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, maxLen);
+      };
+
       let accountTypeCode = '05';
       const lType = (loan.type || '').toLowerCase();
       if (lType.includes('home') || lType.includes('mortgage') || lType.includes('property')) accountTypeCode = '02';
@@ -1817,17 +1837,17 @@ export const exportCreditBureauData = async (req: any, res: Response) => {
         accountNumber: `LN${1000 + loan.id}`,
         accountType: accountTypeCode,
         ownershipIndicator: '1',
-        borrowerName: (customer.name || 'Borrower').toUpperCase(),
+        borrowerName: cleanText(customer.name || 'Borrower', 40).toUpperCase(),
         dob: customer.dob ? new Date(customer.dob).toISOString().slice(0, 10).replace(/-/g, '') : '19850101',
         gender: (customer.gender || 'M').toUpperCase().slice(0, 1),
-        incomeTaxPan: panDecrypted ? panDecrypted.toUpperCase() : 'PANNOTAVBL',
-        aadhaarNumber: aadharDecrypted ? aadharDecrypted.replace(/\D/g, '').slice(-12) : '',
+        incomeTaxPan: cleanPan,
+        aadhaarNumber: cleanAadhaar,
         mobileNumber: customer.phone ? customer.phone.replace(/\D/g, '').slice(-10) : '9999999999',
-        address1: (customer.street || customer.address || 'Address Line 1').replace(/,/g, ' '),
-        address2: (customer.city || 'City').replace(/,/g, ' '),
-        city: customer.city || 'City',
-        state: customer.state || 'Telangana',
-        pinCode: customer.pincode || '500001',
+        address1: cleanText(customer.street || customer.address || 'Address Line 1', 60),
+        address2: cleanText(customer.city || 'City', 40),
+        city: cleanText(customer.city || 'City', 30),
+        state: cleanText(customer.state || 'Telangana', 30),
+        pinCode: (customer.pincode || '500001').replace(/\D/g, '').slice(0, 6) || '500001',
         openDate: loan.createdAt ? new Date(loan.createdAt).toISOString().slice(0, 10).replace(/-/g, '') : dateStamp,
         sanctionAmount: Math.round(loan.amount),
         currentBalance: Math.round(outstandingBalance),
