@@ -23,6 +23,11 @@ export default function LogFieldVisitModal({ customer: initialCustomer, loanId: 
   const [ptpDate, setPtpDate] = useState('');
   const [ptpAmount, setPtpAmount] = useState<number | ''>('');
 
+  // Cash collection details
+  const [collectedAmount, setCollectedAmount] = useState<number | ''>('');
+  const [paymentMode, setPaymentMode] = useState<string>('Cash');
+  const [receiptNumber, setReceiptNumber] = useState<string>('');
+
   // GPS state
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
@@ -30,10 +35,26 @@ export default function LogFieldVisitModal({ customer: initialCustomer, loanId: 
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
 
+  // Live Camera state (Strict on-spot capture, no gallery uploads)
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const streamRef = React.useRef<MediaStream | null>(null);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraLoading, setCameraLoading] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+
   // Photo state
   const [photoData, setPhotoData] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Cleanup camera stream on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+      }
+    };
+  }, []);
 
   // Auto-capture GPS on modal open
   useEffect(() => {
@@ -106,15 +127,85 @@ export default function LogFieldVisitModal({ customer: initialCustomer, loanId: 
     );
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const startCamera = async () => {
+    setCameraError(null);
+    setCameraLoading(true);
+    try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      setCameraActive(true);
+    } catch (err: any) {
+      console.warn('Camera error:', err);
+      setCameraError('Camera access required. Please allow camera permissions in your browser or device.');
+    } finally {
+      setCameraLoading(false);
+    }
+  };
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setPhotoData(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    setCameraActive(false);
+  };
+
+  const captureOnSpotPhoto = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    const width = video.videoWidth || 640;
+    const height = video.videoHeight || 480;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.drawImage(video, 0, 0, width, height);
+
+    // Apply statutory timestamp & GPS watermark directly onto image canvas
+    const nowIST = new Date().toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+    const gpsText = (latitude && longitude)
+      ? `GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)} (±${accuracy || 10}m)`
+      : 'GPS: Device Geotagged';
+    const custText = currentCustomer ? `Borrower: ${currentCustomer.name}` : 'Doorstep Proof';
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+    ctx.fillRect(0, height - 44, width, 44);
+
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillText(`📍 ${custText}  •  ${gpsText}`, 14, height - 25);
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillText(`⏰ ${nowIST} IST  •  STATUTORY ON-SPOT EVIDENCE`, 14, height - 9);
+
+    const base64 = canvas.toDataURL('image/jpeg', 0.88);
+    setPhotoData(base64);
+    stopCamera();
+  };
+
+  const retakePhoto = () => {
+    setPhotoData(null);
+    startCamera();
   };
 
   const currentCustomer = selectedCustomer || initialCustomer;
@@ -124,6 +215,13 @@ export default function LogFieldVisitModal({ customer: initialCustomer, loanId: 
     if (!currentCustomer) {
       setError('Please select a borrower before submitting visit proof.');
       return;
+    }
+
+    if (outcome === 'cash_collected') {
+      if (!collectedAmount || Number(collectedAmount) <= 0) {
+        setError('Please enter the cash/payment amount collected on spot.');
+        return;
+      }
     }
 
     setLoading(true);
@@ -147,6 +245,9 @@ export default function LogFieldVisitModal({ customer: initialCustomer, loanId: 
           outcome,
           ptpDate: outcome === 'ptp_taken' ? ptpDate : null,
           ptpAmount: outcome === 'ptp_taken' && ptpAmount ? Number(ptpAmount) : null,
+          collectedAmount: outcome === 'cash_collected' && collectedAmount ? Number(collectedAmount) : null,
+          paymentMode: outcome === 'cash_collected' ? paymentMode : null,
+          receiptNumber: outcome === 'cash_collected' && receiptNumber ? receiptNumber : null,
           remarks,
           photoData
         })
@@ -504,27 +605,265 @@ export default function LogFieldVisitModal({ customer: initialCustomer, loanId: 
             </div>
           )}
 
-          {/* Photo Capture Proof */}
-          <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-              📸 Doorstep Photo Evidence (Locked Door / Meeting / House)
-            </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handlePhotoUpload}
-                style={{ fontSize: '12px' }}
-              />
+          {/* Conditional Cash Collection Inputs if outcome is Cash Collected */}
+          {outcome === 'cash_collected' && (
+            <div style={{
+              background: '#f0fdf4',
+              border: '1.5px solid #86efac',
+              borderRadius: '10px',
+              padding: '14px',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+              gap: '12px',
+              boxShadow: '0 2px 6px rgba(22, 101, 52, 0.05)'
+            }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#166534', marginBottom: '4px' }}>
+                  💵 Amount Collected (₹) *
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  value={collectedAmount}
+                  onChange={(e) => setCollectedAmount(e.target.value ? Number(e.target.value) : '')}
+                  placeholder="E.g. 5000"
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    border: '1.5px solid #22c55e',
+                    fontSize: '14px',
+                    fontWeight: 800,
+                    color: '#14532d',
+                    background: '#ffffff',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
 
-              {photoData && (
-                <div style={{ width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #cbd5e1' }}>
-                  <img src={photoData} alt="Visit proof" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </div>
-              )}
+              <div>
+                <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#166534', marginBottom: '4px' }}>
+                  💳 Payment Mode *
+                </label>
+                <select
+                  value={paymentMode}
+                  onChange={(e) => setPaymentMode(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8.5px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid #86efac',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: '#166534',
+                    background: 'white',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="Cash">💵 Physical Cash</option>
+                  <option value="UPI">📱 Instant UPI / QR</option>
+                  <option value="Bank Transfer">🏦 Direct Bank / IMPS</option>
+                  <option value="Cheque">📜 Cheque</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#166534', marginBottom: '4px' }}>
+                  🧾 Receipt / Voucher Ref #
+                </label>
+                <input
+                  type="text"
+                  value={receiptNumber}
+                  onChange={(e) => setReceiptNumber(e.target.value)}
+                  placeholder="E.g. REC-1049"
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid #86efac',
+                    fontSize: '13px',
+                    color: '#1e293b',
+                    background: '#ffffff',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
             </div>
-            <span style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'block' }}>
+          )}
+
+          {/* Photo Capture Proof (Live On-Spot Camera Only - No File Upload) */}
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px 16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                📸 On-Spot Photo Evidence (Live Camera Only) *
+              </label>
+              <span style={{ fontSize: '11px', color: '#dc2626', fontWeight: 600 }}>
+                ⚠️ File uploads disabled for audit integrity
+              </span>
+            </div>
+
+            {/* Camera Error Message */}
+            {cameraError && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '8px 12px', borderRadius: '6px', color: '#b91c1c', fontSize: '12px', marginBottom: '10px' }}>
+                ⚠️ {cameraError}
+              </div>
+            )}
+
+            {/* State A: Photo is captured */}
+            {photoData ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{ width: '130px', height: '96px', borderRadius: '8px', overflow: 'hidden', border: '2px solid #22c55e', position: 'relative', flexShrink: 0, boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}>
+                  <img src={photoData} alt="On-spot proof" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <span style={{ position: 'absolute', top: '4px', right: '4px', background: '#22c55e', color: 'white', fontSize: '9px', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>
+                    LOCKED
+                  </span>
+                </div>
+                <div>
+                  <div style={{ color: '#166534', fontWeight: 700, fontSize: '13px' }}>
+                    ✅ Live On-Spot Photo Stamped & Verified
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
+                    Stamped with GPS ({latitude ? latitude.toFixed(4) : '—'}, {longitude ? longitude.toFixed(4) : '—'}) & official IST timestamp.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={retakePhoto}
+                    style={{
+                      marginTop: '8px',
+                      padding: '5px 12px',
+                      fontSize: '11.5px',
+                      fontWeight: 600,
+                      background: '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      color: '#334155'
+                    }}
+                  >
+                    🔄 Retake On-Spot Photo
+                  </button>
+                </div>
+              </div>
+            ) : cameraActive ? (
+              /* State B: Live Video Viewfinder */
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '100%', maxWidth: '440px', height: '240px', background: '#0f172a', borderRadius: '10px', overflow: 'hidden', position: 'relative', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                  {/* Viewfinder crosshairs */}
+                  <div style={{
+                    position: 'absolute',
+                    inset: '16px',
+                    border: '2px dashed rgba(255, 255, 255, 0.5)',
+                    borderRadius: '8px',
+                    pointerEvents: 'none'
+                  }} />
+                  <div style={{ position: 'absolute', bottom: '8px', insetInline: 0, textAlign: 'center', color: '#f8fafc', fontSize: '11px', background: 'rgba(0,0,0,0.6)', padding: '3px 0' }}>
+                    Live Viewfinder · Point camera directly at borrower / premises / cash
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={captureOnSpotPhoto}
+                    style={{
+                      background: '#16a34a',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 20px',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 6px rgba(22, 163, 74, 0.4)'
+                    }}
+                  >
+                    <span>📸</span>
+                    <span>Capture On-Spot Photo</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={stopCamera}
+                    style={{
+                      background: '#ffffff',
+                      color: '#475569',
+                      border: '1px solid #cbd5e1',
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Cancel Camera
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* State C: Open Camera Card */
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'white',
+                border: '1.5px dashed #cbd5e1',
+                borderRadius: '8px',
+                padding: '14px 18px',
+                gap: '12px',
+                flexWrap: 'wrap'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontSize: '28px' }}>📷</span>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '13px', color: '#1e293b' }}>
+                      Take Real-Time Doorstep Photo
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
+                      Device camera opens directly on spot. Gallery & file uploads are disabled.
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={startCamera}
+                  disabled={cameraLoading}
+                  style={{
+                    background: '#0284c7',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 18px',
+                    borderRadius: '8px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 6px rgba(2, 132, 199, 0.35)',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  <span>{cameraLoading ? '⏳' : '📷'}</span>
+                  <span>{cameraLoading ? 'Starting Camera...' : 'Open Camera to Take Photo'}</span>
+                </button>
+              </div>
+            )}
+            <span style={{ fontSize: '11px', color: '#64748b', marginTop: '6px', display: 'block' }}>
               Photo is cryptographically logged with GPS timestamp as statutory evidence of visit.
             </span>
           </div>

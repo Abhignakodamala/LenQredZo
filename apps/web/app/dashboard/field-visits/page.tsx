@@ -82,6 +82,9 @@ export default function FieldVisitsPage() {
   const gpsVerifiedCount = visits.filter(v => v.latitude && v.longitude).length;
   const ptpsToday = visits.filter(v => v.outcome === 'ptp_taken').length;
   const cashCollectedToday = visits.filter(v => v.outcome === 'cash_collected').length;
+  const cashAmountCollectedToday = visits
+    .filter(v => v.outcome === 'cash_collected')
+    .reduce((sum, v) => sum + (Number(v.collectedAmount) || 0), 0);
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
@@ -239,7 +242,7 @@ export default function FieldVisitsPage() {
             { label: "Today's Field Visits", value: totalVisitsToday, color: '#111827', note: 'Doorstep visits recorded' },
             { label: 'GPS Verified Visits', value: `${gpsVerifiedCount} / ${totalVisitsToday}`, color: '#16a34a', note: totalVisitsToday > 0 ? `${Math.round((gpsVerifiedCount/totalVisitsToday)*100)}% GPS Accuracy` : '100% Locked' },
             { label: 'Promises to Pay (PTP)', value: ptpsToday, color: '#0284c7', note: 'Scheduled repayment promises' },
-            { label: 'Spot Cash Collections', value: cashCollectedToday, color: '#d97706', note: 'Direct physical recoveries' },
+            { label: 'Spot Cash Collections', value: cashAmountCollectedToday > 0 ? fmt(cashAmountCollectedToday) : `${cashCollectedToday}`, color: '#15803d', note: `${cashCollectedToday} doorstep collection(s)` },
           ].map((c) => (
             <div key={c.label} style={{ background: 'white', padding: '16px 20px', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <p style={{ color: '#6b7280', fontSize: '12px', margin: '0 0 6px', fontWeight: 600 }}>{c.label}</p>
@@ -351,6 +354,34 @@ export default function FieldVisitsPage() {
                               {v.outcome === 'ptp_taken' && v.ptpDate && (
                                 <div style={{ marginTop: '6px', color: '#166534', fontWeight: 600 }}>
                                   🤝 Promised: {fmt(v.ptpAmount)} on {fmtDate(v.ptpDate)}
+                                </div>
+                              )}
+
+                              {v.outcome === 'cash_collected' && (
+                                <div style={{
+                                  marginTop: '8px',
+                                  background: '#f0fdf4',
+                                  border: '1px solid #86efac',
+                                  borderRadius: '6px',
+                                  padding: '6px 10px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  color: '#15803d',
+                                  fontSize: '12.5px',
+                                  fontWeight: 700
+                                }}>
+                                  <span>💵 Collected: {v.collectedAmount ? fmt(v.collectedAmount) : 'Payment Recorded'}</span>
+                                  {v.paymentMode && (
+                                    <span style={{ background: '#dcfce7', color: '#166534', padding: '1px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 600 }}>
+                                      {v.paymentMode}
+                                    </span>
+                                  )}
+                                  {v.receiptNumber && (
+                                    <span style={{ fontSize: '11px', color: '#4d7c0f', fontWeight: 600 }}>
+                                      Ref: {v.receiptNumber}
+                                    </span>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -571,6 +602,11 @@ export default function FieldVisitsPage() {
               <div style={{ marginTop: '12px', fontSize: '12px', color: '#475569', textAlign: 'left', background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
                 <div><strong>Officer:</strong> {selectedPhoto.agentName} ({fmtDateTimeIST(selectedPhoto.visitedAt)})</div>
                 <div><strong>Outcome:</strong> {selectedPhoto.outcome} · <strong>Remarks:</strong> {selectedPhoto.remarks}</div>
+                {selectedPhoto.outcome === 'cash_collected' && selectedPhoto.collectedAmount && (
+                  <div style={{ marginTop: '4px', color: '#15803d', fontWeight: 700 }}>
+                    💵 Cash Collected: {fmt(selectedPhoto.collectedAmount)} via {selectedPhoto.paymentMode || 'Cash'} {selectedPhoto.receiptNumber ? `(Receipt: ${selectedPhoto.receiptNumber})` : ''}
+                  </div>
+                )}
                 {selectedPhoto.latitude && (
                   <div style={{ marginTop: '4px' }}>
                     <a href={`https://www.google.com/maps?q=${selectedPhoto.latitude},${selectedPhoto.longitude}`} target="_blank" rel="noreferrer" style={{ color: '#0284c7', fontWeight: 600 }}>

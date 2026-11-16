@@ -31,6 +31,9 @@ export const logFieldVisit = async (req: Request, res: Response) => {
       outcome = 'door_locked',
       ptpDate,
       ptpAmount,
+      collectedAmount,
+      paymentMode,
+      receiptNumber,
       remarks = '',
       photoData
     } = req.body;
@@ -78,6 +81,9 @@ export const logFieldVisit = async (req: Request, res: Response) => {
       outcome,
       ptpDate: ptpDate || null,
       ptpAmount: ptpAmount ? Number(ptpAmount) : null,
+      collectedAmount: (outcome === 'cash_collected' && collectedAmount) ? Number(collectedAmount) : null,
+      paymentMode: (outcome === 'cash_collected') ? (paymentMode || 'Cash') : null,
+      receiptNumber: (outcome === 'cash_collected' && receiptNumber) ? String(receiptNumber) : null,
       remarks,
       visitedAt: now.toISOString(),
       agentId: user.userId,
