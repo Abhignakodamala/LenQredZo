@@ -42,6 +42,11 @@ export default function LogFieldVisitModal({ customer: initialCustomer, loanId: 
   const [cameraLoading, setCameraLoading] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
+  // Photo & Form submission state
+  const [photoData, setPhotoData] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   // Callback ref to attach stream immediately upon video element mounting in DOM
   const setVideoRef = React.useCallback((node: HTMLVideoElement | null) => {
     videoRef.current = node;
