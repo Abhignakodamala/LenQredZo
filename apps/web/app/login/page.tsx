@@ -19,6 +19,7 @@ export default function LoginPage() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotPhone, setForgotPhone] = useState('');
   const [forgotCode, setForgotCode] = useState('');
+  const [devOtpHint, setDevOtpHint] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
 
@@ -167,9 +168,12 @@ export default function LoginPage() {
       const data = await res.json();
       if (res.ok) {
         setForgotStep('verify');
-        if (data.devOtp) {
-          setSuccess(`OTP sent! Your verification code is: ${data.devOtp}`);
-          setForgotCode(data.devOtp);
+        setForgotCode(''); // Never auto-fill input automatically!
+        setDevOtpHint(data.devOtp || null);
+        if (data.emailSent) {
+          setSuccess(`OTP sent to ${forgotChannel === 'email' ? forgotEmail : forgotPhone}! Please check your inbox (and spam folder).`);
+        } else if (data.devOtp) {
+          setSuccess(`OTP generated for ${forgotChannel === 'email' ? forgotEmail : forgotPhone}. Check your inbox or click Auto-fill below.`);
         } else {
           setSuccess('OTP sent! Check your ' + (forgotChannel === 'email' ? 'email' : 'phone'));
         }
@@ -379,20 +383,40 @@ export default function LoginPage() {
                     </div>
                   )}
                   <button onClick={handleForgotSend} disabled={loading} style={btn()}>{loading ? 'Sending...' : 'Send OTP'}</button>
-                  <button onClick={() => { setForgotStep('idle'); clearMessages(); }} style={{ ...btnWhite(), marginTop: '8px' }}>Cancel</button>
+                  <button onClick={() => { setForgotStep('idle'); setForgotCode(''); setDevOtpHint(null); clearMessages(); }} style={{ ...btnWhite(), marginTop: '8px' }}>Cancel</button>
                 </>
               ) : (
                 <>
                   <div style={{ marginBottom: '16px' }}>
-                    {forgotCode && (
-                      <div style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '8px', padding: '10px', textAlign: 'center', marginBottom: '12px' }}>
-                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase' }}>Your Reset Code</span>
-                        <div style={{ fontSize: '24px', fontWeight: 800, color: 'white', letterSpacing: '6px', margin: '3px 0' }}>{forgotCode}</div>
-                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)' }}>Auto-filled below for instant reset</span>
+                    <label style={lbl}>Enter OTP</label>
+                    <input
+                      value={forgotCode}
+                      onChange={e => setForgotCode(e.target.value)}
+                      placeholder="6-digit OTP"
+                      maxLength={6}
+                      autoFocus
+                      style={{ ...inp, textAlign: 'center', fontSize: '22px', letterSpacing: '6px', fontWeight: 700 }}
+                    />
+                    {devOtpHint && !forgotCode && (
+                      <div style={{ textAlign: 'right', marginTop: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setForgotCode(devOtpHint)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#bfdbfe',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            textDecoration: 'underline',
+                            padding: 0
+                          }}
+                        >
+                          ⚡ Auto-fill OTP (Testing helper)
+                        </button>
                       </div>
                     )}
-                    <label style={lbl}>Enter OTP</label>
-                    <input value={forgotCode} onChange={e => setForgotCode(e.target.value)} placeholder="6-digit OTP" maxLength={6} style={{ ...inp, textAlign: 'center', fontSize: '22px', letterSpacing: '6px', fontWeight: 700 }} />
                   </div>
                   <div style={{ marginBottom: '16px' }}>
                     <label style={lbl}>New Password</label>
@@ -404,7 +428,7 @@ export default function LoginPage() {
                     </div>
                   </div>
                   <button onClick={handleForgotReset} disabled={loading} style={btn()}>{loading ? 'Resetting...' : 'Reset Password'}</button>
-                  <button onClick={() => { setForgotStep('send'); clearMessages(); }} style={{ ...btnWhite(), marginTop: '8px' }}>← Resend OTP</button>
+                  <button onClick={() => { setForgotStep('send'); setForgotCode(''); setDevOtpHint(null); clearMessages(); }} style={{ ...btnWhite(), marginTop: '8px' }}>← Resend OTP</button>
                 </>
               )}
             </div>

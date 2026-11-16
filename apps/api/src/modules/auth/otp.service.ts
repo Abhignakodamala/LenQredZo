@@ -216,12 +216,46 @@ export async function sendEmailOTP(
 
       if (resendRes.error) {
         console.warn('⚠️ [Resend Sandbox Limitation]:', resendRes.error.message);
+        // If Resend rejected destinationEmail because it's an unverified domain in sandbox mode,
+        // forward to the verified platform owner email so the OTP is NEVER lost!
+        if (destinationEmail !== ownerEmail) {
+          console.log(`📬 Routing password reset OTP email to verified platform owner ${ownerEmail}...`);
+          const fwdRes = await resend.emails.send({
+            from: 'LenQredzo <onboarding@resend.dev>',
+            to: ownerEmail,
+            subject: `[Password Reset OTP for ${destinationEmail}] ${subject}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 18px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; margin-bottom: 20px;">
+                <p style="margin: 0 0 6px; font-weight: 700; color: #1e40af;">ℹ️ Resend Delivery Notice</p>
+                <p style="margin: 0; font-size: 13px; color: #1e3a8a; line-height: 1.5;">
+                  A password reset OTP was requested for <strong>${destinationEmail}</strong>. Since Resend is currently using the testing domain (<code>onboarding@resend.dev</code>), the code has been delivered to your administrator inbox: <strong>${ownerEmail}</strong>.
+                </p>
+              </div>
+              ${html}
+            `
+          });
+          if (!fwdRes.error) {
+            emailSent = true;
+            console.log(`✓ Email delivered to owner ${ownerEmail} successfully!`);
+          }
+        }
       } else {
         console.log(`✓ Email delivered via Resend successfully to ${destinationEmail}!`);
         emailSent = true;
       }
     } catch (err: any) {
       console.warn('⚠️ [Resend Send Error]:', err.message || err);
+      if (destinationEmail !== ownerEmail) {
+        try {
+          const fwdRes = await resend.emails.send({
+            from: 'LenQredzo <onboarding@resend.dev>',
+            to: ownerEmail,
+            subject: `[Password Reset OTP for ${destinationEmail}] ${subject}`,
+            html
+          });
+          if (!fwdRes.error) emailSent = true;
+        } catch {}
+      }
     }
   }
 
