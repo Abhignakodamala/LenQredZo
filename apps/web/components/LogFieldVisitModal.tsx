@@ -42,10 +42,26 @@ export default function LogFieldVisitModal({ customer: initialCustomer, loanId: 
   const [cameraLoading, setCameraLoading] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
-  // Photo state
-  const [photoData, setPhotoData] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Callback ref to attach stream immediately upon video element mounting in DOM
+  const setVideoRef = React.useCallback((node: HTMLVideoElement | null) => {
+    videoRef.current = node;
+    if (node && streamRef.current) {
+      node.srcObject = streamRef.current;
+      node.play().catch(err => {
+        console.warn('Video auto-play blocked or error:', err);
+      });
+    }
+  }, []);
+
+  // Watch cameraActive & ensure stream is actively playing
+  useEffect(() => {
+    if (cameraActive && videoRef.current && streamRef.current) {
+      if (videoRef.current.srcObject !== streamRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+      }
+      videoRef.current.play().catch(err => console.warn('Video play error:', err));
+    }
+  }, [cameraActive]);
 
   // Cleanup camera stream on unmount
   useEffect(() => {
@@ -134,19 +150,34 @@ export default function LogFieldVisitModal({ customer: initialCustomer, loanId: 
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(t => t.stop());
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+      } catch (errEnv) {
+        console.warn('Rear camera not available, falling back to default webcam/camera:', errEnv);
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
       }
+
+      streamRef.current = stream;
       setCameraActive(true);
+
+      // Connect stream to video element on next tick once mounted
+      setTimeout(() => {
+        if (videoRef.current && streamRef.current) {
+          videoRef.current.srcObject = streamRef.current;
+          videoRef.current.play().catch(e => console.warn('Play error:', e));
+        }
+      }, 50);
     } catch (err: any) {
       console.warn('Camera error:', err);
-      setCameraError('Camera access required. Please allow camera permissions in your browser or device.');
+      setCameraError(err.message || 'Camera access required. Please allow camera permissions in your browser or device.');
     } finally {
       setCameraLoading(false);
     }
@@ -754,10 +785,13 @@ export default function LogFieldVisitModal({ customer: initialCustomer, loanId: 
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
                 <div style={{ width: '100%', maxWidth: '440px', height: '240px', background: '#0f172a', borderRadius: '10px', overflow: 'hidden', position: 'relative', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
                   <video
-                    ref={videoRef}
+                    ref={setVideoRef}
                     autoPlay
                     playsInline
                     muted
+                    onLoadedMetadata={(e) => {
+                      (e.target as HTMLVideoElement).play().catch(err => console.warn(err));
+                    }}
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   />
                   {/* Viewfinder crosshairs */}
