@@ -360,28 +360,20 @@ export default function LoginPage() {
                 </div>
               ) : forgotStep === 'send' ? (
                 <>
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                    {(['email', 'sms'] as OTPChannel[]).map(ch => (
-                      <button key={ch} onClick={() => setForgotChannel(ch)} style={{
-                        flex: 1, padding: '8px', borderRadius: '8px', border: '1px solid',
-                        borderColor: forgotChannel === ch ? 'white' : 'rgba(255,255,255,0.3)',
-                        background: forgotChannel === ch ? 'white' : 'transparent',
-                        color: forgotChannel === ch ? ACCENT : 'rgba(255,255,255,0.8)',
-                        fontSize: '13px', fontWeight: 500, cursor: 'pointer'
-                      }}>{ch === 'email' ? '📧 Email OTP' : '📱 SMS OTP'}</button>
-                    ))}
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={lbl}>Registered Email</label>
+                    <input
+                      type="email"
+                      value={forgotEmail}
+                      onChange={e => setForgotEmail(e.target.value)}
+                      placeholder="name@company.com"
+                      autoFocus
+                      style={inp}
+                    />
+                    <p style={{ margin: '6px 0 0', fontSize: '11.5px', color: 'rgba(255,255,255,0.75)' }}>
+                      We will send a 6-digit verification code to your registered email.
+                    </p>
                   </div>
-                  {forgotChannel === 'email' ? (
-                    <div style={{ marginBottom: '16px' }}>
-                      <label style={lbl}>Registered Email</label>
-                      <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} placeholder="your@email.com" style={inp} />
-                    </div>
-                  ) : (
-                    <div style={{ marginBottom: '16px' }}>
-                      <label style={lbl}>Registered Phone</label>
-                      <input type="tel" value={forgotPhone} onChange={e => setForgotPhone(e.target.value)} placeholder="9876543210" maxLength={10} style={inp} />
-                    </div>
-                  )}
                   <button onClick={handleForgotSend} disabled={loading} style={btn()}>{loading ? 'Sending...' : 'Send OTP'}</button>
                   <button onClick={() => { setForgotStep('idle'); setForgotCode(''); setDevOtpHint(null); clearMessages(); }} style={{ ...btnWhite(), marginTop: '8px' }}>Cancel</button>
                 </>

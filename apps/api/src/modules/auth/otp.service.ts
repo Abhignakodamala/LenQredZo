@@ -248,7 +248,7 @@ export async function sendEmailOTP(
 // ── Send OTP via SMS (Twilio) ─────────────────────────────────────────────
 export async function sendSMSOTP(phone: string, code: string, type: string) {
   if (!twilioClient) {
-    throw new Error('SMS service not configured. Add Twilio credentials to .env');
+    throw new Error('SMS service is not enabled. Please use your Registered Email for password reset.');
   }
 
   const messages: Record<string, string> = {
