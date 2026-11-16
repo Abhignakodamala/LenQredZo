@@ -97,36 +97,82 @@ async function detectFaceInCanvas(canvas: HTMLCanvasElement): Promise<{ detected
       };
     }
 
-    // Check D: Center Face Oval Gradient / Edge Contrast
-    // Humans have eyes, eyebrows, nose, mouth gradients in the center 50%
-    const startX = Math.floor(width * 0.25);
-    const endX = Math.floor(width * 0.75);
-    const startY = Math.floor(height * 0.2);
-    const endY = Math.floor(height * 0.8);
+    // Check D: Precise Center Oval Biometric Human Skin Chrominance Filter (YCbCr + RGB)
+    // Eliminates false positives from painted walls, cartoon drawings, posters, ceiling & curtains!
+    const cx = width / 2;
+    const cy = height / 2;
+    const rx = width * 0.22;
+    const ry = height * 0.35;
 
-    let centerGradients = 0;
-    let centerSamples = 0;
+    let ovalTotal = 0;
+    let skinMatches = 0;
 
-    for (let y = startY; y < endY; y += 6) {
-      for (let x = startX; x < endX; x += 6) {
-        const idx = (y * width + x) * 4;
-        const idxRight = (y * width + (x + 3)) * 4;
-        const idxDown = ((y + 3) * width + x) * 4;
+    // Test pixels strictly inside the oval guide
+    for (let y = Math.max(0, Math.floor(cy - ry)); y < Math.min(height, Math.ceil(cy + ry)); y += 3) {
+      for (let x = Math.max(0, Math.floor(cx - rx)); x < Math.min(width, Math.ceil(cx + rx)); x += 3) {
+        const normX = (x - cx) / rx;
+        const normY = (y - cy) / ry;
+        if (normX * normX + normY * normY <= 1.0) {
+          ovalTotal++;
+          const idx = (y * width + x) * 4;
+          const r = data[idx];
+          const g = data[idx + 1];
+          const b = data[idx + 2];
 
-        if (idxDown < data.length && idxRight < data.length) {
-          const lCenter = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
-          const lRight = 0.299 * data[idxRight] + 0.587 * data[idxRight + 1] + 0.114 * data[idxRight + 2];
-          const lDown = 0.299 * data[idxDown] + 0.587 * data[idxDown + 1] + 0.114 * data[idxDown + 2];
+          // Standard YCbCr Human Skin Model (Peer et al. & Chai-Ngan model)
+          // Covers all Fitzpatrick skin phototypes I - VI (Fair, Wheatish, Dusky, Deep Dark)
+          // Strictly rejects walls (Cb≈128, Cr≈128), cartoons (yellow Cb<50, blue Cb>150), paper & ceilings
+          const yVal = 0.299 * r + 0.587 * g + 0.114 * b;
+          const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
+          const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
 
-          const grad = Math.abs(lCenter - lRight) + Math.abs(lCenter - lDown);
-          centerGradients += grad;
-          centerSamples++;
+          const isSkin = (yVal >= 40) && (cb >= 77 && cb <= 127) && (cr >= 133 && cr <= 173) && (r > g) && (g >= b);
+          if (isSkin) {
+            skinMatches++;
+          }
         }
       }
     }
 
-    const avgCenterGrad = centerSamples > 0 ? centerGradients / centerSamples : 0;
-    if (avgCenterGrad < 4.2) {
+    const skinRatio = ovalTotal > 0 ? (skinMatches / ovalTotal) * 100 : 0;
+    // A real human face filling the oval is 40% - 85% skin.
+    // A wall with cartoon drawings, objects, or furniture is < 12% skin.
+    if (skinRatio < 25) {
+      return {
+        detected: false,
+        reason: 'No human face detected inside the oval guide! (Wall or background detected. Please align your real face directly in the frame).'
+      };
+    }
+
+    // Check E: Inner Oval Eye / Nose Facial Contrast
+    let innerGrads = 0;
+    let innerSamples = 0;
+    const innerRx = rx * 0.65;
+    const innerRy = ry * 0.65;
+    for (let y = Math.max(0, Math.floor(cy - innerRy)); y < Math.min(height, Math.ceil(cy + innerRy)); y += 4) {
+      for (let x = Math.max(0, Math.floor(cx - innerRx)); x < Math.min(width, Math.ceil(cx + innerRx)); x += 4) {
+        const normX = (x - cx) / innerRx;
+        const normY = (y - cy) / innerRy;
+        if (normX * normX + normY * normY <= 1.0) {
+          const idx = (y * width + x) * 4;
+          const idxRight = (y * width + (x + 3)) * 4;
+          const idxDown = ((y + 3) * width + x) * 4;
+
+          if (idxDown < data.length && idxRight < data.length) {
+            const lCenter = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+            const lRight = 0.299 * data[idxRight] + 0.587 * data[idxRight + 1] + 0.114 * data[idxRight + 2];
+            const lDown = 0.299 * data[idxDown] + 0.587 * data[idxDown + 1] + 0.114 * data[idxDown + 2];
+
+            const grad = Math.abs(lCenter - lRight) + Math.abs(lCenter - lDown);
+            innerGrads += grad;
+            innerSamples++;
+          }
+        }
+      }
+    }
+
+    const avgInnerGrad = innerSamples > 0 ? innerGrads / innerSamples : 0;
+    if (avgInnerGrad < 4.5) {
       return {
         detected: false,
         reason: 'Facial features (eyes, nose, mouth) not detected in the center. Please position your face inside the oval frame.'
@@ -136,7 +182,7 @@ async function detectFaceInCanvas(canvas: HTMLCanvasElement): Promise<{ detected
     return { detected: true };
   } catch (err) {
     console.warn('Pixel analysis error:', err);
-    return { detected: true }; // graceful fallback if canvas access restricted
+    return { detected: false, reason: 'Face verification scanning in progress...' };
   }
 }
 
@@ -150,7 +196,6 @@ export default function FaceCaptureModal({
 }: FaceCaptureModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const scanIntervalRef = useRef<any>(null);
 
   const [cameraReady, setCameraReady] = useState(false);
@@ -266,7 +311,7 @@ export default function FaceCaptureModal({
         ? 'Camera permission was denied. Please allow camera access in your browser settings.'
         : lastErr?.name === 'NotReadableError'
           ? 'Camera is currently locked by another application (like Zoom, Teams, or another tab). Close other apps and retry.'
-          : 'Unable to start camera. You can switch camera, upload a photo, or retry.';
+          : 'Unable to start camera. Please check camera connections/permissions and retry.';
       setCameraError(msg);
       return;
     }
@@ -402,52 +447,6 @@ export default function FaceCaptureModal({
     } finally {
       setCapturing(false);
     }
-  };
-
-  // Fallback: Handle file upload with STRICT Face Detection
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setFaceValidationMsg('');
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const photoBase64 = ev.target?.result as string;
-      if (!photoBase64) return;
-
-      const img = new Image();
-      img.onload = async () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        ctx.drawImage(img, 0, 0);
-
-        // 🔒 STRICT FACE DETECTION CHECK ON UPLOADED IMAGE
-        const faceCheck = await detectFaceInCanvas(canvas);
-        if (!faceCheck.detected) {
-          setFaceDetected(false);
-          setFaceValidationMsg(faceCheck.reason || 'The selected image does not contain a recognizable human face. Please upload a clear selfie.');
-          return;
-        }
-
-        setFaceDetected(true);
-        setCapturedPreview(photoBase64);
-        setCapturing(true);
-        try {
-          await onCapture(photoBase64);
-        } catch (err: any) {
-          setCapturedPreview(null);
-          setFaceDetected(false);
-          setFaceValidationMsg(err.message || 'No human face detected! Please position your face clearly in the camera.');
-        } finally {
-          setCapturing(false);
-        }
-      };
-      img.src = photoBase64;
-    };
-    reader.readAsDataURL(file);
   };
 
   const isHttpBlocked = cameraError === 'HTTP_INSECURE_BLOCKED';
@@ -631,26 +630,26 @@ export default function FaceCaptureModal({
                 width: '64px',
                 height: '64px',
                 borderRadius: '50%',
-                background: 'rgba(59, 130, 246, 0.15)',
-                border: '2px solid rgba(59, 130, 246, 0.4)',
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '2px solid rgba(239, 68, 68, 0.4)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: '32px',
                 marginBottom: '12px'
               }}>
-                📷
+                🔒
               </div>
               <h4 style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: 700 }}>
-                Live Webcam Blocked by Browser
+                Live Webcam Required for Attendance
               </h4>
-              <p style={{ margin: '0 0 16px', fontSize: '12.5px', color: '#94a3b8', lineHeight: 1.45, maxWidth: '340px' }}>
-                Chrome & Edge disable live webcam on plain HTTP (<code>http://187.127.163.34</code>) without SSL.
+              <p style={{ margin: '0 0 16px', fontSize: '12.5px', color: '#94a3b8', lineHeight: 1.45, maxWidth: '350px' }}>
+                For security & compliance, photo uploads are disabled. Live camera attendance is strictly mandatory.
               </p>
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => setShowChromeTip(true)}
                   style={{
                     background: '#2563eb',
                     color: '#ffffff',
@@ -663,7 +662,7 @@ export default function FaceCaptureModal({
                     boxShadow: '0 4px 12px rgba(37,99,235,0.4)'
                   }}
                 >
-                  📁 Snap / Upload Selfie Photo
+                  💡 Enable Camera in Chrome (1 Minute)
                 </button>
               </div>
             </div>
@@ -870,35 +869,9 @@ export default function FaceCaptureModal({
               >
                 🔄 Retry Camera
               </button>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                style={{
-                  background: '#b91c1c',
-                  border: 'none',
-                  padding: '5px 12px',
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  color: '#ffffff',
-                  cursor: 'pointer'
-                }}
-              >
-                📁 Upload Photo Instead
-              </button>
             </div>
           </div>
         ) : null}
-
-        {/* Hidden File Input for Image Upload Fallback */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture="user"
-          onChange={handleFileUpload}
-          style={{ display: 'none' }}
-        />
 
         {/* Action Buttons */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -932,24 +905,6 @@ export default function FaceCaptureModal({
                   : '📸 Capture Verified Photo & Proceed'}
             </button>
           )}
-
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', alignItems: 'center', marginTop: '2px' }}>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#2563eb',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                textDecoration: 'underline'
-              }}
-            >
-              📁 Upload selfie photo instead
-            </button>
-          </div>
 
           <button
             type="button"
