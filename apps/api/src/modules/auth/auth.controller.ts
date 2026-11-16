@@ -135,26 +135,32 @@ export const sendOTP = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Phone number is required' });
     }
 
+    const cleanEmail = email ? String(email).trim().toLowerCase() : undefined;
+    const cleanPhone = phone ? String(phone).trim() : undefined;
+
     // For login/forgot_password OTP — user must exist
     if (type === 'login_otp' || type === 'forgot_password') {
       const user = channel === 'email'
-        ? await prisma.user.findUnique({ where: { email } })
-        : await prisma.user.findFirst({ where: { phone } } as any);
+        ? await prisma.user.findUnique({ where: { email: cleanEmail } })
+        : await prisma.user.findFirst({ where: { phone: cleanPhone } } as any);
 
       if (!user) {
-        // Generic message to prevent email/phone enumeration
-        return res.json({ message: 'If this account exists, an OTP has been sent.' });
+        return res.status(404).json({
+          message: channel === 'email'
+            ? `No registered account found with email "${email}". Please verify your email or sign up.`
+            : `No registered account found with phone "${phone}". Please check your registered number.`
+        });
       }
     }
 
     const code = generateOTP();
-    await saveOTP({ email, phone, code, type });
+    await saveOTP({ email: cleanEmail, phone: cleanPhone, code, type });
 
     let emailSent = false;
-    if (channel === 'email') {
-      emailSent = await sendEmailOTP(email, code, type, { applicantName: name, applicantCompany: companyName });
-    } else {
-      await sendSMSOTP(phone, code, type);
+    if (channel === 'email' && cleanEmail) {
+      emailSent = await sendEmailOTP(cleanEmail, code, type, { applicantName: name, applicantCompany: companyName });
+    } else if (cleanPhone) {
+      await sendSMSOTP(cleanPhone, code, type);
       emailSent = true;
     }
 
