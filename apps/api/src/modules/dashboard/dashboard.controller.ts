@@ -247,7 +247,7 @@ export const getTodayOverview = async (req: any, res: Response) => {
       .map(e => ({
         id: e.id,
         customerName: e.loan.customer?.name,
-        phone: e.loan.customer?.phone || '',
+        phone: e.loan.customer?.phone || (e.loan.customer as any)?.alternateMobile || '',
         loanId: e.loan.id,
         amount: e.amount,
         dueDate: e.dueDate

@@ -78,10 +78,31 @@ export default function Dashboard() {
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const openMsgModal = (item: { customerName: string; phone?: string; amount: number; loanId: number }) => {
-    setMsgModal({ name: item.customerName, phone: item.phone, amount: item.amount, loanId: item.loanId });
-    setEditingPhone(item.phone || '');
+  const openMsgModal = async (item: { customerName: string; phone?: string; amount: number; loanId: number }) => {
+    const initialPhone = item.phone || '';
+    setMsgModal({ name: item.customerName, phone: initialPhone, amount: item.amount, loanId: item.loanId });
+    setEditingPhone(initialPhone);
     setCopiedPhone(false);
+
+    // Dynamic Fallback: If phone is missing from today dues response, fetch directly from loan details
+    if (!initialPhone && item.loanId) {
+      try {
+        const token = localStorage.getItem('token') || '';
+        const res = await fetch(`${API_URL}/api/loans/${item.loanId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const loanData = await res.json();
+          const fallbackPhone = loanData?.customer?.phone || loanData?.customer?.alternateMobile || '';
+          if (fallbackPhone) {
+            setMsgModal(prev => prev ? { ...prev, phone: fallbackPhone } : null);
+            setEditingPhone(fallbackPhone);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not auto-fetch customer phone:', err);
+      }
+    }
   };
 
   useEffect(() => {
