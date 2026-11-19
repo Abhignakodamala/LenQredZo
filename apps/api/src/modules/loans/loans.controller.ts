@@ -37,10 +37,21 @@ function maskGuarantor(g: any) {
   };
 }
 
-const getPeriodsPerYear = (frequency: string) => {
-  if (frequency === 'daily') return 365;
-  if (frequency === 'weekly') return 52;
-  return 12;
+// Tenure normalized to months for monthly interest rate calculation (vaddi / % per month)
+const getTenureInMonths = (tenure: number, frequency: string): number => {
+  if (frequency === 'daily') return tenure / 30;
+  if (frequency === 'weekly') return (tenure * 12) / 52;
+  if (frequency === 'yearly') return tenure * 12;
+  return tenure; // monthly
+};
+
+// Periodic interest rate for reducing balance calculation based on monthly rate
+const getPeriodicRate = (monthlyRatePercent: number, frequency: string): number => {
+  const r = monthlyRatePercent / 100;
+  if (frequency === 'daily') return r / 30;
+  if (frequency === 'weekly') return (r * 12) / 52;
+  if (frequency === 'yearly') return r * 12;
+  return r; // monthly
 };
 
 const calculateInstallment = (
@@ -49,10 +60,11 @@ const calculateInstallment = (
 ): { emiAmount: number; disbursedAmount: number } => {
   let emiAmount: number;
   let disbursedAmount = principal;
-  const periodsPerYear = getPeriodsPerYear(frequency);
+  const tenureMonths = getTenureInMonths(tenure, frequency);
 
   if (interestType === 'flat') {
-    const totalInterest = principal * (rate / 100) * (tenure / periodsPerYear);
+    // Flat Monthly Rate (e.g. 1 Lakh for 10 months @ 3% per month = 1,00,000 * 0.03 * 10 = ₹30,000 interest => EMI = ₹13,000/mo)
+    const totalInterest = principal * (rate / 100) * tenureMonths;
     if (deductUpfront) {
       disbursedAmount = principal - totalInterest;
       emiAmount = principal / tenure;
@@ -60,9 +72,10 @@ const calculateInstallment = (
       emiAmount = (principal + totalInterest) / tenure;
     }
   } else {
-    const periodRate = rate / periodsPerYear / 100;
+    // Reducing balance based on monthly rate
+    const periodRate = getPeriodicRate(rate, frequency);
     if (deductUpfront) {
-      const totalInterest = principal * (rate / 100) * (tenure / periodsPerYear);
+      const totalInterest = principal * (rate / 100) * tenureMonths;
       disbursedAmount = principal - totalInterest;
       emiAmount = principal / tenure;
     } else {

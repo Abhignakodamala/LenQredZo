@@ -104,7 +104,7 @@ export default function LoansPage() {
   const [search, setSearch] = useState('');
   const emptyForm: LoanForm = {
     customerId: '', type: 'Personal Loan', amount: '',
-    interestRate: '', interestType: 'percentage',
+    interestRate: '3', interestType: 'flat',
     frequency: 'monthly', tenure: '', deductUpfront: false,
     hasProcessingFee: false, processingFee: '', processingFeeType: 'percentage',
     penaltyType: 'none', penaltyValue: '', roundEmi: false
@@ -146,18 +146,22 @@ const [guarantors, setGuarantors] = useState<Guarantor[]>([{ ...emptyGuarantor }
     } catch (err) { console.error(err); }
   };
 
-  const getPeriodsPerYear = () =>
-    form.frequency === 'daily' ? 365 :
-    form.frequency === 'weekly' ? 52 :
-    form.frequency === 'yearly' ? 1 :
-    12;
+  const getTenureInMonths = (t: number, freq: string) => {
+    if (freq === 'daily') return t / 30;
+    if (freq === 'weekly') return (t * 12) / 52;
+    if (freq === 'yearly') return t * 12;
+    return t; // monthly
+  };
 
   const calcTotalInterest = () => {
     const p = Number(form.amount), r = Number(form.interestRate), t = Number(form.tenure);
     if (!p || !r || !t) return 0;
-    const py = getPeriodsPerYear();
-    if (form.interestType === 'flat') return Math.round(p * (r / 100) * (t / py));
-    const pr = r / py / 100;
+    const tMonths = getTenureInMonths(t, form.frequency);
+    if (form.interestType === 'flat') return Math.round(p * (r / 100) * tMonths);
+    const pr = form.frequency === 'daily' ? (r / 100) / 30 :
+               form.frequency === 'weekly' ? ((r / 100) * 12) / 52 :
+               form.frequency === 'yearly' ? (r / 100) * 12 :
+               r / 100;
     const emi = pr === 0 ? p / t : (p * pr * Math.pow(1 + pr, t)) / (Math.pow(1 + pr, t) - 1);
     return Math.round(emi * t - p);
   };
@@ -179,12 +183,15 @@ const [guarantors, setGuarantors] = useState<Guarantor[]>([{ ...emptyGuarantor }
   const calcEMI = () => {
     const p = Number(form.amount), r = Number(form.interestRate), t = Number(form.tenure);
     if (!p || !r || !t) return 0;
-    const py = getPeriodsPerYear();
+    const tMonths = getTenureInMonths(t, form.frequency);
     if (form.interestType === 'flat') {
-      const totalInterest = p * (r / 100) * (t / py);
+      const totalInterest = p * (r / 100) * tMonths;
       return form.deductUpfront ? Math.round(p / t) : Math.round((p + totalInterest) / t);
     }
-    const pr = r / py / 100;
+    const pr = form.frequency === 'daily' ? (r / 100) / 30 :
+               form.frequency === 'weekly' ? ((r / 100) * 12) / 52 :
+               form.frequency === 'yearly' ? (r / 100) * 12 :
+               r / 100;
     if (form.deductUpfront) return Math.round(p / t);
     return pr === 0 ? Math.round(p / t) : Math.round((p * pr * Math.pow(1 + pr, t)) / (Math.pow(1 + pr, t) - 1));
   };
@@ -462,25 +469,28 @@ const [guarantors, setGuarantors] = useState<Guarantor[]>([{ ...emptyGuarantor }
 
               <div style={{ gridColumn: '1 / -1' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <label style={lbl}>Interest Rate (% p.a.)</label>
+                  <div>
+                    <label style={lbl}>Interest Rate (% per month / Vaddi)</label>
+                    <span style={{ fontSize: '11px', color: '#6b7280', display: 'block' }}>e.g. 3% = ₹3 per ₹100 per month (Flat Monthly)</span>
+                  </div>
                   <input
                     type="number" step="0.1"
                     value={form.interestRate}
                     onChange={e => setForm({ ...form, interestRate: e.target.value })}
-                    placeholder="12"
+                    placeholder="3"
                     style={{ width: '140px', padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', fontWeight: '700', textAlign: 'right' as CSSProperties['textAlign'] }}
                   />
                 </div>
                 <input
-                  type="range" min={0} max={30} step={0.1}
-                  value={form.interestRate || 0}
+                  type="range" min={0.5} max={15} step={0.1}
+                  value={form.interestRate || 3}
                   onChange={e => setForm({ ...form, interestRate: e.target.value })}
                   style={{ width: '100%', accentColor: '#1e40af' }}
                 />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af' }}>
-                    <span>0%</span><span>30%</span>
-                  </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af' }}>
+                  <span>0.5% (₹0.50)</span><span>3% (₹3.00)</span><span>5% (₹5.00)</span><span>10%</span><span>15%</span>
                 </div>
+              </div>
 
                 <div>
                   <label style={lbl}>Repayment Frequency</label>

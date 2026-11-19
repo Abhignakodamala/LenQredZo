@@ -259,7 +259,7 @@ export default function SanctionLetterModal({ loan, onClose }: SanctionLetterPro
                 {[
                   ['Sanctioned Loan Amount', fmt(loan.amount), 'Loan Facility Type', loan.type],
                   ['Amount in Words', numberToWordsINR(loan.amount), 'Tenure / Duration', `${loan.tenure} Installments`],
-                  ['Interest Rate', `${loan.interestRate}% (${loan.interestType})`, 'Repayment Frequency', String(loan.frequency).toUpperCase()],
+                  ['Interest Rate', `${loan.interestRate}% / month (${loan.interestType === 'flat' ? 'Flat' : 'Reducing'})`, 'Repayment Frequency', String(loan.frequency).toUpperCase()],
                   ['Periodic EMI Amount', fmt(loan.emiAmount), 'Total Interest Payable', fmt(totalInterest)],
                   ['Total Amount Repayable', fmt(totalRepayment), 'Processing Charges', fmt(loan.processingFee || 0)],
                   ['Net Disbursed Amount', fmt(loan.disbursedAmount ?? loan.amount), 'Default / Overdue Penalty', `${loan.penaltyType === 'percentage' ? loan.penaltyValue + '%' : loan.penaltyType === 'fixed' ? '₹' + loan.penaltyValue : '2% per month'}`],

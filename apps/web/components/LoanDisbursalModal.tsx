@@ -26,12 +26,15 @@ export default function LoanDisbursalModal({ loan, onSuccess, onClose }: LoanDis
   const grossSanctionAmount = Number(loan.amount || 0);
   const processingFee = Number(loan.processingFee || 0);
 
-  // Upfront interest calculation
+  // Upfront interest calculation (Monthly Rate based)
   let upfrontInterest = 0;
   if (loan.deductUpfront) {
     if (loan.interestType === 'flat') {
-      const periodsPerYear = loan.frequency === 'daily' ? 365 : loan.frequency === 'weekly' ? 52 : 12;
-      upfrontInterest = Math.round(grossSanctionAmount * ((loan.interestRate || 0) / 100) * ((loan.tenure || 1) / periodsPerYear));
+      const tenureMonths = loan.frequency === 'daily' ? (loan.tenure || 1) / 30 :
+                           loan.frequency === 'weekly' ? ((loan.tenure || 1) * 12) / 52 :
+                           loan.frequency === 'yearly' ? (loan.tenure || 1) * 12 :
+                           (loan.tenure || 1);
+      upfrontInterest = Math.round(grossSanctionAmount * ((loan.interestRate || 0) / 100) * tenureMonths);
     }
   }
 

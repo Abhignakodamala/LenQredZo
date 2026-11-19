@@ -1143,7 +1143,7 @@ export default function LoanDetailPage() {
               ['Phone', loan.customer?.phone],
               ['Loan Type', loan.type],
               ['Interest Type', loan.interestType === 'flat' ? 'Flat Rate' : 'Reducing Balance'],
-              ['Interest Rate', `${loan.interestRate}% p.a.`],
+              ['Interest Rate', `${loan.interestRate}% / month`],
               ['Frequency', loan.frequency ? loan.frequency.charAt(0).toUpperCase() + loan.frequency.slice(1) : '—'],
               ['Tenure', loan.tenure ? `${loan.tenure} ${loan.frequency === 'daily' ? 'days' : loan.frequency === 'weekly' ? 'weeks' : 'months'}` : '—'],
               ['Processing Fee', loan.processingFee != null && loan.processingFee > 0 ? fmt(loan.processingFee) : 'None'],
